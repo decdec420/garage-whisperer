@@ -186,6 +186,14 @@ export default function ProjectDetail() {
     }
   }, [project?.timer_running, project?.timer_started_at, project?.actual_minutes]);
 
+  // Set project context for Ratchet panel
+  useEffect(() => {
+    if (project && vehicleId) {
+      setRatchetProjectContext({ id: project.id, title: project.title, vehicleId });
+    }
+    return () => { setRatchetProjectContext(null); };
+  }, [project?.id, vehicleId, setRatchetProjectContext]);
+
   // Auto-set active step to first non-done step
   useEffect(() => {
     if (steps.length) {
