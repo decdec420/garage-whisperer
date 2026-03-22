@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { Input } from '@/components/ui/input';
@@ -7,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 import {
   Search, X, Plus, Minus, AlertTriangle, Clock,
   Box, ChevronRight, ChevronDown, Wrench, MessageCircle,
-  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon
+  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon, Loader2
 } from 'lucide-react';
 
 // ── Zone definitions with top-down car positions (percentages) ──
