@@ -144,6 +144,10 @@ export default function VehicleDetail() {
           </div>
         </TabsContent>
 
+        <TabsContent value="projects">
+          <ProjectsTab vehicleId={vehicleId!} />
+        </TabsContent>
+
         <TabsContent value="maintenance">
           <MaintenanceTab vehicleId={vehicleId!} vehicleMileage={vehicle.mileage} />
         </TabsContent>
