@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
+import ProjectsTab from '@/components/vehicle/ProjectsTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
