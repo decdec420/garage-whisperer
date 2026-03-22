@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { Input } from '@/components/ui/input';
@@ -7,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 import {
   Search, X, Plus, Minus, AlertTriangle, Clock,
   Box, ChevronRight, ChevronDown, Wrench, MessageCircle,
-  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon
+  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon, Loader2
 } from 'lucide-react';
 
 // ── Zone definitions with top-down car positions (percentages) ──
@@ -201,6 +203,7 @@ interface BlueprintTabProps {
 
 export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { openRatchetPanel } = useAppStore();
   const [selectedZone, setSelectedZone] = useState<ZoneDefinition | null>(null);
   const [hoveredZone, setHoveredZone] = useState<string | null>(null);
@@ -209,6 +212,7 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
   const [showIssues, setShowIssues] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [generatingComponent, setGeneratingComponent] = useState<string | null>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
 
   const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
@@ -567,21 +571,66 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                             </div>
                           </div>
 
-                          <div className="flex gap-2 pt-1">
-                            <Button size="sm" className="flex-1 bg-primary text-primary-foreground"
+                          <div className="flex flex-col gap-2 pt-1">
+                            {generatingComponent === compKey ? (
+                              <div className="space-y-2">
+                                <Button size="sm" className="w-full bg-primary text-primary-foreground" disabled>
+                                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Building your plan...
+                                </Button>
+                                <p className="text-xs text-muted-foreground text-center">
+                                  Ratchet is generating a project for {comp.name} on your {vehicleLabel}...
+                                </p>
+                              </div>
+                            ) : (
+                              <Button size="sm" className="w-full bg-primary text-primary-foreground"
+                                onClick={async () => {
+                                  setGeneratingComponent(compKey);
+                                  try {
+                                    // Infer action
+                                    const action = comp.commonIssue
+                                      ? 'Inspect and replace if needed'
+                                      : 'Replace';
+                                    const jobDescription = `${action} ${comp.name} on ${vehicleLabel}${vehicle.engine ? ` ${vehicle.engine}` : ''}`;
+
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (!session) throw new Error('Not authenticated');
+
+                                    const resp = await supabase.functions.invoke('generate-project', {
+                                      body: { vehicleId, jobDescription },
+                                    });
+
+                                    if (resp.error) throw resp.error;
+                                    const result = resp.data;
+                                    if (result?.error) throw new Error(result.error);
+
+                                    const projectId = result?.project?.id;
+                                    if (!projectId) throw new Error('No project returned');
+
+                                    toast.success(`Project created — Step-by-step plan ready for ${comp.name}`, { duration: 2000 });
+                                    setSelectedZone(null);
+                                    setTimeout(() => {
+                                      navigate(`/garage/${vehicleId}/projects/${projectId}`);
+                                    }, 500);
+                                  } catch (err: any) {
+                                    console.error('Project generation failed:', err);
+                                    toast.error(err?.message || "Couldn't generate the plan right now. Try again?");
+                                  } finally {
+                                    setGeneratingComponent(null);
+                                  }
+                                }}>
+                                <Wrench className="h-3.5 w-3.5 mr-1" /> Start Project
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" className="w-full border-primary/40 text-primary"
                               onClick={() => {
+                                const symptomsText = comp.symptoms.length ? `Common failure symptoms listed: ${comp.symptoms.join(', ')}.` : '';
+                                const mileageText = vehicle.mileage ? `My car has ${vehicle.mileage.toLocaleString()} miles.` : '';
                                 setSelectedZone(null);
-                                // Navigate to new project with context
-                                openRatchetPanel(`I want to replace/repair the ${comp.name} on my ${vehicleLabel}. Can you help me create a project plan?`);
+                                openRatchetPanel(
+                                  `I'm looking at the ${comp.name} on my ${vehicleLabel} in the Blueprint. It shows: ${comp.description} ${symptomsText} ${mileageText} Should I replace this, and what should I know before starting?`
+                                );
                               }}>
-                              <Wrench className="h-3.5 w-3.5 mr-1" /> Start Project
-                            </Button>
-                            <Button size="sm" variant="outline" className="flex-1 border-primary/40 text-primary"
-                              onClick={() => {
-                                setSelectedZone(null);
-                                openRatchetPanel(`Tell me about the ${comp.name} on my ${vehicleLabel}. What should I know about maintenance, common issues, and when to replace it?`);
-                              }}>
-                              <MessageCircle className="h-3.5 w-3.5 mr-1" /> Ask Ratchet
+                              <MessageCircle className="h-3.5 w-3.5 mr-1" /> Ask Ratchet First
                             </Button>
                           </div>
                         </div>
