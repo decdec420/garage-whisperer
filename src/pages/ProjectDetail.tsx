@@ -661,7 +661,7 @@ export default function ProjectDetail() {
                     {/* Ask Ratchet */}
                     <Button variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10"
                       onClick={() => openRatchetPanel(
-                        `I'm on Step ${step.step_number} of ${project.title}: ${step.title}. ${step.description.slice(0, 100)}. I need help with...`
+                        `I'm currently on Step ${step.step_number}: "${step.title}" of the project "${project.title}". IMPORTANT: Focus ONLY on this specific step — do NOT cover other steps, the full process, or parts/tools for the overall job. Just help me with this one step: ${step.description}${step.tip ? ` (Tip noted: ${step.tip})` : ''}${step.safety_note ? ` (Safety note: ${step.safety_note})` : ''}${step.torque_specs ? ` (Torque specs: ${JSON.stringify(step.torque_specs)})` : ''}. What should I know to do THIS step correctly?`
                       )}>
                       <Wrench className="h-4 w-4 mr-2" /> Ask Ratchet about this step
                     </Button>
