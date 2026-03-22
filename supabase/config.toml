@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-project]
 verify_jwt = false
+
+[functions.extract-memories]
+verify_jwt = false
