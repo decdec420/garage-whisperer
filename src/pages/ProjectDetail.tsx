@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import {
-  ArrowLeft, ArrowRight, Check, ChevronDown, ChevronUp, Clock,
+  ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
   ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic
 } from 'lucide-react';
@@ -340,7 +340,14 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="pb-20 md:pb-6">
+    <div className="pb-6">
+      {/* Thin sticky progress bar at top */}
+      <div className="sticky top-0 z-10 h-[3px] w-full bg-border">
+        <div
+          className="h-full bg-primary transition-all duration-500 ease-out"
+          style={{ width: `${pctDone}%` }}
+        />
+      </div>
       {/* Hero Header */}
       <div className="bg-card p-4 md:p-6 border-b border-border">
         <button onClick={() => navigate(`/garage/${vehicleId}`)}
@@ -563,10 +570,10 @@ export default function ProjectDetail() {
                 {/* Step header */}
                 <button className="w-full p-4 flex items-center gap-3 text-left min-h-[56px]"
                   onClick={() => {
+                    if (isActive) return; // Active step stays expanded
                     const next = new Set(expandedSteps);
                     next.has(idx) ? next.delete(idx) : next.add(idx);
                     setExpandedSteps(next);
-                    if (!isDone) setActiveStepIdx(idx);
                   }}>
                   <div className={`shrink-0 flex items-center justify-center rounded-full font-bold text-sm ${
                     isDone ? 'bg-success text-success-foreground h-9 w-9' :
@@ -690,29 +697,7 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Sticky step nav */}
-      <div className="fixed bottom-0 md:bottom-0 left-0 right-0 md:left-60 bg-card border-t border-border h-14 flex items-center justify-between px-4 z-30"
-        style={{ bottom: isMobile ? 56 : 0 }}>
-        <Button variant="ghost" size="sm" disabled={activeStepIdx <= 0}
-          onClick={() => {
-            const prev = activeStepIdx - 1;
-            setActiveStepIdx(prev);
-            setExpandedSteps(new Set([prev]));
-            stepRefs.current.get(prev)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Prev
-        </Button>
-        <span className="text-sm text-muted-foreground">Step {activeStepIdx + 1} / {steps.length}</span>
-        <Button size="sm" className="bg-primary text-primary-foreground" disabled={activeStepIdx >= steps.length - 1}
-          onClick={() => {
-            const next = activeStepIdx + 1;
-            setActiveStepIdx(next);
-            setExpandedSteps(new Set([next]));
-            stepRefs.current.get(next)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}>
-          Next <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+      {/* Sticky nav removed — scroll handles navigation */}
     </div>
   );
 }
