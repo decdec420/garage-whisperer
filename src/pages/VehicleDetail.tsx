@@ -147,7 +147,7 @@ export default function VehicleDetail() {
         </TabsContent>
 
         <TabsContent value="projects">
-          <ProjectsTab vehicleId={vehicleId!} />
+          <ProjectsTab vehicleId={vehicleId!} vehicleName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`} />
         </TabsContent>
 
         <TabsContent value="maintenance">

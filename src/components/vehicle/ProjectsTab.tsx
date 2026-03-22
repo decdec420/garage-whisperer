@@ -4,54 +4,45 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import {
-  Plus, ChevronDown, ChevronRight, Trash2, GripVertical,
-  Circle, PlayCircle, CheckCircle2, Pause, FolderOpen, Wrench
+  Plus, ChevronDown, ChevronRight, Trash2,
+  Circle, PlayCircle, CheckCircle2, Pause, FolderOpen,
+  Wrench, Clock, Sparkles, AlertTriangle, Package
 } from 'lucide-react';
+import NewProjectSheet from './NewProjectSheet';
 
 interface ProjectsTabProps {
   vehicleId: string;
+  vehicleName?: string;
 }
 
 const STATUS_CONFIG = {
+  planning: { label: 'Planning', icon: Circle, color: 'text-muted-foreground' },
   active: { label: 'Active', icon: PlayCircle, color: 'text-success' },
   paused: { label: 'Paused', icon: Pause, color: 'text-warning' },
   completed: { label: 'Completed', icon: CheckCircle2, color: 'text-muted-foreground' },
 } as const;
 
-const PRIORITY_CONFIG = {
-  urgent: { label: 'Urgent', variant: 'destructive' as const },
-  high: { label: 'High', variant: 'default' as const },
-  medium: { label: 'Medium', variant: 'secondary' as const },
-  low: { label: 'Low', variant: 'outline' as const },
+const DIFFICULTY_COLORS: Record<string, string> = {
+  Beginner: 'bg-success/20 text-success',
+  Intermediate: 'bg-primary/20 text-primary',
+  Advanced: 'bg-warning/20 text-warning',
+  Expert: 'bg-destructive/20 text-destructive',
 };
 
-const TASK_STATUS = {
-  todo: { label: 'To Do', icon: Circle },
-  in_progress: { label: 'In Progress', icon: PlayCircle },
-  done: { label: 'Done', icon: CheckCircle2 },
-};
-
-export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
+export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps) {
   const queryClient = useQueryClient();
-  const [addProjectOpen, setAddProjectOpen] = useState(false);
-  const [addTaskProjectId, setAddTaskProjectId] = useState<string | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [newProject, setNewProject] = useState({ title: '', description: '', priority: 'medium' });
-  const [newTask, setNewTask] = useState({ title: '', description: '', estimated_cost: '' });
 
   const { data: projects, isLoading } = useQuery({
-    queryKey: ['vehicle-projects', vehicleId],
+    queryKey: ['projects', vehicleId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('vehicle_projects')
+        .from('projects')
         .select('*')
         .eq('vehicle_id', vehicleId)
         .order('created_at', { ascending: false });
@@ -60,96 +51,59 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
     },
   });
 
-  const { data: allTasks } = useQuery({
-    queryKey: ['vehicle-project-tasks', vehicleId],
+  // Fetch steps counts for each project
+  const projectIds = projects?.map(p => p.id) || [];
+  const { data: allSteps } = useQuery({
+    queryKey: ['project-steps-summary', vehicleId],
     queryFn: async () => {
-      if (!projects?.length) return [];
-      const projectIds = projects.map(p => p.id);
+      if (!projectIds.length) return [];
       const { data, error } = await supabase
-        .from('vehicle_project_tasks')
-        .select('*')
-        .in('project_id', projectIds)
-        .order('sort_order', { ascending: true });
+        .from('project_steps')
+        .select('id, project_id, status')
+        .in('project_id', projectIds);
       if (error) throw error;
       return data;
     },
-    enabled: !!projects?.length,
+    enabled: projectIds.length > 0,
   });
 
-  const addProject = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('vehicle_projects').insert({
-        vehicle_id: vehicleId,
-        title: newProject.title,
-        description: newProject.description || null,
-        priority: newProject.priority,
-      });
+  const { data: allParts } = useQuery({
+    queryKey: ['project-parts-summary', vehicleId],
+    queryFn: async () => {
+      if (!projectIds.length) return [];
+      const { data, error } = await supabase
+        .from('project_parts')
+        .select('id, project_id, estimated_cost, quantity')
+        .in('project_id', projectIds);
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicle-projects', vehicleId] });
-      setAddProjectOpen(false);
-      setNewProject({ title: '', description: '', priority: 'medium' });
-      toast.success('Project created');
-    },
-    onError: () => toast.error('Failed to create project'),
+    enabled: projectIds.length > 0,
   });
 
   const updateProjectStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('vehicle_projects').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+      const updates: any = { status, updated_at: new Date().toISOString() };
+      if (status === 'active' && !projects?.find(p => p.id === id)?.started_at) {
+        updates.started_at = new Date().toISOString();
+      }
+      if (status === 'completed') {
+        updates.completed_at = new Date().toISOString();
+      }
+      const { error } = await supabase.from('projects').update(updates).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vehicle-projects', vehicleId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] }),
   });
 
   const deleteProject = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('vehicle_projects').delete().eq('id', id);
+      const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicle-projects', vehicleId] });
-      queryClient.invalidateQueries({ queryKey: ['vehicle-project-tasks', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
       toast.success('Project deleted');
-    },
-  });
-
-  const addTask = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('vehicle_project_tasks').insert({
-        project_id: addTaskProjectId!,
-        title: newTask.title,
-        description: newTask.description || null,
-        estimated_cost: newTask.estimated_cost ? parseFloat(newTask.estimated_cost) : null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicle-project-tasks', vehicleId] });
-      setAddTaskProjectId(null);
-      setNewTask({ title: '', description: '', estimated_cost: '' });
-      toast.success('Task added');
-    },
-    onError: () => toast.error('Failed to add task'),
-  });
-
-  const updateTaskStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('vehicle_project_tasks').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vehicle-project-tasks', vehicleId] }),
-  });
-
-  const deleteTask = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('vehicle_project_tasks').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vehicle-project-tasks', vehicleId] });
-      toast.success('Task removed');
     },
   });
 
@@ -161,10 +115,8 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
     });
   };
 
-  const getTasksForProject = (projectId: string) => allTasks?.filter(t => t.project_id === projectId) || [];
-
   if (isLoading) {
-    return <div className="space-y-3 mt-4">{[1,2].map(i => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>;
+    return <div className="space-y-3 mt-4">{[1, 2].map(i => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>;
   }
 
   if (!projects?.length) {
@@ -173,51 +125,44 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
         <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-1">No projects yet</h3>
         <p className="text-sm text-muted-foreground mb-6">
-          Track separate jobs like ABS repair, sensor replacements, or upgrades — all in one place.
+          Tell Ratchet what you're working on and get a complete repair plan — parts, tools, and step-by-step instructions for your exact car.
         </p>
-        <Button onClick={() => setAddProjectOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={() => setNewProjectOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4 mr-2" /> Start a Project
         </Button>
-
-        {/* Add Project Dialog */}
-        <AddProjectDialog
-          open={addProjectOpen}
-          onOpenChange={setAddProjectOpen}
-          newProject={newProject}
-          setNewProject={setNewProject}
-          onSubmit={() => addProject.mutate()}
-          isPending={addProject.isPending}
+        <NewProjectSheet
+          open={newProjectOpen}
+          onClose={() => setNewProjectOpen(false)}
+          vehicleId={vehicleId}
+          vehicleName={vehicleName || 'your vehicle'}
         />
       </div>
     );
   }
 
-  const activeProjects = projects.filter(p => p.status === 'active');
-  const pausedProjects = projects.filter(p => p.status === 'paused');
-  const completedProjects = projects.filter(p => p.status === 'completed');
+  const statusOrder = ['active', 'planning', 'paused', 'completed'];
+  const sorted = [...projects].sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
 
   return (
     <div className="mt-4 space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <span className="text-sm text-muted-foreground">
-            {activeProjects.length} active · {completedProjects.length} completed
-          </span>
-        </div>
-        <Button onClick={() => setAddProjectOpen(true)} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <span className="text-sm text-muted-foreground">
+          {projects.filter(p => p.status === 'active').length} active · {projects.filter(p => p.status === 'completed').length} completed
+        </span>
+        <Button onClick={() => setNewProjectOpen(true)} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4 mr-2" /> New Project
         </Button>
       </div>
 
-      {/* Project Cards */}
-      {[...activeProjects, ...pausedProjects, ...completedProjects].map(project => {
-        const tasks = getTasksForProject(project.id);
-        const doneTasks = tasks.filter(t => t.status === 'done').length;
+      {sorted.map(project => {
+        const steps = allSteps?.filter(s => s.project_id === project.id) || [];
+        const doneSteps = steps.filter(s => s.status === 'done').length;
+        const parts = allParts?.filter(p => p.project_id === project.id) || [];
+        const totalCost = parts.reduce((s, p) => s + (Number(p.estimated_cost) || 0) * (p.quantity || 1), 0);
         const isExpanded = expandedProjects.has(project.id);
-        const StatusIcon = STATUS_CONFIG[project.status as keyof typeof STATUS_CONFIG]?.icon || Circle;
-        const statusColor = STATUS_CONFIG[project.status as keyof typeof STATUS_CONFIG]?.color || '';
-        const priorityCfg = PRIORITY_CONFIG[project.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
+        const cfg = STATUS_CONFIG[project.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.planning;
+        const StatusIcon = cfg.icon;
+        const diffClass = DIFFICULTY_COLORS[project.difficulty || ''] || '';
 
         return (
           <Card key={project.id} className={`border-border ${project.status === 'completed' ? 'opacity-60' : ''}`}>
@@ -229,16 +174,22 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
                       <div className="mt-0.5">
                         {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </div>
-                      <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${statusColor}`} />
+                      <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${cfg.color}`} />
                       <div className="min-w-0">
                         <CardTitle className="text-base truncate">{project.title}</CardTitle>
                         {project.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{project.description}</p>
                         )}
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant={priorityCfg.variant} className="text-xs">{priorityCfg.label}</Badge>
-                          {tasks.length > 0 && (
-                            <span className="text-xs text-muted-foreground">{doneTasks}/{tasks.length} tasks done</span>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {project.difficulty && <Badge className={`text-xs ${diffClass}`}>{project.difficulty}</Badge>}
+                          {project.ai_generated && (
+                            <Badge variant="secondary" className="text-xs gap-1"><Sparkles className="h-3 w-3" /> AI</Badge>
+                          )}
+                          {project.estimated_minutes && (
+                            <Badge variant="outline" className="text-xs gap-1"><Clock className="h-3 w-3" /> ~{project.estimated_minutes}m</Badge>
+                          )}
+                          {steps.length > 0 && (
+                            <span className="text-xs text-muted-foreground">{doneSteps}/{steps.length} steps</span>
                           )}
                         </div>
                       </div>
@@ -249,81 +200,40 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
 
               <CollapsibleContent>
                 <CardContent className="px-4 pb-4 pt-0 space-y-3">
-                  {/* Progress bar */}
-                  {tasks.length > 0 && (
+                  {steps.length > 0 && (
                     <div className="w-full bg-muted rounded-full h-1.5">
-                      <div
-                        className="bg-success h-1.5 rounded-full transition-all"
-                        style={{ width: `${(doneTasks / tasks.length) * 100}%` }}
-                      />
+                      <div className="bg-success h-1.5 rounded-full transition-all" style={{ width: `${(doneSteps / steps.length) * 100}%` }} />
                     </div>
                   )}
 
-                  {/* Tasks */}
-                  <div className="space-y-1">
-                    {tasks.map(task => {
-                      const TaskIcon = TASK_STATUS[task.status as keyof typeof TASK_STATUS]?.icon || Circle;
-                      return (
-                        <div key={task.id} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-accent/5 group">
-                          <Checkbox
-                            checked={task.status === 'done'}
-                            onCheckedChange={(checked) => {
-                              updateTaskStatus.mutate({ id: task.id, status: checked ? 'done' : 'todo' });
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-sm ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
-                              {task.title}
-                            </span>
-                            {task.estimated_cost && (
-                              <span className="text-xs text-muted-foreground ml-2">~${Number(task.estimated_cost).toFixed(0)}</span>
-                            )}
-                          </div>
-                          {task.status !== 'done' && task.status !== 'in_progress' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 h-7 text-xs"
-                              onClick={() => updateTaskStatus.mutate({ id: task.id, status: 'in_progress' })}
-                            >
-                              Start
-                            </Button>
-                          )}
-                          {task.status === 'in_progress' && (
-                            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">In Progress</Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteTask.mutate(task.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      );
-                    })}
+                  {/* Summary */}
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    {parts.length > 0 && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <Package className="h-3.5 w-3.5" />
+                        <span>{parts.length} parts · ${totalCost.toFixed(0)}</span>
+                      </div>
+                    )}
+                    {project.safety_warnings && (project.safety_warnings as string[]).length > 0 && (
+                      <div className="flex items-center gap-1 text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span>{(project.safety_warnings as string[]).length} safety warnings</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Add task + actions */}
+                  {/* Actions */}
                   <div className="flex items-center gap-2 pt-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-muted-foreground"
-                      onClick={() => setAddTaskProjectId(project.id)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add Task
-                    </Button>
                     <div className="flex-1" />
                     <Select
                       value={project.status}
                       onValueChange={(v) => updateProjectStatus.mutate({ id: project.id, status: v })}
                     >
-                      <SelectTrigger className="h-7 w-28 text-xs">
+                      <SelectTrigger className="h-7 w-32 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="planning">Planning</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="paused">Paused</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
@@ -333,7 +243,7 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => { if (confirm('Delete this project and all its tasks?')) deleteProject.mutate(project.id); }}
+                      onClick={() => { if (confirm('Delete this project and all its data?')) deleteProject.mutate(project.id); }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -345,110 +255,12 @@ export default function ProjectsTab({ vehicleId }: ProjectsTabProps) {
         );
       })}
 
-      {/* Add Project Dialog */}
-      <AddProjectDialog
-        open={addProjectOpen}
-        onOpenChange={setAddProjectOpen}
-        newProject={newProject}
-        setNewProject={setNewProject}
-        onSubmit={() => addProject.mutate()}
-        isPending={addProject.isPending}
+      <NewProjectSheet
+        open={newProjectOpen}
+        onClose={() => setNewProjectOpen(false)}
+        vehicleId={vehicleId}
+        vehicleName={vehicleName || 'your vehicle'}
       />
-
-      {/* Add Task Dialog */}
-      <Dialog open={!!addTaskProjectId} onOpenChange={() => setAddTaskProjectId(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Task</DialogTitle>
-            <DialogDescription>Add a task to this project.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="e.g. Order O2 sensor from RockAuto"
-              value={newTask.title}
-              onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))}
-            />
-            <Textarea
-              placeholder="Notes or details (optional)"
-              value={newTask.description}
-              onChange={e => setNewTask(p => ({ ...p, description: e.target.value }))}
-              rows={2}
-            />
-            <Input
-              type="number"
-              placeholder="Estimated cost (optional)"
-              value={newTask.estimated_cost}
-              onChange={e => setNewTask(p => ({ ...p, estimated_cost: e.target.value }))}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAddTaskProjectId(null)}>Cancel</Button>
-            <Button
-              onClick={() => addTask.mutate()}
-              disabled={!newTask.title.trim() || addTask.isPending}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Add Task
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function AddProjectDialog({
-  open, onOpenChange, newProject, setNewProject, onSubmit, isPending
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  newProject: { title: string; description: string; priority: string };
-  setNewProject: React.Dispatch<React.SetStateAction<{ title: string; description: string; priority: string }>>;
-  onSubmit: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
-          <DialogDescription>Create a project to group related tasks for this vehicle.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            placeholder="e.g. ABS System Repair"
-            value={newProject.title}
-            onChange={e => setNewProject(p => ({ ...p, title: e.target.value }))}
-          />
-          <Textarea
-            placeholder="What's the plan? (optional)"
-            value={newProject.description}
-            onChange={e => setNewProject(p => ({ ...p, description: e.target.value }))}
-            rows={2}
-          />
-          <Select value={newProject.priority} onValueChange={v => setNewProject(p => ({ ...p, priority: v }))}>
-            <SelectTrigger>
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="urgent">Urgent</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            onClick={onSubmit}
-            disabled={!newProject.title.trim() || isPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            Create Project
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
