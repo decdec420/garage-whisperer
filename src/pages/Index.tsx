@@ -102,9 +102,9 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Diagnose a problem', icon: MessageCircle, onClick: () => openRatchetPanel('Diagnose a symptom'), color: 'bg-primary/10 text-primary' },
+            { label: 'Start a project', icon: FolderOpen, onClick: () => { if (activeVehicle) navigate(`/garage/${activeVehicle.id}?tab=projects`); else navigate('/garage'); }, color: 'bg-accent text-accent-foreground' },
             { label: 'Log maintenance', icon: Wrench, onClick: () => navigate('/maintenance'), color: 'bg-success/10 text-success' },
             { label: 'Log a repair', icon: DollarSign, onClick: () => navigate('/repairs'), color: 'bg-warning/10 text-warning' },
-            { label: 'Scan OBD2 codes', icon: Cpu, onClick: () => {}, color: 'bg-secondary text-muted-foreground', badge: 'Coming Soon' },
           ].map((action) => (
             <button
               key={action.label}
