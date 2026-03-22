@@ -697,29 +697,7 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Sticky step nav */}
-      <div className="fixed bottom-0 md:bottom-0 left-0 right-0 md:left-60 bg-card border-t border-border h-14 flex items-center justify-between px-4 z-30"
-        style={{ bottom: isMobile ? 56 : 0 }}>
-        <Button variant="ghost" size="sm" disabled={activeStepIdx <= 0}
-          onClick={() => {
-            const prev = activeStepIdx - 1;
-            setActiveStepIdx(prev);
-            setExpandedSteps(new Set([prev]));
-            stepRefs.current.get(prev)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Prev
-        </Button>
-        <span className="text-sm text-muted-foreground">Step {activeStepIdx + 1} / {steps.length}</span>
-        <Button size="sm" className="bg-primary text-primary-foreground" disabled={activeStepIdx >= steps.length - 1}
-          onClick={() => {
-            const next = activeStepIdx + 1;
-            setActiveStepIdx(next);
-            setExpandedSteps(new Set([next]));
-            stepRefs.current.get(next)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}>
-          Next <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+      {/* Sticky nav removed — scroll handles navigation */}
     </div>
   );
 }
