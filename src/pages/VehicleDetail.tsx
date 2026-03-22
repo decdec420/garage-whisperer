@@ -15,6 +15,7 @@ import ProjectsTab from '@/components/vehicle/ProjectsTab';
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
+  const { openRatchetPanel } = useAppStore();
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ['vehicle', vehicleId],
