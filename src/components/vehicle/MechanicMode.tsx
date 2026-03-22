@@ -150,6 +150,13 @@ export default function MechanicMode({
 
   if (!step && !showCompletion) return null;
 
+  const content = renderContent();
+
+  return createPortal(content, document.body);
+}
+
+function renderContent() {
+
   // Completion overlay
   if (showCompletion) {
     return (
