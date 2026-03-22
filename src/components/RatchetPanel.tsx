@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown } from 'lucide-react';
+import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -27,6 +27,13 @@ const quickPrompts = [
   { emoji: '🏪', text: 'DIY or take it to a shop?' },
 ];
 
+const projectQuickPrompts = [
+  { emoji: '❓', text: 'What should I watch out for on this step?' },
+  { emoji: '🔩', text: 'Double-check the torque specs for me' },
+  { emoji: '🛠', text: 'I\'m stuck — walk me through this' },
+  { emoji: '⚠️', text: 'Any safety concerns I should know about?' },
+];
+
 function RatchetAvatar() {
   return (
     <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
@@ -48,11 +55,7 @@ function TypingIndicator() {
   );
 }
 
-// Custom markdown components for mechanic-styled rendering
 function RatchetMarkdown({ content }: { content: string }) {
-  // Pre-process content: detect special lines
-  const processedContent = content;
-
   const components: Components = {
     h2: ({ children }) => (
       <div className="text-xs font-bold uppercase tracking-wider text-primary mt-4 mb-2 pb-1 border-b border-primary/20 first:mt-0">
@@ -65,47 +68,33 @@ function RatchetMarkdown({ content }: { content: string }) {
       </div>
     ),
     p: ({ children }) => {
-      // Check if this paragraph contains torque, safety, or tip markers
-      const text = typeof children === 'string' ? children : 
+      const text = typeof children === 'string' ? children :
         Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
 
       if (text.startsWith('🔩')) {
         return (
           <div className="my-1.5 px-3 py-2 rounded-lg border font-mono text-sm"
-            style={{
-              background: 'rgba(249,115,22,0.1)',
-              borderColor: 'rgba(249,115,22,0.3)',
-              color: '#f97316',
-            }}>
+            style={{ background: 'rgba(249,115,22,0.1)', borderColor: 'rgba(249,115,22,0.3)', color: '#f97316' }}>
             {children}
           </div>
         );
       }
-
       if (text.startsWith('⚠️')) {
         return (
           <div className="my-1.5 px-3 py-2 rounded-r-lg"
-            style={{
-              background: 'rgba(239,68,68,0.08)',
-              borderLeft: '3px solid #ef4444',
-            }}>
+            style={{ background: 'rgba(239,68,68,0.08)', borderLeft: '3px solid #ef4444' }}>
             <span className="text-sm">{children}</span>
           </div>
         );
       }
-
       if (text.startsWith('⚡')) {
         return (
           <div className="my-1.5 px-3 py-2 rounded-r-lg"
-            style={{
-              background: 'rgba(234,179,8,0.08)',
-              borderLeft: '3px solid #eab308',
-            }}>
+            style={{ background: 'rgba(234,179,8,0.08)', borderLeft: '3px solid #eab308' }}>
             <span className="text-sm">{children}</span>
           </div>
         );
       }
-
       return <p className="my-1 text-sm leading-relaxed">{children}</p>;
     },
     code: ({ children, className }) => {
@@ -119,18 +108,13 @@ function RatchetMarkdown({ content }: { content: string }) {
       }
       return (
         <code className="px-1.5 py-0.5 rounded font-mono text-xs"
-          style={{
-            background: 'rgba(249,115,22,0.12)',
-            border: '1px solid rgba(249,115,22,0.25)',
-            color: '#f97316',
-          }}>
+          style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#f97316' }}>
           {children}
         </code>
       );
     },
     ol: ({ children }) => (
-      <ol className="my-1.5 pl-0 space-y-1 list-none counter-reset-item"
-        style={{ counterReset: 'item' }}>
+      <ol className="my-1.5 pl-0 space-y-1 list-none" style={{ counterReset: 'item' }}>
         {children}
       </ol>
     ),
@@ -140,13 +124,11 @@ function RatchetMarkdown({ content }: { content: string }) {
       </ul>
     ),
     li: ({ children, ...props }) => {
-      // Detect if parent is ordered by checking for 'ordered' prop
       const isOrdered = (props as any).ordered;
       if (isOrdered) {
         return (
           <li className="flex gap-2 text-sm" style={{ counterIncrement: 'item' }}>
-            <span className="text-primary font-bold shrink-0 min-w-[1.2em]" style={{ content: 'counter(item)' }}>
-            </span>
+            <span className="text-primary font-bold shrink-0 min-w-[1.2em]"></span>
             <span>{children}</span>
           </li>
         );
@@ -170,12 +152,11 @@ function RatchetMarkdown({ content }: { content: string }) {
 
   return (
     <div className="max-w-none">
-      <ReactMarkdown components={components}>{processedContent}</ReactMarkdown>
+      <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
   );
 }
 
-// Extract memories in background after assistant response
 async function extractMemories(
   userMessage: string,
   assistantMessage: string,
@@ -190,22 +171,17 @@ async function extractMemories(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({
-        userMessage,
-        assistantMessage,
-        userId,
-        vehicleId,
-        sessionId,
-      }),
+      body: JSON.stringify({ userMessage, assistantMessage, userId, vehicleId, sessionId }),
     });
-  } catch {
-    // Silent fail — memory extraction is non-critical
-  }
+  } catch { /* non-critical */ }
 }
 
 function ChatContent() {
   const { user } = useAuth();
-  const { activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen, setActiveVehicle } = useAppStore();
+  const {
+    activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen,
+    setActiveVehicle, ratchetProjectContext,
+  } = useAppStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -219,10 +195,12 @@ function ChatContent() {
   const recognitionRef = useRef<any>(null);
   const lastUserMsgRef = useRef<string>('');
 
+  const isProjectMode = !!ratchetProjectContext;
+  const activePrompts = isProjectMode ? projectQuickPrompts : quickPrompts;
+
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(scrollToBottom, [messages]);
 
-  // Fetch all vehicles for vehicle picker
   const { data: allVehicles } = useQuery({
     queryKey: ['vehicles-list'],
     queryFn: async () => {
@@ -233,7 +211,6 @@ function ChatContent() {
     enabled: !!user,
   });
 
-  // Handle prefilled message
   useEffect(() => {
     if (ratchetPrefilledMessage && isRatchetOpen) {
       setInput(ratchetPrefilledMessage);
@@ -241,24 +218,54 @@ function ChatContent() {
     }
   }, [ratchetPrefilledMessage, isRatchetOpen]);
 
-  // Load sessions filtered by vehicle
+  // Load sessions filtered by vehicle AND project scope
   const { data: sessions } = useQuery({
-    queryKey: ['ratchet-sessions', activeVehicle?.id],
+    queryKey: ['ratchet-sessions', activeVehicle?.id, ratchetProjectContext?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*').order('updated_at', { ascending: false }).limit(20);
+      if (isProjectMode) {
+        // Project mode: get the single project thread
+        const { data, error } = await supabase.from('chat_sessions').select('*')
+          .eq('project_id', ratchetProjectContext!.id)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        if (error) throw error;
+        return data;
+      } else {
+        // General mode: get sessions without project_id for this vehicle
+        const q = supabase.from('chat_sessions').select('*')
+          .is('project_id', null)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+        if (activeVehicle) q.eq('vehicle_id', activeVehicle.id);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data;
+      }
+    },
+    enabled: !!user && isRatchetOpen,
+  });
+
+  // Also fetch general sessions for the "Open general chat" link in project mode
+  const { data: generalSessions } = useQuery({
+    queryKey: ['ratchet-general-sessions', activeVehicle?.id],
+    queryFn: async () => {
+      const q = supabase.from('chat_sessions').select('*')
+        .is('project_id', null)
+        .order('updated_at', { ascending: false })
+        .limit(10);
       if (activeVehicle) q.eq('vehicle_id', activeVehicle.id);
       const { data, error } = await q;
       if (error) throw error;
       return data;
     },
-    enabled: !!user && isRatchetOpen,
+    enabled: !!user && isRatchetOpen && isProjectMode,
   });
 
-  // Reset session when vehicle changes
+  // Reset session when vehicle or project changes
   useEffect(() => {
     setActiveSessionId(null);
     setMessages([]);
-  }, [activeVehicle?.id]);
+  }, [activeVehicle?.id, ratchetProjectContext?.id]);
 
   // Auto-load last session
   useEffect(() => {
@@ -278,10 +285,14 @@ function ChatContent() {
   }, [activeSessionId]);
 
   const createSession = async (): Promise<string> => {
-    const { data, error } = await supabase.from('chat_sessions').insert({
+    const insertData: any = {
       user_id: user!.id,
       vehicle_id: activeVehicle?.id || null,
-    }).select('id').single();
+    };
+    if (isProjectMode) {
+      insertData.project_id = ratchetProjectContext!.id;
+    }
+    const { data, error } = await supabase.from('chat_sessions').insert(insertData).select('id').single();
     if (error) throw error;
     setActiveSessionId(data.id);
     queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
@@ -300,25 +311,29 @@ function ChatContent() {
     setInput('');
     setIsStreaming(true);
 
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     try {
       let sessionId = activeSessionId;
       if (!sessionId) {
         sessionId = await createSession();
-        const title = text.trim().slice(0, 50);
+        const title = isProjectMode
+          ? ratchetProjectContext!.title
+          : text.trim().slice(0, 50);
         await supabase.from('chat_sessions').update({ title }).eq('id', sessionId);
         queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
       }
 
       await saveMessage(sessionId, 'user', text.trim());
 
-      const vehicleContext = activeVehicle
+      let vehicleContext = activeVehicle
         ? `Active vehicle: ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}${activeVehicle.trim ? ` ${activeVehicle.trim}` : ''}${activeVehicle.engine ? ` · ${activeVehicle.engine}` : ''}${activeVehicle.mileage ? ` · ${activeVehicle.mileage.toLocaleString()} mi` : ''}`
         : '';
+
+      // Add project context if in project mode
+      if (isProjectMode) {
+        vehicleContext += `\n\nProject context: "${ratchetProjectContext!.title}" — The user is currently working on this specific project. Provide advice specific to this repair job.`;
+      }
 
       const allMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
 
@@ -377,16 +392,8 @@ function ChatContent() {
 
       if (assistantContent) {
         await saveMessage(sessionId, 'assistant', assistantContent);
-
-        // Background memory extraction
         if (user?.id) {
-          extractMemories(
-            lastUserMsgRef.current,
-            assistantContent,
-            user.id,
-            activeVehicle?.id || null,
-            sessionId,
-          );
+          extractMemories(lastUserMsgRef.current, assistantContent, user.id, activeVehicle?.id || null, sessionId);
         }
       }
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
@@ -405,7 +412,6 @@ function ChatContent() {
     setShowSessions(false);
   };
 
-  // Voice input
   const toggleVoice = () => {
     if (isListening) {
       recognitionRef.current?.stop();
@@ -433,18 +439,25 @@ function ChatContent() {
     ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}`
     : 'No vehicle selected';
 
+  const headerTitle = isProjectMode
+    ? `Ratchet · ${ratchetProjectContext!.title}`
+    : 'Ratchet';
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-14 bg-card border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
-          <Wrench className="h-5 w-5 text-primary" />
-          <span className="text-base font-bold text-foreground">Ratchet</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Wrench className="h-5 w-5 text-primary shrink-0" />
+          <span className="text-sm font-bold text-foreground truncate">{headerTitle}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
-            <Plus className="h-4 w-4" />
-          </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* New chat button — disabled in project mode */}
+          {!isProjectMode && (
+            <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
+              <Plus className="h-4 w-4" />
+            </button>
+          )}
           <button onClick={() => setShowSessions(!showSessions)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="Chat history">
             <Clock className="h-4 w-4" />
           </button>
@@ -454,17 +467,23 @@ function ChatContent() {
         </div>
       </div>
 
-      {/* Vehicle context bar — tappable to switch */}
+      {/* Vehicle context bar */}
       <div className="relative shrink-0">
         <button
-          onClick={() => setShowVehiclePicker(!showVehiclePicker)}
-          className="flex items-center gap-2 w-full px-4 h-10 bg-muted/30 border-b border-border text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+          onClick={() => !isProjectMode && setShowVehiclePicker(!showVehiclePicker)}
+          className={cn(
+            "flex items-center gap-2 w-full px-4 h-10 bg-muted/30 border-b border-border text-xs text-muted-foreground transition-colors",
+            !isProjectMode && "hover:bg-muted/50 cursor-pointer"
+          )}
         >
           <Car className="h-3.5 w-3.5 text-primary shrink-0" />
           <span className="truncate flex-1 text-left">{vehicleLabel}</span>
-          <ChevronDown className={cn("h-3 w-3 transition-transform", showVehiclePicker && "rotate-180")} />
+          {isProjectMode && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">Project</span>
+          )}
+          {!isProjectMode && <ChevronDown className={cn("h-3 w-3 transition-transform", showVehiclePicker && "rotate-180")} />}
         </button>
-        {showVehiclePicker && allVehicles && (
+        {showVehiclePicker && !isProjectMode && allVehicles && (
           <div className="absolute top-full left-0 right-0 z-50 border-b border-border bg-popover shadow-lg max-h-48 overflow-y-auto">
             {allVehicles.map(v => (
               <button
@@ -488,25 +507,74 @@ function ChatContent() {
 
       {/* Session history drawer */}
       {showSessions && (
-        <div className="border-b border-border bg-card max-h-48 overflow-y-auto shrink-0">
-          <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-            Conversations about {vehicleLabel}
-          </div>
-          <div className="px-2 pb-2 space-y-0.5">
-            {sessions?.map(s => (
-              <button
-                key={s.id}
-                onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
-                className={cn(
-                  'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
-                  s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+        <div className="border-b border-border bg-card max-h-56 overflow-y-auto shrink-0">
+          {/* Project thread section */}
+          {isProjectMode && (
+            <>
+              <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                This Project
+              </div>
+              <div className="px-2 pb-1 space-y-0.5">
+                {sessions?.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
+                      s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <FolderOpen className="h-3 w-3 inline mr-1.5" />
+                    {s.title || ratchetProjectContext?.title || 'Project conversation'}
+                  </button>
+                ))}
+                {!sessions?.length && (
+                  <p className="text-xs text-muted-foreground px-3 py-2">No conversation yet — ask Ratchet anything about this project</p>
                 )}
-              >
-                {s.title || 'New conversation'}
-              </button>
-            ))}
-            {!sessions?.length && <p className="text-xs text-muted-foreground px-3 py-2">No conversations yet</p>}
-          </div>
+              </div>
+              <div className="px-3 py-1.5 border-t border-border">
+                <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  General — {vehicleLabel}
+                </div>
+                {generalSessions?.slice(0, 5).map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    className={cn(
+                      'w-full text-left px-3 py-1.5 rounded-lg text-xs truncate transition-colors',
+                      s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {s.title || 'Conversation'}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* General mode sessions */}
+          {!isProjectMode && (
+            <>
+              <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                Conversations about {vehicleLabel}
+              </div>
+              <div className="px-2 pb-2 space-y-0.5">
+                {sessions?.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
+                      s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {s.title || 'New conversation'}
+                  </button>
+                ))}
+                {!sessions?.length && <p className="text-xs text-muted-foreground px-3 py-2">No conversations yet</p>}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -517,12 +585,14 @@ function ChatContent() {
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
               <Wrench className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-lg font-bold text-foreground mb-1">What do you need help with?</h2>
+            <h2 className="text-lg font-bold text-foreground mb-1">
+              {isProjectMode ? `Help with ${ratchetProjectContext!.title}` : 'What do you need help with?'}
+            </h2>
             {activeVehicle && (
               <p className="text-xs text-muted-foreground mb-4">Working on your {vehicleLabel}</p>
             )}
             <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
-              {quickPrompts.map(p => (
+              {activePrompts.map(p => (
                 <button
                   key={p.text}
                   onClick={() => sendMessage(p.text)}
@@ -596,7 +666,7 @@ function ChatContent() {
               e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-            placeholder="Ask Ratchet anything..."
+            placeholder={isProjectMode ? `Ask about ${ratchetProjectContext!.title}...` : 'Ask Ratchet anything...'}
             className="flex-1 bg-muted border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-[160px] focus:outline-none focus:border-primary transition-all"
             style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
@@ -619,7 +689,7 @@ function ChatContent() {
   );
 }
 
-// Mobile: bottom sheet approach with overlay
+// Mobile: bottom sheet
 function MobilePanel() {
   const { isRatchetOpen, closeRatchetPanel, ratchetPanelMode, setRatchetPanelMode } = useAppStore();
   const [dragY, setDragY] = useState(0);
@@ -631,27 +701,20 @@ function MobilePanel() {
     dragStartY.current = e.touches[0].clientY;
     setIsDragging(true);
   };
-
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const dy = e.touches[0].clientY - dragStartY.current;
     if (dy > 0) setDragY(dy);
     if (dy < -50 && ratchetPanelMode === 'default') setRatchetPanelMode('fullscreen');
   };
-
   const handleTouchEnd = () => {
     setIsDragging(false);
-    if (dragY > window.innerHeight * 0.3) {
-      closeRatchetPanel();
-    }
+    if (dragY > window.innerHeight * 0.3) closeRatchetPanel();
     setDragY(0);
   };
 
   useEffect(() => {
-    if (!isRatchetOpen) {
-      setRatchetPanelMode('default');
-      setDragY(0);
-    }
+    if (!isRatchetOpen) { setRatchetPanelMode('default'); setDragY(0); }
   }, [isRatchetOpen]);
 
   useEffect(() => {
