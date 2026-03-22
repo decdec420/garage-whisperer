@@ -12,6 +12,7 @@ import Garage from "./pages/Garage";
 import VehicleDetail from "./pages/VehicleDetail";
 import Chat from "./pages/Chat";
 import ProjectDetail from "./pages/ProjectDetail";
+import DiagnosisSession from "./pages/DiagnosisSession";
 import Projects from "./pages/Projects";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/garage" element={<ProtectedRoute><Garage /></ProtectedRoute>} />
             <Route path="/garage/:vehicleId" element={<ProtectedRoute><VehicleDetail /></ProtectedRoute>} />
             <Route path="/garage/:vehicleId/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+            <Route path="/garage/:vehicleId/diagnose/:diagnosisId" element={<ProtectedRoute><DiagnosisSession /></ProtectedRoute>} />
             <Route path="/active-work" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
             {/* Legacy redirects */}
             <Route path="/projects" element={<Navigate to="/active-work" replace />} />

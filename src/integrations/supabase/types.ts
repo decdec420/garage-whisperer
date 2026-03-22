@@ -94,6 +94,76 @@ export type Database = {
           },
         ]
       }
+      diagnosis_sessions: {
+        Row: {
+          chat_session_id: string | null
+          conclusion: string | null
+          conclusion_confidence: number | null
+          created_at: string
+          diagnosis_summary: string | null
+          id: string
+          project_id: string | null
+          status: string
+          symptom: string
+          tree_data: Json | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          chat_session_id?: string | null
+          conclusion?: string | null
+          conclusion_confidence?: number | null
+          created_at?: string
+          diagnosis_summary?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          symptom: string
+          tree_data?: Json | null
+          updated_at?: string
+          user_id: string
+          vehicle_id: string
+        }
+        Update: {
+          chat_session_id?: string | null
+          conclusion?: string | null
+          conclusion_confidence?: number | null
+          created_at?: string
+          diagnosis_summary?: string | null
+          id?: string
+          project_id?: string | null
+          status?: string
+          symptom?: string
+          tree_data?: Json | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_sessions_chat_session_id_fkey"
+            columns: ["chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_sessions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dtc_records: {
         Row: {
           cleared_date: string | null
