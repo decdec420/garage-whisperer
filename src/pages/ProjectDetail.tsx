@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import {
-  ArrowLeft, ArrowRight, Check, ChevronDown, ChevronUp, Clock,
+  ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
   ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic
 } from 'lucide-react';
