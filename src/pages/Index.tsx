@@ -111,8 +111,8 @@ export default function Dashboard() {
               onClick={action.onClick}
               className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center relative"
             >
-              {action.badge && (
-                <span className="absolute top-2 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground">{action.badge}</span>
+              {'badge' in action && (action as any).badge && (
+                <span className="absolute top-2 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground">{(action as any).badge}</span>
               )}
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${action.color}`}>
                 <action.icon className="h-5 w-5" />
