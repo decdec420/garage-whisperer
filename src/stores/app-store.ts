@@ -7,6 +7,8 @@ interface Vehicle {
   model: string;
   trim?: string | null;
   nickname?: string | null;
+  engine?: string | null;
+  mileage?: number | null;
 }
 
 interface AppState {
@@ -16,6 +18,13 @@ interface AppState {
   setActiveVehicleId: (id: string | null) => void;
   addVehicleModalOpen: boolean;
   setAddVehicleModalOpen: (open: boolean) => void;
+  // Ratchet panel state
+  isRatchetOpen: boolean;
+  ratchetPanelMode: 'default' | 'fullscreen';
+  ratchetPrefilledMessage: string | null;
+  openRatchetPanel: (prefilledMessage?: string) => void;
+  closeRatchetPanel: () => void;
+  setRatchetPanelMode: (mode: 'default' | 'fullscreen') => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -25,4 +34,11 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveVehicleId: (id) => set({ activeVehicleId: id }),
   addVehicleModalOpen: false,
   setAddVehicleModalOpen: (open) => set({ addVehicleModalOpen: open }),
+  // Ratchet panel
+  isRatchetOpen: false,
+  ratchetPanelMode: 'default',
+  ratchetPrefilledMessage: null,
+  openRatchetPanel: (prefilledMessage?: string) => set({ isRatchetOpen: true, ratchetPrefilledMessage: prefilledMessage ?? null }),
+  closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null }),
+  setRatchetPanelMode: (mode) => set({ ratchetPanelMode: mode }),
 }));

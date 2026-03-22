@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { activeVehicle, setAddVehicleModalOpen } = useAppStore();
+  const { activeVehicle, setAddVehicleModalOpen, openRatchetPanel } = useAppStore();
   const navigate = useNavigate();
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
@@ -101,7 +101,7 @@ export default function Dashboard() {
         <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Diagnose a problem', icon: MessageCircle, onClick: () => navigate('/chat'), color: 'bg-primary/10 text-primary' },
+            { label: 'Diagnose a problem', icon: MessageCircle, onClick: () => openRatchetPanel('Diagnose a symptom'), color: 'bg-primary/10 text-primary' },
             { label: 'Log maintenance', icon: Wrench, onClick: () => navigate('/maintenance'), color: 'bg-success/10 text-success' },
             { label: 'Log a repair', icon: DollarSign, onClick: () => navigate('/repairs'), color: 'bg-warning/10 text-warning' },
             { label: 'Scan OBD2 codes', icon: Cpu, onClick: () => {}, color: 'bg-secondary text-muted-foreground', badge: 'Coming Soon' },

@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useAppStore } from '@/stores/app-store';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import ProjectsTab from '@/components/vehicle/ProjectsTab';
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
+  const { openRatchetPanel } = useAppStore();
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -65,8 +67,8 @@ export default function VehicleDetail() {
                 {vehicle.mileage && <Badge variant="outline">{vehicle.mileage.toLocaleString()} mi</Badge>}
               </div>
             </div>
-            <Button onClick={() => navigate('/chat')}>
-              <MessageCircle className="h-4 w-4 mr-2" /> Chat with AI Mechanic
+            <Button onClick={() => openRatchetPanel()}>
+              <MessageCircle className="h-4 w-4 mr-2" /> Ask Ratchet
             </Button>
           </div>
         </CardContent>
