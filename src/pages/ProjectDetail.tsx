@@ -570,10 +570,10 @@ export default function ProjectDetail() {
                 {/* Step header */}
                 <button className="w-full p-4 flex items-center gap-3 text-left min-h-[56px]"
                   onClick={() => {
+                    if (isActive) return; // Active step stays expanded
                     const next = new Set(expandedSteps);
                     next.has(idx) ? next.delete(idx) : next.add(idx);
                     setExpandedSteps(next);
-                    if (!isDone) setActiveStepIdx(idx);
                   }}>
                   <div className={`shrink-0 flex items-center justify-center rounded-full font-bold text-sm ${
                     isDone ? 'bg-success text-success-foreground h-9 w-9' :
