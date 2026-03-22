@@ -54,7 +54,7 @@ export default function Dashboard() {
           <Car className="h-12 w-12 text-primary" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Your garage is empty</h1>
-        <p className="text-muted-foreground mb-6 max-w-sm">Add your first vehicle to get started with AI-powered diagnostics, maintenance tracking, and more.</p>
+        <p className="text-muted-foreground mb-6 max-w-sm">Add your first ride and I'll help you keep it running smooth — diagnostics, maintenance, the whole deal.</p>
         <Button size="lg" onClick={() => setAddVehicleModalOpen(true)}>
           <Plus className="h-5 w-5 mr-2" /> Add your first vehicle
         </Button>

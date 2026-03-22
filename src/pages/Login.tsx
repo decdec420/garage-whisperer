@@ -39,9 +39,9 @@ export default function Login() {
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <Wrench className="h-8 w-8 text-primary" />
-            <span className="text-3xl font-bold text-primary">GarageOS</span>
+            <span className="text-3xl font-bold text-primary">Ratchet</span>
           </div>
-          <p className="text-muted-foreground text-sm">Your AI-powered virtual mechanic</p>
+          <p className="text-muted-foreground text-sm">Your mechanic buddy.</p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-8 space-y-6">

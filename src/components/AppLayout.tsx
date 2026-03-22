@@ -47,7 +47,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-2 mb-4">
             <Wrench className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-primary">GarageOS</span>
+            <span className="text-xl font-bold text-primary">Ratchet</span>
           </div>
 
           {/* Vehicle Switcher */}
@@ -116,7 +116,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-20">
           <div className="flex items-center gap-2">
             <Wrench className="h-5 w-5 text-primary" />
-            <span className="font-bold text-primary">GarageOS</span>
+            <span className="font-bold text-primary">Ratchet</span>
           </div>
           <span className="text-xs text-muted-foreground truncate max-w-[180px]">
             {activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : ''}
