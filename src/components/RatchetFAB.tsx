@@ -10,8 +10,6 @@ const EDGE_MARGIN = 24;
 const CLAMP_TOP = 80;
 const CLAMP_BOTTOM = 80;
 const BUTTON_SIZE = 64;
-const TAP_TIME = 200;
-const DRAG_THRESHOLD = 10;
 
 interface DockedPosition {
   edge: 'left' | 'right';
@@ -29,7 +27,7 @@ function savePosition(pos: DockedPosition) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
 }
 
-function getPixelPosition(pos: DockedPosition, isMobile: boolean) {
+function getPixelPosition(pos: DockedPosition) {
   const vh = window.innerHeight;
   const vw = window.innerWidth;
   const y = Math.min(
@@ -68,23 +66,14 @@ export default function RatchetFAB() {
   const [mounted, setMounted] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
-  const dragState = useRef({
-    active: false,
-    startX: 0,
-    startY: 0,
-    startTime: 0,
-    moved: false,
-    pointerId: -1,
-    offsetX: 0,
-    offsetY: 0,
-  });
-
+  const isDragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const mouseDownTime = useRef(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Initial position & resize handler
   const updateFromDocked = useCallback((d: DockedPosition) => {
-    setPos(getPixelPosition(d, isMobile));
-  }, [isMobile]);
+    setPos(getPixelPosition(d));
+  }, []);
 
   useEffect(() => {
     const saved = loadPosition();
@@ -112,71 +101,88 @@ export default function RatchetFAB() {
     return () => clearTimeout(t);
   }, []);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const rect = buttonRef.current?.getBoundingClientRect();
-    dragState.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      startTime: Date.now(),
-      moved: false,
-      pointerId: e.pointerId,
-      offsetX: rect ? e.clientX - rect.left : BUTTON_SIZE / 2,
-      offsetY: rect ? e.clientY - rect.top : BUTTON_SIZE / 2,
-    };
-    buttonRef.current?.setPointerCapture(e.pointerId);
-    setTooltipOpen(false);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const ds = dragState.current;
-    if (!ds.active) return;
-
-    const dx = e.clientX - ds.startX;
-    const dy = e.clientY - ds.startY;
-
-    if (!ds.moved && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-      ds.moved = true;
-      setDragging(true);
-      // Dismiss hint on drag
-      if (showHint) {
-        setShowHint(false);
-        localStorage.setItem(HINT_KEY, 'true');
-      }
-    }
-
-    if (ds.moved) {
-      const newX = Math.max(0, Math.min(e.clientX - ds.offsetX, window.innerWidth - BUTTON_SIZE));
-      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+  // Use window-level mousemove/mouseup so drag doesn't stick
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      e.preventDefault();
+      const newX = Math.max(0, Math.min(e.clientX - dragOffset.current.x, window.innerWidth - BUTTON_SIZE));
+      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       setPos({ x: newX, y: newY });
-    }
-  };
+    };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    const ds = dragState.current;
-    if (!ds.active) return;
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      setDragging(false);
 
-    buttonRef.current?.releasePointerCapture(ds.pointerId);
-
-    const elapsed = Date.now() - ds.startTime;
-
-    if (!ds.moved && elapsed < TAP_TIME) {
-      openRatchetPanel();
-    } else if (ds.moved) {
+      // Snap to nearest edge
       const centerX = e.clientX;
       const edge: 'left' | 'right' = centerX < window.innerWidth / 2 ? 'left' : 'right';
-      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       const verticalPercent = clampedY / window.innerHeight;
       const newDocked: DockedPosition = { edge, verticalPercent };
       setDocked(newDocked);
       savePosition(newDocked);
-      setPos(getPixelPosition(newDocked, isMobile));
-    }
+      setPos(getPixelPosition(newDocked));
+    };
 
-    ds.active = false;
-    ds.moved = false;
-    setDragging(false);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    // Touch equivalents
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging.current) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const newX = Math.max(0, Math.min(t.clientX - dragOffset.current.x, window.innerWidth - BUTTON_SIZE));
+      const newY = Math.max(CLAMP_TOP, Math.min(t.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      setPos({ x: newX, y: newY });
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      setDragging(false);
+      const t = e.changedTouches[0];
+      const edge: 'left' | 'right' = t.clientX < window.innerWidth / 2 ? 'left' : 'right';
+      const clampedY = Math.max(CLAMP_TOP, Math.min(t.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const newDocked: DockedPosition = { edge, verticalPercent: clampedY / window.innerHeight };
+      setDocked(newDocked);
+      savePosition(newDocked);
+      setPos(getPixelPosition(newDocked));
+    };
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    mouseDownTime.current = Date.now();
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    isDragging.current = true;
+    setDragging(true);
+    setTooltipOpen(false);
+    if (showHint) {
+      setShowHint(false);
+      localStorage.setItem(HINT_KEY, 'true');
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Only open panel if it was a quick click (not a drag)
+    const elapsed = Date.now() - mouseDownTime.current;
+    if (elapsed < 200) {
+      openRatchetPanel();
+    }
   };
 
   if (isRatchetOpen || !mounted) return null;
@@ -184,15 +190,13 @@ export default function RatchetFAB() {
   const button = (
     <button
       ref={buttonRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onMouseDown={handleMouseDown}
+      onClick={handleClick}
       className={cn(
-        'group fixed z-[9999] flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg select-none touch-none',
+        'group fixed z-[9999] flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg select-none',
         dragging
-          ? 'scale-110 shadow-[0_8px_32px_rgba(249,115,22,0.5)] cursor-grabbing'
-          : 'transition-all duration-200 ease-out hover:scale-110 cursor-grab',
+          ? 'scale-110 cursor-grabbing'
+          : 'transition-all duration-200 ease-out hover:scale-105 cursor-pointer',
         'h-16 w-16'
       )}
       style={{
