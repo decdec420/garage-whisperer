@@ -66,17 +66,20 @@ export default function RatchetFAB() {
   const [dragging, setDragging] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
-  const dragState = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    startTime: number;
-    moved: boolean;
-    pointerId: number | null;
-  }>({ active: false, startX: 0, startY: 0, startTime: 0, moved: false, pointerId: null });
+  const dragState = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    moved: false,
+    pointerId: -1,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   // Initial position & resize handler
   const updateFromDocked = useCallback((d: DockedPosition) => {
