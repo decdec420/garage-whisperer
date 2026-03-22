@@ -1,17 +1,18 @@
 import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, MessageCircle, Wrench, Settings, LogOut, ChevronDown, Plus } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import RatchetFAB from '@/components/RatchetFAB';
+import RatchetPanel from '@/components/RatchetPanel';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'My Garage', icon: Car, path: '/garage' },
-  { label: 'AI Mechanic', icon: MessageCircle, path: '/chat', accent: true },
   { label: 'Maintenance', icon: Wrench, path: '/maintenance' },
   { label: 'Repairs', icon: Settings, path: '/repairs' },
 ];
@@ -25,7 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { data: vehicles } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -35,7 +36,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // Auto-select first vehicle if none active
   if (vehicles?.length && !activeVehicle) {
     const v = vehicles[0];
-    setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname });
+    setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
   }
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
@@ -62,7 +63,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
               {vehicles?.map((v) => (
-                <DropdownMenuItem key={v.id} onClick={() => setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname })}>
+                <DropdownMenuItem key={v.id} onClick={() => setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage })}>
                   <span className="truncate">{v.nickname || `${v.year} ${v.make} ${v.model}`}</span>
                 </DropdownMenuItem>
               ))}
@@ -84,7 +85,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                   active ? 'bg-primary/10 text-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  item.accent && !active && 'text-primary'
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -140,16 +140,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   'flex flex-col items-center gap-1 px-3 py-1 min-h-[44px] justify-center',
                   active ? 'text-primary' : 'text-muted-foreground',
-                  item.accent && !active && 'text-primary'
                 )}
               >
-                <item.icon className={cn('h-5 w-5', item.accent && 'h-6 w-6')} />
+                <item.icon className="h-5 w-5" />
                 <span className="text-[10px] font-medium">{item.label}</span>
               </button>
             );
           })}
         </div>
       </nav>
+
+      {/* Ratchet floating button & panel */}
+      <RatchetFAB />
+      <RatchetPanel />
     </div>
   );
 }

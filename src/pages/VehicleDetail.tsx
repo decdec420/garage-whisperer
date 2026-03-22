@@ -67,8 +67,8 @@ export default function VehicleDetail() {
                 {vehicle.mileage && <Badge variant="outline">{vehicle.mileage.toLocaleString()} mi</Badge>}
               </div>
             </div>
-            <Button onClick={() => navigate('/chat')}>
-              <MessageCircle className="h-4 w-4 mr-2" /> Chat with AI Mechanic
+            <Button onClick={() => openRatchetPanel()}>
+              <MessageCircle className="h-4 w-4 mr-2" /> Ask Ratchet
             </Button>
           </div>
         </CardContent>
