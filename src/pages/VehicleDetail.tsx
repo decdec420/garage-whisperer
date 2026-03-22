@@ -156,6 +156,10 @@ export default function VehicleDetail() {
           <BlueprintTab vehicleId={vehicleId!} vehicle={vehicle} />
         </TabsContent>
 
+        <TabsContent value="diagnose">
+          <DiagnoseTab vehicleId={vehicleId!} vehicle={vehicle} />
+        </TabsContent>
+
         <TabsContent value="projects">
           <ProjectsTab vehicleId={vehicleId!} vehicleName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`} />
         </TabsContent>
