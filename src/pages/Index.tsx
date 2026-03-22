@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '@/stores/app-store';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
