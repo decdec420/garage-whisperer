@@ -48,6 +48,13 @@ function TypingIndicator() {
   );
 }
 
+// Format torque specs and part numbers inline
+function formatTorqueSpecs(text: string): string {
+  // Torque specs: "33 ft-lbs", "45 Nm", "33 ft·lbs"
+  let formatted = text.replace(/(\d+)\s*(ft[-·]?lbs?|Nm)/gi, '`$1 $2`');
+  return formatted;
+}
+
 function ChatContent() {
   const { user } = useAuth();
   const { activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen } = useAppStore();
