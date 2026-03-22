@@ -36,6 +36,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
