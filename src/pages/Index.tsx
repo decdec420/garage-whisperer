@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu } from 'lucide-react';
+import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 
