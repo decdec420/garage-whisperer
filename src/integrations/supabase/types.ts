@@ -14,7 +14,334 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dtc_records: {
+        Row: {
+          cleared_date: string | null
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          read_date: string
+          severity: string | null
+          status: string
+          vehicle_id: string
+        }
+        Insert: {
+          cleared_date?: string | null
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          read_date?: string
+          severity?: string | null
+          status?: string
+          vehicle_id: string
+        }
+        Update: {
+          cleared_date?: string | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          read_date?: string
+          severity?: string | null
+          status?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dtc_records_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_logs: {
+        Row: {
+          cost: number | null
+          created_at: string
+          date: string
+          id: string
+          mileage: number | null
+          next_due_date: string | null
+          next_due_mileage: number | null
+          notes: string | null
+          parts: Json | null
+          service: string
+          shop: string | null
+          vehicle_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          mileage?: number | null
+          next_due_date?: string | null
+          next_due_mileage?: number | null
+          notes?: string | null
+          parts?: Json | null
+          service: string
+          shop?: string | null
+          vehicle_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          mileage?: number | null
+          next_due_date?: string | null
+          next_due_mileage?: number | null
+          notes?: string | null
+          parts?: Json | null
+          service?: string
+          shop?: string | null
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      repair_logs: {
+        Row: {
+          created_at: string
+          date: string
+          description: string | null
+          difficulty: number | null
+          diy_cost: number | null
+          id: string
+          labor_hours: number | null
+          mileage: number | null
+          notes: string | null
+          parts: Json | null
+          photo_urls: string[] | null
+          shop_quote: number | null
+          title: string
+          total_cost: number | null
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          description?: string | null
+          difficulty?: number | null
+          diy_cost?: number | null
+          id?: string
+          labor_hours?: number | null
+          mileage?: number | null
+          notes?: string | null
+          parts?: Json | null
+          photo_urls?: string[] | null
+          shop_quote?: number | null
+          title: string
+          total_cost?: number | null
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string | null
+          difficulty?: number | null
+          diy_cost?: number | null
+          id?: string
+          labor_hours?: number | null
+          mileage?: number | null
+          notes?: string | null
+          parts?: Json | null
+          photo_urls?: string[] | null
+          shop_quote?: number | null
+          title?: string
+          total_cost?: number | null
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          body_style: string | null
+          color: string | null
+          created_at: string
+          drivetrain: string | null
+          engine: string | null
+          id: string
+          last_recall_check: string | null
+          license_plate: string | null
+          make: string
+          mileage: number | null
+          model: string
+          nhtsa_data: Json | null
+          nickname: string | null
+          purchase_date: string | null
+          recall_data: Json | null
+          transmission: string | null
+          trim: string | null
+          updated_at: string
+          user_id: string
+          vin: string | null
+          year: number
+        }
+        Insert: {
+          body_style?: string | null
+          color?: string | null
+          created_at?: string
+          drivetrain?: string | null
+          engine?: string | null
+          id?: string
+          last_recall_check?: string | null
+          license_plate?: string | null
+          make: string
+          mileage?: number | null
+          model: string
+          nhtsa_data?: Json | null
+          nickname?: string | null
+          purchase_date?: string | null
+          recall_data?: Json | null
+          transmission?: string | null
+          trim?: string | null
+          updated_at?: string
+          user_id: string
+          vin?: string | null
+          year: number
+        }
+        Update: {
+          body_style?: string | null
+          color?: string | null
+          created_at?: string
+          drivetrain?: string | null
+          engine?: string | null
+          id?: string
+          last_recall_check?: string | null
+          license_plate?: string | null
+          make?: string
+          mileage?: number | null
+          model?: string
+          nhtsa_data?: Json | null
+          nickname?: string | null
+          purchase_date?: string | null
+          recall_data?: Json | null
+          transmission?: string | null
+          trim?: string | null
+          updated_at?: string
+          user_id?: string
+          vin?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
