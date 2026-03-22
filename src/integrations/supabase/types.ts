@@ -270,6 +270,100 @@ export type Database = {
           },
         ]
       }
+      vehicle_project_tasks: {
+        Row: {
+          actual_cost: number | null
+          created_at: string
+          description: string | null
+          estimated_cost: number | null
+          id: string
+          notes: string | null
+          parts: Json | null
+          project_id: string
+          sort_order: number | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          created_at?: string
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          notes?: string | null
+          parts?: Json | null
+          project_id: string
+          sort_order?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number | null
+          created_at?: string
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          notes?: string | null
+          parts?: Json | null
+          project_id?: string
+          sort_order?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          priority: string | null
+          status: string
+          title: string
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_projects_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           body_style: string | null
