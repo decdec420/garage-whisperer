@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Grid3X3, ClipboardList, Settings, LogOut, ChevronDown, Plus, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -10,11 +10,20 @@ import { cn } from '@/lib/utils';
 import RatchetFAB from '@/components/RatchetFAB';
 import RatchetPanel from '@/components/RatchetPanel';
 
-const navItems = [
+const sidebarNav = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'My Garage', icon: Car, path: '/garage' },
-  { label: 'Maintenance', icon: Wrench, path: '/maintenance' },
-  { label: 'Repairs', icon: Settings, path: '/repairs' },
+  { label: 'Projects', icon: Wrench, path: '/projects' },
+  { label: 'Maintenance', icon: ClipboardList, path: '/maintenance' },
+  { label: 'Repairs', icon: ClipboardList, path: '/repairs' },
+];
+
+const mobileNav = [
+  { label: 'Home', icon: Home, path: '/' },
+  { label: 'Garage', icon: Car, path: '/garage' },
+  { label: 'Projects', icon: Wrench, path: '/projects' },
+  { label: 'Blueprint', icon: Grid3X3, path: '/blueprint' },
+  { label: 'Logs', icon: ClipboardList, path: '/maintenance' },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -33,13 +42,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Auto-select first vehicle if none active
   if (vehicles?.length && !activeVehicle) {
     const v = vehicles[0];
     setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
   }
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+
+  const handleBlueprintMobile = () => {
+    if (activeVehicle) {
+      navigate(`/garage/${activeVehicle.id}?tab=blueprint`);
+    } else {
+      navigate('/garage');
+    }
+  };
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -51,7 +72,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <span className="text-xl font-bold text-primary">Ratchet</span>
           </div>
 
-          {/* Vehicle Switcher */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex items-center justify-between rounded-lg border border-border bg-popover px-3 py-2 text-sm hover:border-primary/50 transition-colors">
@@ -76,8 +96,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
-            const active = location.pathname === item.path;
+          {sidebarNav.map((item) => {
+            const active = isActive(item.path);
             return (
               <button
                 key={item.path}
@@ -94,15 +114,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-1">
+          <button
+            onClick={() => navigate('/settings')}
+            className={cn(
+              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+              isActive('/settings') ? 'bg-primary/10 text-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+            )}
+          >
+            <Settings className="h-5 w-5" />
+            Settings
+          </button>
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold">
               {profileName[0]?.toUpperCase()}
             </div>
             <span className="text-sm font-medium truncate flex-1">{profileName}</span>
-            <button onClick={() => navigate('/settings')} className="text-muted-foreground hover:text-foreground">
-              <Settings className="h-4 w-4" />
-            </button>
             <button onClick={signOut} className="text-muted-foreground hover:text-destructive">
               <LogOut className="h-4 w-4" />
             </button>
@@ -112,7 +139,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 md:ml-60 pb-20 md:pb-0">
-        {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-20">
           <div className="flex items-center gap-2">
             <Wrench className="h-5 w-5 text-primary" />
@@ -131,12 +157,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background z-30 safe-area-bottom">
         <div className="flex items-center justify-around py-2">
-          {navItems.map((item) => {
-            const active = location.pathname === item.path;
+          {mobileNav.map((item) => {
+            const active = item.path === '/blueprint' ? false : isActive(item.path);
             return (
               <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
+                key={item.label}
+                onClick={() => item.path === '/blueprint' ? handleBlueprintMobile() : navigate(item.path)}
                 className={cn(
                   'flex flex-col items-center gap-1 px-3 py-1 min-h-[44px] justify-center',
                   active ? 'text-primary' : 'text-muted-foreground',
@@ -150,7 +176,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </nav>
 
-      {/* Ratchet floating button & panel */}
       <RatchetFAB />
       <RatchetPanel />
     </div>
