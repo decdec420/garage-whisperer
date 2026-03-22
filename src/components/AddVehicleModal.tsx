@@ -36,6 +36,7 @@ const empty: VehicleForm = { year: '', make: '', model: '', trim: '', engine: ''
 
 export default function AddVehicleModal({ open, onOpenChange }: Props) {
   const { user } = useAuth();
+  const { openRatchetPanel } = useAppStore();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<VehicleForm>(empty);
   const [vinInput, setVinInput] = useState('');
