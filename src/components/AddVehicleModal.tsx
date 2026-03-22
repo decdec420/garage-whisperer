@@ -78,7 +78,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.year || !form.make || !form.model) throw new Error('Year, Make, and Model are required');
-      const { error } = await supabase.from('vehicles').insert({
+      const { data: inserted, error } = await supabase.from('vehicles').insert({
         user_id: user!.id,
         vin: form.vin || null,
         year: parseInt(form.year),
@@ -93,10 +93,11 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
         mileage: form.mileage ? parseInt(form.mileage) : null,
         color: form.color || null,
         nhtsa_data: nhtsaData,
-      });
+      }).select().single();
       if (error) throw error;
+      return inserted;
     },
-    onSuccess: () => {
+    onSuccess: (inserted) => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       toast.success('Vehicle added!');
       onOpenChange(false);
@@ -104,6 +105,29 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
       setVinInput('');
       setDecoded(false);
       setNhtsaData(null);
+
+      // Auto-search for manuals in the background
+      supabase.functions.invoke('search-manuals', {
+        body: {
+          vehicleId: inserted.id,
+          year: inserted.year,
+          make: inserted.make,
+          model: inserted.model,
+          trim: inserted.trim,
+          userId: user!.id,
+        },
+      }).then(() => {
+        toast.success('Found manual references for your vehicle', { duration: 3000 });
+      }).catch(() => {});
+
+      // Open Ratchet with onboarding questions
+      setTimeout(() => {
+        openRatchetPanel(
+          `I just added my ${inserted.year} ${inserted.make} ${inserted.model}${inserted.trim ? ` ${inserted.trim}` : ''} to the garage! ` +
+          `Can you ask me a few quick questions to get to know this car better — like current mileage, any known issues, modifications, or things I should be aware of? ` +
+          `Then offer to go deeper if I want to tell you more about the car's history.`
+        );
+      }, 500);
     },
     onError: (e) => toast.error(e.message),
   });
