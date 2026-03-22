@@ -340,7 +340,14 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="pb-20 md:pb-6">
+    <div className="pb-6">
+      {/* Thin sticky progress bar at top */}
+      <div className="sticky top-0 z-10 h-[3px] w-full bg-border">
+        <div
+          className="h-full bg-primary transition-all duration-500 ease-out"
+          style={{ width: `${pctDone}%` }}
+        />
+      </div>
       {/* Hero Header */}
       <div className="bg-card p-4 md:p-6 border-b border-border">
         <button onClick={() => navigate(`/garage/${vehicleId}`)}
