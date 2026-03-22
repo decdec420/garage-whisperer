@@ -11,6 +11,12 @@ interface Vehicle {
   mileage?: number | null;
 }
 
+interface ProjectContext {
+  id: string;
+  title: string;
+  vehicleId: string;
+}
+
 interface AppState {
   activeVehicleId: string | null;
   activeVehicle: Vehicle | null;
@@ -22,9 +28,11 @@ interface AppState {
   isRatchetOpen: boolean;
   ratchetPanelMode: 'default' | 'fullscreen';
   ratchetPrefilledMessage: string | null;
+  ratchetProjectContext: ProjectContext | null;
   openRatchetPanel: (prefilledMessage?: string) => void;
   closeRatchetPanel: () => void;
   setRatchetPanelMode: (mode: 'default' | 'fullscreen') => void;
+  setRatchetProjectContext: (ctx: ProjectContext | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -38,7 +46,9 @@ export const useAppStore = create<AppState>((set) => ({
   isRatchetOpen: false,
   ratchetPanelMode: 'default',
   ratchetPrefilledMessage: null,
+  ratchetProjectContext: null,
   openRatchetPanel: (prefilledMessage?: string) => set({ isRatchetOpen: true, ratchetPrefilledMessage: prefilledMessage ?? null }),
   closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null }),
   setRatchetPanelMode: (mode) => set({ ratchetPanelMode: mode }),
+  setRatchetProjectContext: (ctx) => set({ ratchetProjectContext: ctx }),
 }));
