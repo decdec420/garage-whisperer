@@ -113,6 +113,8 @@ export default function RatchetFAB() {
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const rect = buttonRef.current?.getBoundingClientRect();
     dragState.current = {
       active: true,
       startX: e.clientX,
@@ -120,8 +122,11 @@ export default function RatchetFAB() {
       startTime: Date.now(),
       moved: false,
       pointerId: e.pointerId,
+      offsetX: rect ? e.clientX - rect.left : BUTTON_SIZE / 2,
+      offsetY: rect ? e.clientY - rect.top : BUTTON_SIZE / 2,
     };
     buttonRef.current?.setPointerCapture(e.pointerId);
+    setTooltipOpen(false);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
