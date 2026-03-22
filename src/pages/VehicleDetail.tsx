@@ -7,10 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3 } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
 import ProjectsTab from '@/components/vehicle/ProjectsTab';
+import BlueprintTab from '@/components/vehicle/BlueprintTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
@@ -77,6 +78,7 @@ export default function VehicleDetail() {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="blueprint"><Grid3X3 className="h-3.5 w-3.5 mr-1" />Blueprint</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
@@ -144,6 +146,10 @@ export default function VehicleDetail() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="blueprint">
+          <BlueprintTab vehicleId={vehicleId!} vehicle={vehicle} />
         </TabsContent>
 
         <TabsContent value="projects">
