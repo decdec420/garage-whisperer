@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Search, ChevronRight, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Search, ChevronRight, CheckCircle2, AlertCircle, Clock, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('diagnosis_sessions')
-        .select('*')
+        .select('*, projects:project_id(id, title, status)')
         .eq('vehicle_id', vehicleId)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -48,6 +48,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const startDiagnosis = async () => {
     if (!symptom.trim() || !user) return;
     setIsCreating(true);
+
     try {
       // Create chat session for the diagnosis
       const { data: chatSession, error: chatError } = await supabase
@@ -76,6 +77,38 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         .single();
       if (diagError) throw diagError;
 
+      // Generate the diagnostic project plan via edge function
+      toast.info('Ratchet is building your diagnostic plan...');
+
+      const { data: genData, error: genError } = await supabase.functions.invoke('generate-diagnosis', {
+        body: {
+          vehicleId,
+          symptom: symptom.trim(),
+          diagnosisId: (diagSession as any).id,
+        },
+      });
+
+      if (genError) {
+        console.error('Generation error:', genError);
+        // Still navigate even if generation fails — they can use chat-based diagnosis
+        toast.error('Plan generation had an issue, but you can still diagnose with Ratchet');
+        navigate(`/garage/${vehicleId}/diagnose/${(diagSession as any).id}`);
+        return;
+      }
+
+      if (genData?.projectId) {
+        // Update diagnosis session with the generated project
+        await supabase.from('diagnosis_sessions').update({
+          project_id: genData.projectId,
+          tree_data: (genData.possibleCauses || []).map((c: string) => ({
+            name: c,
+            status: 'untested',
+          })),
+          updated_at: new Date().toISOString(),
+        } as any).eq('id', (diagSession as any).id);
+      }
+
+      toast.success('Diagnostic plan ready!');
       navigate(`/garage/${vehicleId}/diagnose/${(diagSession as any).id}`);
     } catch (e) {
       console.error(e);
@@ -86,7 +119,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
   const statusConfig = {
     active: { icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-500/10', label: 'In Progress' },
-    resolved: { icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Resolved' },
+    resolved: { icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Diagnosed' },
     unresolved: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Unresolved' },
   };
 
@@ -139,10 +172,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             className="w-full h-12 text-base font-semibold"
           >
             {isCreating ? (
-              <>
-                <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                Starting...
-              </>
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                <span>Building diagnostic plan...</span>
+              </div>
             ) : (
               <>
                 <Search className="h-4 w-4 mr-2" />
@@ -161,6 +194,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             {diagnosisSessions.map((session: any) => {
               const config = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.active;
               const StatusIcon = config.icon;
+              const linkedProject = session.projects;
               return (
                 <Card
                   key={session.id}
@@ -173,12 +207,20 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{session.symptom}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs text-muted-foreground">
                           {new Date(session.created_at).toLocaleDateString()}
                         </span>
                         {session.conclusion && (
-                          <span className="text-xs text-primary">→ {session.conclusion}</span>
+                          <Badge variant="outline" className="text-[10px] h-5">
+                            → {session.conclusion}
+                          </Badge>
+                        )}
+                        {linkedProject && (
+                          <Badge variant="secondary" className="text-[10px] h-5">
+                            <Wrench className="h-2.5 w-2.5 mr-1" />
+                            Repair project created
+                          </Badge>
                         )}
                       </div>
                     </div>
