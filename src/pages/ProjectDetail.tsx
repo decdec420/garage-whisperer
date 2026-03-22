@@ -91,7 +91,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setRatchetProjectContext } = useAppStore();
   const [mechanicMode, setMechanicMode] = useState(false);
   const [safetyCollapsed, setSafetyCollapsed] = useState(false);
   const [partsExpanded, setPartsExpanded] = useState(false);
@@ -185,6 +185,14 @@ export default function ProjectDetail() {
       setElapsedSeconds(base);
     }
   }, [project?.timer_running, project?.timer_started_at, project?.actual_minutes]);
+
+  // Set project context for Ratchet panel
+  useEffect(() => {
+    if (project && vehicleId) {
+      setRatchetProjectContext({ id: project.id, title: project.title, vehicleId });
+    }
+    return () => { setRatchetProjectContext(null); };
+  }, [project?.id, vehicleId, setRatchetProjectContext]);
 
   // Auto-set active step to first non-done step
   useEffect(() => {

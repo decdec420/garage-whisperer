@@ -55,7 +55,7 @@ function WrenchChatIcon({ className }: { className?: string }) {
 }
 
 export default function RatchetFAB() {
-  const { isRatchetOpen, openRatchetPanel } = useAppStore();
+  const { isRatchetOpen, openRatchetPanel, ratchetProjectContext } = useAppStore();
   const isMobile = useIsMobile();
 
   const defaultPos: DockedPosition = { edge: 'right', verticalPercent: isMobile ? 0.78 : 0.85 };
@@ -70,6 +70,8 @@ export default function RatchetFAB() {
   const dragOffset = useRef({ x: 0, y: 0 });
   const mouseDownTime = useRef(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const isInProject = !!ratchetProjectContext;
 
   const updateFromDocked = useCallback((d: DockedPosition) => {
     setPos(getPixelPosition(d));
@@ -87,7 +89,6 @@ export default function RatchetFAB() {
     return () => window.removeEventListener('resize', onResize);
   }, [isMobile]);
 
-  // Drag hint - show once
   useEffect(() => {
     if (localStorage.getItem(HINT_KEY)) return;
     const t = setTimeout(() => {
@@ -101,7 +102,6 @@ export default function RatchetFAB() {
     return () => clearTimeout(t);
   }, []);
 
-  // Use window-level mousemove/mouseup so drag doesn't stick
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
@@ -115,8 +115,6 @@ export default function RatchetFAB() {
       if (!isDragging.current) return;
       isDragging.current = false;
       setDragging(false);
-
-      // Snap to nearest edge
       const centerX = e.clientX;
       const edge: 'left' | 'right' = centerX < window.innerWidth / 2 ? 'left' : 'right';
       const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
@@ -129,7 +127,7 @@ export default function RatchetFAB() {
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-    // Touch equivalents
+
     const handleTouchMove = (e: TouchEvent) => {
       if (!isDragging.current) return;
       e.preventDefault();
@@ -178,7 +176,6 @@ export default function RatchetFAB() {
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    // Only open panel if it was a quick click (not a drag)
     const elapsed = Date.now() - mouseDownTime.current;
     if (elapsed < 200) {
       openRatchetPanel();
@@ -186,6 +183,8 @@ export default function RatchetFAB() {
   };
 
   if (isRatchetOpen || !mounted) return null;
+
+  const tooltipText = isInProject ? 'Ask Ratchet about this repair' : 'Ask Ratchet anything';
 
   const button = (
     <button
@@ -207,10 +206,14 @@ export default function RatchetFAB() {
           : '0 4px 24px rgba(249,115,22,0.35)',
         ...(dragging ? {} : { transition: 'left 0.2s ease-out, top 0.2s ease-out, transform 0.15s ease-out, box-shadow 0.15s ease-out' }),
       }}
-      aria-label="Ask Ratchet"
+      aria-label={tooltipText}
     >
       <span className="absolute inset-0 rounded-full animate-ratchet-pulse bg-primary/40" />
       <WrenchChatIcon className="h-7 w-7 relative z-10" />
+      {/* Project indicator dot */}
+      {isInProject && (
+        <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-primary z-20" />
+      )}
     </button>
   );
 
@@ -222,7 +225,7 @@ export default function RatchetFAB() {
         <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side={docked.edge === 'right' ? 'left' : 'right'} className="bg-popover text-popover-foreground border-border">
-            Ask Ratchet
+            {tooltipText}
           </TooltipContent>
         </Tooltip>
       )}
