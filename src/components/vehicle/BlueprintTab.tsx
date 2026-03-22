@@ -590,7 +590,9 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
+            {/* Bottom fade gradient */}
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent" />
           </div>
         </>
       )}
