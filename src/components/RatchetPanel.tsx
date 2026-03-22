@@ -1,15 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Wrench, Plus, Clock, ChevronDown, Send, Mic, MicOff } from 'lucide-react';
+import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 interface Message {
   id?: string;
@@ -19,6 +18,7 @@ interface Message {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-memories`;
 
 const quickPrompts = [
   { emoji: '🔍', text: 'Diagnose a symptom' },
@@ -39,7 +39,7 @@ function TypingIndicator() {
   return (
     <div className="flex items-start gap-2">
       <RatchetAvatar />
-      <div className="rounded-2xl rounded-bl-sm bg-[#1a1a1a] px-4 py-3 flex items-center gap-1.5">
+      <div className="rounded-2xl rounded-bl-sm bg-card px-4 py-3 flex items-center gap-1.5">
         {[0, 1, 2].map(i => (
           <span key={i} className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
         ))}
@@ -48,45 +48,204 @@ function TypingIndicator() {
   );
 }
 
-// Format torque specs and part numbers inline
-function formatTorqueSpecs(text: string): string {
-  // Torque specs: "33 ft-lbs", "45 Nm", "33 ft·lbs"
-  let formatted = text.replace(/(\d+)\s*(ft[-·]?lbs?|Nm)/gi, '`$1 $2`');
-  return formatted;
+// Custom markdown components for mechanic-styled rendering
+function RatchetMarkdown({ content }: { content: string }) {
+  // Pre-process content: detect special lines
+  const processedContent = content;
+
+  const components: Components = {
+    h2: ({ children }) => (
+      <div className="text-xs font-bold uppercase tracking-wider text-primary mt-4 mb-2 pb-1 border-b border-primary/20 first:mt-0">
+        {children}
+      </div>
+    ),
+    h3: ({ children }) => (
+      <div className="text-sm font-bold text-foreground mt-3 mb-1.5">
+        {children}
+      </div>
+    ),
+    p: ({ children }) => {
+      // Check if this paragraph contains torque, safety, or tip markers
+      const text = typeof children === 'string' ? children : 
+        Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+
+      if (text.startsWith('🔩')) {
+        return (
+          <div className="my-1.5 px-3 py-2 rounded-lg border font-mono text-sm"
+            style={{
+              background: 'rgba(249,115,22,0.1)',
+              borderColor: 'rgba(249,115,22,0.3)',
+              color: '#f97316',
+            }}>
+            {children}
+          </div>
+        );
+      }
+
+      if (text.startsWith('⚠️')) {
+        return (
+          <div className="my-1.5 px-3 py-2 rounded-r-lg"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              borderLeft: '3px solid #ef4444',
+            }}>
+            <span className="text-sm">{children}</span>
+          </div>
+        );
+      }
+
+      if (text.startsWith('⚡')) {
+        return (
+          <div className="my-1.5 px-3 py-2 rounded-r-lg"
+            style={{
+              background: 'rgba(234,179,8,0.08)',
+              borderLeft: '3px solid #eab308',
+            }}>
+            <span className="text-sm">{children}</span>
+          </div>
+        );
+      }
+
+      return <p className="my-1 text-sm leading-relaxed">{children}</p>;
+    },
+    code: ({ children, className }) => {
+      const isBlock = className?.includes('language-');
+      if (isBlock) {
+        return (
+          <code className={cn("block my-2 p-3 rounded-lg text-xs font-mono bg-muted/50 overflow-x-auto", className)}>
+            {children}
+          </code>
+        );
+      }
+      return (
+        <code className="px-1.5 py-0.5 rounded font-mono text-xs"
+          style={{
+            background: 'rgba(249,115,22,0.12)',
+            border: '1px solid rgba(249,115,22,0.25)',
+            color: '#f97316',
+          }}>
+          {children}
+        </code>
+      );
+    },
+    ol: ({ children }) => (
+      <ol className="my-1.5 pl-0 space-y-1 list-none counter-reset-item"
+        style={{ counterReset: 'item' }}>
+        {children}
+      </ol>
+    ),
+    ul: ({ children }) => (
+      <ul className="my-1.5 pl-4 space-y-0.5 list-none">
+        {children}
+      </ul>
+    ),
+    li: ({ children, ...props }) => {
+      // Detect if parent is ordered by checking for 'ordered' prop
+      const isOrdered = (props as any).ordered;
+      if (isOrdered) {
+        return (
+          <li className="flex gap-2 text-sm" style={{ counterIncrement: 'item' }}>
+            <span className="text-primary font-bold shrink-0 min-w-[1.2em]" style={{ content: 'counter(item)' }}>
+            </span>
+            <span>{children}</span>
+          </li>
+        );
+      }
+      return (
+        <li className="text-sm flex gap-1.5 items-start">
+          <span className="text-primary mt-1.5 shrink-0">•</span>
+          <span>{children}</span>
+        </li>
+      );
+    },
+    strong: ({ children }) => (
+      <strong className="text-foreground font-semibold">{children}</strong>
+    ),
+    a: ({ href, children }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80">
+        {children}
+      </a>
+    ),
+  };
+
+  return (
+    <div className="max-w-none">
+      <ReactMarkdown components={components}>{processedContent}</ReactMarkdown>
+    </div>
+  );
+}
+
+// Extract memories in background after assistant response
+async function extractMemories(
+  userMessage: string,
+  assistantMessage: string,
+  userId: string,
+  vehicleId: string | null,
+  sessionId: string | null,
+) {
+  try {
+    await fetch(EXTRACT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        userMessage,
+        assistantMessage,
+        userId,
+        vehicleId,
+        sessionId,
+      }),
+    });
+  } catch {
+    // Silent fail — memory extraction is non-critical
+  }
 }
 
 function ChatContent() {
   const { user } = useAuth();
-  const { activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen } = useAppStore();
+  const { activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen, setActiveVehicle } = useAppStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showSessions, setShowSessions] = useState(false);
+  const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
-  const isMobile = useIsMobile();
+  const lastUserMsgRef = useRef<string>('');
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(scrollToBottom, [messages]);
+
+  // Fetch all vehicles for vehicle picker
+  const { data: allVehicles } = useQuery({
+    queryKey: ['vehicles-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage').order('created_at');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
   // Handle prefilled message
   useEffect(() => {
     if (ratchetPrefilledMessage && isRatchetOpen) {
       setInput(ratchetPrefilledMessage);
-      // Clear it from store so it doesn't re-apply
       useAppStore.setState({ ratchetPrefilledMessage: null });
     }
   }, [ratchetPrefilledMessage, isRatchetOpen]);
 
-  // Load sessions
+  // Load sessions filtered by vehicle
   const { data: sessions } = useQuery({
     queryKey: ['ratchet-sessions', activeVehicle?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*').order('updated_at', { ascending: false });
+      const q = supabase.from('chat_sessions').select('*').order('updated_at', { ascending: false }).limit(20);
       if (activeVehicle) q.eq('vehicle_id', activeVehicle.id);
       const { data, error } = await q;
       if (error) throw error;
@@ -94,6 +253,12 @@ function ChatContent() {
     },
     enabled: !!user && isRatchetOpen,
   });
+
+  // Reset session when vehicle changes
+  useEffect(() => {
+    setActiveSessionId(null);
+    setMessages([]);
+  }, [activeVehicle?.id]);
 
   // Auto-load last session
   useEffect(() => {
@@ -130,9 +295,15 @@ function ChatContent() {
   const sendMessage = async (text: string) => {
     if (!text.trim() || isStreaming) return;
     const userMsg: Message = { role: 'user', content: text.trim() };
+    lastUserMsgRef.current = text.trim();
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsStreaming(true);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
 
     try {
       let sessionId = activeSessionId;
@@ -157,7 +328,12 @@ function ChatContent() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: allMessages, vehicleContext }),
+        body: JSON.stringify({
+          messages: allMessages,
+          vehicleContext,
+          userId: user?.id,
+          vehicleId: activeVehicle?.id || null,
+        }),
       });
 
       if (resp.status === 429) { toast.error('Rate limited. Wait a moment.'); setIsStreaming(false); return; }
@@ -199,7 +375,20 @@ function ChatContent() {
         }
       }
 
-      if (assistantContent) await saveMessage(sessionId, 'assistant', assistantContent);
+      if (assistantContent) {
+        await saveMessage(sessionId, 'assistant', assistantContent);
+
+        // Background memory extraction
+        if (user?.id) {
+          extractMemories(
+            lastUserMsgRef.current,
+            assistantContent,
+            user.id,
+            activeVehicle?.id || null,
+            sessionId,
+          );
+        }
+      }
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
     } catch (e: any) {
       setMessages(prev => [...prev, {
@@ -242,57 +431,75 @@ function ChatContent() {
 
   const vehicleLabel = activeVehicle
     ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}`
-    : null;
-
-  const vehicleDetail = activeVehicle
-    ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}${activeVehicle.engine ? ` · ${activeVehicle.engine}` : ''}${activeVehicle.mileage ? ` · ${activeVehicle.mileage.toLocaleString()} mi` : ''}`
-    : null;
+    : 'No vehicle selected';
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 h-14 bg-[#111111] border-b border-[#27272a] shrink-0">
+      <div className="flex items-center justify-between px-4 h-14 bg-card border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Wrench className="h-5 w-5 text-primary" />
           <span className="text-base font-bold text-foreground">Ratchet</span>
         </div>
-        {vehicleLabel && (
-          <span className="text-xs bg-[#3f3f46] text-foreground px-2.5 py-1 rounded-full truncate max-w-[160px]">
-            {vehicleLabel}
-          </span>
-        )}
         <div className="flex items-center gap-1">
-          <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-[#1a1a1a] transition-colors" title="New chat">
+          <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
             <Plus className="h-4 w-4" />
           </button>
-          <button onClick={() => setShowSessions(!showSessions)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-[#1a1a1a] transition-colors" title="Chat history">
+          <button onClick={() => setShowSessions(!showSessions)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="Chat history">
             <Clock className="h-4 w-4" />
           </button>
-          <button onClick={closeRatchetPanel} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-[#1a1a1a] transition-colors">
+          <button onClick={closeRatchetPanel} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Vehicle context bar */}
-      {vehicleDetail && (
-        <div className="flex items-center gap-2 px-4 h-10 bg-[#0f0f0f] border-b border-[#27272a] text-xs text-muted-foreground shrink-0">
-          <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
-          <span className="truncate">{vehicleDetail}</span>
-        </div>
-      )}
+      {/* Vehicle context bar — tappable to switch */}
+      <div className="relative shrink-0">
+        <button
+          onClick={() => setShowVehiclePicker(!showVehiclePicker)}
+          className="flex items-center gap-2 w-full px-4 h-10 bg-muted/30 border-b border-border text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+        >
+          <Car className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="truncate flex-1 text-left">{vehicleLabel}</span>
+          <ChevronDown className={cn("h-3 w-3 transition-transform", showVehiclePicker && "rotate-180")} />
+        </button>
+        {showVehiclePicker && allVehicles && (
+          <div className="absolute top-full left-0 right-0 z-50 border-b border-border bg-popover shadow-lg max-h-48 overflow-y-auto">
+            {allVehicles.map(v => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setActiveVehicle(v);
+                  setShowVehiclePicker(false);
+                }}
+                className={cn(
+                  'w-full text-left px-4 py-2.5 text-xs transition-colors flex items-center gap-2',
+                  v.id === activeVehicle?.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full shrink-0", v.id === activeVehicle?.id ? "bg-primary" : "bg-muted-foreground/30")} />
+                {v.nickname || `${v.year} ${v.make} ${v.model}`}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Session history drawer */}
       {showSessions && (
-        <div className="border-b border-[#27272a] bg-[#111111] max-h-48 overflow-y-auto shrink-0">
-          <div className="p-2 space-y-0.5">
+        <div className="border-b border-border bg-card max-h-48 overflow-y-auto shrink-0">
+          <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            Conversations about {vehicleLabel}
+          </div>
+          <div className="px-2 pb-2 space-y-0.5">
             {sessions?.map(s => (
               <button
                 key={s.id}
                 onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
                 className={cn(
                   'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
-                  s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-[#1a1a1a]'
+                  s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
                 )}
               >
                 {s.title || 'New conversation'}
@@ -319,7 +526,7 @@ function ChatContent() {
                 <button
                   key={p.text}
                   onClick={() => sendMessage(p.text)}
-                  className="rounded-xl border border-[#3f3f46] bg-[#1a1a1a] p-3 text-xs text-foreground text-left hover:border-primary/40 transition-colors"
+                  className="rounded-xl border border-border bg-card p-3 text-xs text-foreground text-left hover:border-primary/40 transition-colors"
                 >
                   {p.emoji} {p.text}
                 </button>
@@ -341,23 +548,16 @@ function ChatContent() {
                   'px-4 py-3 text-sm',
                   m.role === 'user'
                     ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm max-w-[80%]'
-                    : 'bg-[#1a1a1a] text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
+                    : 'bg-card border border-border text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
                 )}>
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-li:my-0.5 prose-headings:text-foreground prose-headings:border-b prose-headings:border-[#27272a] prose-headings:pb-1 prose-code:bg-primary/20 prose-code:text-primary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-xs prose-strong:text-foreground">
-                      <ReactMarkdown>{formatTorqueSpecs(m.content)}</ReactMarkdown>
-                    </div>
+                    <RatchetMarkdown content={m.content} />
                   ) : m.content}
                 </div>
                 {m.role === 'assistant' && activeVehicle && m.content.length > 50 && (
-                  <span className="text-[11px] text-success/80 flex items-center gap-1 ml-1">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
+                  <span className="text-[11px] text-green-500/80 flex items-center gap-1 ml-1">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
                     Specific to your {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
-                  </span>
-                )}
-                {m.created_at && (
-                  <span className="text-[11px] text-muted-foreground ml-1">
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
               </div>
@@ -376,13 +576,13 @@ function ChatContent() {
       )}
 
       {/* Input */}
-      <div className="bg-[#111111] border-t border-[#27272a] p-3 shrink-0">
+      <div className="bg-card border-t border-border p-3 shrink-0">
         <div className="flex items-end gap-2">
           <button
             onClick={toggleVoice}
             className={cn(
               'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-              isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-[#27272a] text-muted-foreground hover:text-foreground'
+              isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
             )}
           >
             {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
@@ -392,13 +592,13 @@ function ChatContent() {
             value={input}
             onChange={e => {
               setInput(e.target.value);
-              // Auto-expand
               e.target.style.height = 'auto';
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
             placeholder="Ask Ratchet anything..."
-            className="flex-1 bg-[#1a1a1a] border border-[#27272a] rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[40px] max-h-[120px] focus:outline-none focus:border-primary transition-colors"
+            className="flex-1 bg-muted border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-[160px] focus:outline-none focus:border-primary transition-all"
+            style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
           />
           <button
@@ -408,7 +608,7 @@ function ChatContent() {
               'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-all',
               input.trim() && !isStreaming
                 ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'bg-[#27272a] text-muted-foreground cursor-not-allowed'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
           >
             <Send className="h-4 w-4" />
@@ -435,7 +635,7 @@ function MobilePanel() {
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
     const dy = e.touches[0].clientY - dragStartY.current;
-    if (dy > 0) setDragY(dy); // Only drag down
+    if (dy > 0) setDragY(dy);
     if (dy < -50 && ratchetPanelMode === 'default') setRatchetPanelMode('fullscreen');
   };
 
@@ -454,7 +654,6 @@ function MobilePanel() {
     }
   }, [isRatchetOpen]);
 
-  // Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRatchetPanel(); };
     window.addEventListener('keydown', handler);
@@ -468,12 +667,7 @@ function MobilePanel() {
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 z-[9998] bg-black/60 animate-fade-in"
-        onClick={closeRatchetPanel}
-      />
-      {/* Panel */}
+      <div className="fixed inset-0 z-[9998] bg-black/60 animate-fade-in" onClick={closeRatchetPanel} />
       <div
         ref={panelRef}
         className="fixed inset-x-0 bottom-0 z-[9999] rounded-t-2xl overflow-hidden animate-slide-up"
@@ -483,15 +677,14 @@ function MobilePanel() {
           transition: isDragging ? 'none' : 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1), height 300ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
-        {/* Drag handle */}
         {!isFullscreen && (
           <div
-            className="flex justify-center pt-3 pb-1 bg-[#111111] cursor-grab"
+            className="flex justify-center pt-3 pb-1 bg-card cursor-grab"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="w-10 h-1 rounded-full bg-[#3f3f46]" />
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
         )}
         <ChatContent />
@@ -514,13 +707,8 @@ function DesktopPanel() {
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 z-[9998] bg-black/60 animate-fade-in"
-        onClick={closeRatchetPanel}
-      />
-      {/* Drawer */}
-      <div className="fixed top-0 right-0 bottom-0 z-[9999] w-[420px] animate-slide-in-right border-l border-[#27272a] shadow-2xl">
+      <div className="fixed inset-0 z-[9998] bg-black/60 animate-fade-in" onClick={closeRatchetPanel} />
+      <div className="fixed top-0 right-0 bottom-0 z-[9999] w-[420px] animate-slide-in-right border-l border-border shadow-2xl">
         <ChatContent />
       </div>
     </>
