@@ -12,6 +12,7 @@ import Garage from "./pages/Garage";
 import VehicleDetail from "./pages/VehicleDetail";
 import Chat from "./pages/Chat";
 import ProjectDetail from "./pages/ProjectDetail";
+import DiagnosisSession from "./pages/DiagnosisSession";
 import Projects from "./pages/Projects";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
