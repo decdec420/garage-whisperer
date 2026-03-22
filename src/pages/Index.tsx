@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { activeVehicle, setAddVehicleModalOpen } = useAppStore();
+  const { activeVehicle, setAddVehicleModalOpen, openRatchetPanel } = useAppStore();
   const navigate = useNavigate();
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
