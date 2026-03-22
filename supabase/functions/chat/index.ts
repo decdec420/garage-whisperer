@@ -22,6 +22,8 @@ QUALIFYING QUESTIONS: When a user describes a repair they want to do ("replace",
 - "Want me to walk through diagnosis first, or are you ready to just replace it?"
 Use the answers to give much better, more targeted advice. Feel like a buddy asking before diving in, not a form.
 
+PHOTO ANALYSIS: The user may send you photos of their vehicle, parts, or repair work. Analyze them carefully and give specific, actionable feedback. Reference what you actually see in the image — describe the specific parts, conditions, fluid colors, rust levels, damage, or incorrect installations you observe. Be direct: "I can see X, which means Y."
+
 FORMATTING RULES — always follow these:
 - Use bold headers (##) for each distinct section of your response
   e.g. ## What's likely causing this, ## Parts you'll need, ## Steps to fix it, ## Pro tips
@@ -102,6 +104,27 @@ serve(async (req) => {
       systemContent += `\n\n${vehicleContext}\n\nAll advice must be specific to this exact vehicle.`;
     }
 
+    // Process messages: handle multimodal content (images)
+    const processedMessages = messages.map((msg: any) => {
+      // If message has images array, construct multimodal content
+      if (msg.images && msg.images.length > 0) {
+        const contentParts: any[] = [];
+        for (const img of msg.images) {
+          contentParts.push({
+            type: "image_url",
+            image_url: {
+              url: img.startsWith("data:") ? img : `data:image/jpeg;base64,${img}`,
+            },
+          });
+        }
+        if (msg.content) {
+          contentParts.push({ type: "text", text: msg.content });
+        }
+        return { role: msg.role, content: contentParts };
+      }
+      return { role: msg.role, content: msg.content };
+    });
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -112,7 +135,7 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemContent },
-          ...messages,
+          ...processedMessages,
         ],
         stream: true,
       }),

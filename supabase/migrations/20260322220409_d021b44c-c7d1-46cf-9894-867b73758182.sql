@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_messages ADD COLUMN image_urls text[] DEFAULT '{}'::text[];

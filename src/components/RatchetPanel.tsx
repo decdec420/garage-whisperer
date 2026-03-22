@@ -3,18 +3,29 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen } from 'lucide-react';
+import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen, Paperclip, Camera, Image as ImageIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
 
+interface MessageImage {
+  url: string; // public URL after upload
+  dataUrl?: string; // local preview before upload
+}
+
 interface Message {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
+  images?: string[]; // public URLs
+}
+
+interface QueuedFile {
+  file: File;
+  previewUrl: string;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -33,6 +44,9 @@ const projectQuickPrompts = [
   { emoji: '🛠', text: 'I\'m stuck — walk me through this' },
   { emoji: '⚠️', text: 'Any safety concerns I should know about?' },
 ];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
 
 function RatchetAvatar() {
   return (
@@ -176,6 +190,27 @@ async function extractMemories(
   } catch { /* non-critical */ }
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadToStorage(file: File, projectId: string): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg';
+  const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase.storage.from('repair-photos').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('repair-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 function ChatContent() {
   const { user } = useAuth();
   const {
@@ -190,10 +225,15 @@ function ChatContent() {
   const [showSessions, setShowSessions] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [queuedFiles, setQueuedFiles] = useState<QueuedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const lastUserMsgRef = useRef<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isProjectMode = !!ratchetProjectContext;
   const activePrompts = isProjectMode ? projectQuickPrompts : quickPrompts;
@@ -218,12 +258,10 @@ function ChatContent() {
     }
   }, [ratchetPrefilledMessage, isRatchetOpen]);
 
-  // Load sessions filtered by vehicle AND project scope
   const { data: sessions } = useQuery({
     queryKey: ['ratchet-sessions', activeVehicle?.id, ratchetProjectContext?.id],
     queryFn: async () => {
       if (isProjectMode) {
-        // Project mode: get the single project thread
         const { data, error } = await supabase.from('chat_sessions').select('*')
           .eq('project_id', ratchetProjectContext!.id)
           .order('updated_at', { ascending: false })
@@ -231,7 +269,6 @@ function ChatContent() {
         if (error) throw error;
         return data;
       } else {
-        // General mode: get sessions without project_id for this vehicle
         const q = supabase.from('chat_sessions').select('*')
           .is('project_id', null)
           .order('updated_at', { ascending: false })
@@ -245,7 +282,6 @@ function ChatContent() {
     enabled: !!user && isRatchetOpen,
   });
 
-  // Also fetch general sessions for the "Open general chat" link in project mode
   const { data: generalSessions } = useQuery({
     queryKey: ['ratchet-general-sessions', activeVehicle?.id],
     queryFn: async () => {
@@ -261,26 +297,29 @@ function ChatContent() {
     enabled: !!user && isRatchetOpen && isProjectMode,
   });
 
-  // Reset session when vehicle or project changes
   useEffect(() => {
     setActiveSessionId(null);
     setMessages([]);
   }, [activeVehicle?.id, ratchetProjectContext?.id]);
 
-  // Auto-load last session
   useEffect(() => {
     if (sessions?.length && !activeSessionId && !messages.length) {
       setActiveSessionId(sessions[0].id);
     }
   }, [sessions]);
 
-  // Load messages for active session
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
     supabase.from('chat_messages').select('*').eq('session_id', activeSessionId)
       .order('created_at').limit(50)
       .then(({ data }) => {
-        if (data) setMessages(data.map(m => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content, created_at: m.created_at })));
+        if (data) setMessages(data.map(m => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          created_at: m.created_at,
+          images: (m as any).image_urls?.length ? (m as any).image_urls : undefined,
+        })));
       });
   }, [activeSessionId]);
 
@@ -299,13 +338,53 @@ function ChatContent() {
     return data.id;
   };
 
-  const saveMessage = async (sessionId: string, role: string, content: string) => {
-    await supabase.from('chat_messages').insert({ session_id: sessionId, role, content });
+  const saveMessage = async (sessionId: string, role: string, content: string, imageUrls?: string[]) => {
+    await supabase.from('chat_messages').insert({
+      session_id: sessionId,
+      role,
+      content,
+      image_urls: imageUrls || [],
+    } as any);
+  };
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles: QueuedFile[] = [];
+    for (let i = 0; i < Math.min(files.length, 3 - queuedFiles.length); i++) {
+      const file = files[i];
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} is too large (max 10MB)`);
+        continue;
+      }
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        toast.error(`${file.name} — unsupported file type`);
+        continue;
+      }
+      newFiles.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    setQueuedFiles(prev => [...prev, ...newFiles].slice(0, 3));
+    setShowAttachMenu(false);
+  };
+
+  const removeQueuedFile = (index: number) => {
+    setQueuedFiles(prev => {
+      URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const sendMessage = async (text: string) => {
-    if (!text.trim() || isStreaming) return;
+    if ((!text.trim() && queuedFiles.length === 0) || isStreaming) return;
+
+    const hasImages = queuedFiles.length > 0;
+    const filesToUpload = [...queuedFiles];
+    setQueuedFiles([]);
+
     const userMsg: Message = { role: 'user', content: text.trim() };
+    // Show local previews immediately
+    if (hasImages) {
+      userMsg.images = filesToUpload.map(f => f.previewUrl);
+    }
     lastUserMsgRef.current = text.trim();
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -319,23 +398,55 @@ function ChatContent() {
         sessionId = await createSession();
         const title = isProjectMode
           ? ratchetProjectContext!.title
-          : text.trim().slice(0, 50);
+          : text.trim().slice(0, 50) || 'Photo message';
         await supabase.from('chat_sessions').update({ title }).eq('id', sessionId);
         queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
       }
 
-      await saveMessage(sessionId, 'user', text.trim());
+      // Upload images to storage and get base64 for AI
+      let uploadedUrls: string[] = [];
+      let base64Images: string[] = [];
+      if (hasImages && isProjectMode) {
+        setIsUploading(true);
+        for (const qf of filesToUpload) {
+          try {
+            const [url, dataUrl] = await Promise.all([
+              uploadToStorage(qf.file, ratchetProjectContext!.id),
+              fileToBase64(qf.file),
+            ]);
+            uploadedUrls.push(url);
+            base64Images.push(dataUrl);
+          } catch (e) {
+            console.error('Upload error:', e);
+            toast.error('Failed to upload image');
+          }
+        }
+        setIsUploading(false);
+
+        // Update message with real URLs
+        setMessages(prev => prev.map((m, i) =>
+          i === prev.length - 1 && m.role === 'user' ? { ...m, images: uploadedUrls } : m
+        ));
+      }
+
+      await saveMessage(sessionId, 'user', text.trim(), uploadedUrls);
 
       let vehicleContext = activeVehicle
         ? `Active vehicle: ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}${activeVehicle.trim ? ` ${activeVehicle.trim}` : ''}${activeVehicle.engine ? ` · ${activeVehicle.engine}` : ''}${activeVehicle.mileage ? ` · ${activeVehicle.mileage.toLocaleString()} mi` : ''}`
         : '';
 
-      // Add project context if in project mode
       if (isProjectMode) {
         vehicleContext += `\n\nProject context: "${ratchetProjectContext!.title}" — The user is currently working on this specific project. Provide advice specific to this repair job.`;
       }
 
-      const allMessages = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+      // Build messages for API — include base64 images for the current message
+      const allMessages = [...messages, userMsg].map((m, idx) => {
+        const isLast = idx === messages.length; // the userMsg we just added
+        if (isLast && base64Images.length > 0) {
+          return { role: m.role, content: m.content || '', images: base64Images };
+        }
+        return { role: m.role, content: m.content };
+      });
 
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
@@ -403,6 +514,9 @@ function ChatContent() {
         content: "I'm having trouble connecting right now. Try again in a moment.",
       }]);
     }
+
+    // Cleanup blob URLs
+    filesToUpload.forEach(f => URL.revokeObjectURL(f.previewUrl));
     setIsStreaming(false);
   };
 
@@ -452,7 +566,6 @@ function ChatContent() {
           <span className="text-sm font-bold text-foreground truncate">{headerTitle}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* New chat button — disabled in project mode */}
           {!isProjectMode && (
             <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
               <Plus className="h-4 w-4" />
@@ -508,7 +621,6 @@ function ChatContent() {
       {/* Session history drawer */}
       {showSessions && (
         <div className="border-b border-border bg-card max-h-56 overflow-y-auto shrink-0">
-          {/* Project thread section */}
           {isProjectMode && (
             <>
               <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -552,7 +664,6 @@ function ChatContent() {
             </>
           )}
 
-          {/* General mode sessions */}
           {!isProjectMode && (
             <>
               <div className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -622,7 +733,24 @@ function ChatContent() {
                 )}>
                   {m.role === 'assistant' ? (
                     <RatchetMarkdown content={m.content} />
-                  ) : m.content}
+                  ) : m.content || null}
+                  {/* Inline images */}
+                  {m.images && m.images.length > 0 && (
+                    <div className={cn("flex flex-wrap gap-2", m.content && "mt-2")}>
+                      {m.images.map((url, imgIdx) => (
+                        <img
+                          key={imgIdx}
+                          src={url}
+                          alt="Uploaded photo"
+                          className="rounded-xl object-cover max-h-[280px] max-w-full"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {m.role === 'assistant' && activeVehicle && m.content.length > 50 && (
                   <span className="text-[11px] text-green-500/80 flex items-center gap-1 ml-1">
@@ -645,18 +773,96 @@ function ChatContent() {
         </div>
       )}
 
+      {/* Queued file previews */}
+      {queuedFiles.length > 0 && (
+        <div className="px-3 pb-1 pt-2 flex gap-2 bg-card border-t border-border shrink-0">
+          {queuedFiles.map((qf, i) => (
+            <div key={i} className="relative group">
+              <img
+                src={qf.previewUrl}
+                alt="Queued"
+                className="h-[60px] w-[60px] rounded-lg object-cover border border-border"
+              />
+              {isUploading && (
+                <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center">
+                  <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <button
+                onClick={() => removeQueuedFile(i)}
+                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Attach menu popover */}
+      {showAttachMenu && isProjectMode && (
+        <div className="absolute bottom-20 left-3 z-50 bg-popover border border-border rounded-xl shadow-lg p-1 min-w-[200px]">
+          <button
+            onClick={() => { cameraInputRef.current?.click(); }}
+            className="w-full text-left px-3 py-2.5 text-sm rounded-lg hover:bg-muted flex items-center gap-2 text-foreground"
+          >
+            <Camera className="h-4 w-4 text-primary" />
+            Take a photo
+          </button>
+          <button
+            onClick={() => { fileInputRef.current?.click(); }}
+            className="w-full text-left px-3 py-2.5 text-sm rounded-lg hover:bg-muted flex items-center gap-2 text-foreground"
+          >
+            <ImageIcon className="h-4 w-4 text-primary" />
+            Choose from library
+          </button>
+        </div>
+      )}
+
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+        multiple
+        className="hidden"
+        onChange={e => { handleFileSelect(e.target.files); e.target.value = ''; setShowAttachMenu(false); }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={e => { handleFileSelect(e.target.files); e.target.value = ''; setShowAttachMenu(false); }}
+      />
+
       {/* Input */}
       <div className="bg-card border-t border-border p-3 shrink-0">
         <div className="flex items-end gap-2">
-          <button
-            onClick={toggleVoice}
-            className={cn(
-              'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-              isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </button>
+          {/* Attachment button — only active in project mode */}
+          {isProjectMode ? (
+            <button
+              onClick={() => setShowAttachMenu(!showAttachMenu)}
+              className={cn(
+                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
+                showAttachMenu ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+              title="Attach photo"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={toggleVoice}
+              className={cn(
+                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
+                isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
+          )}
           <textarea
             ref={textareaRef}
             value={input}
@@ -671,12 +877,24 @@ function ChatContent() {
             style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
           />
+          {/* Mic button in project mode */}
+          {isProjectMode && (
+            <button
+              onClick={toggleVoice}
+              className={cn(
+                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
+                isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </button>
+          )}
           <button
             onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isStreaming}
+            disabled={(!input.trim() && queuedFiles.length === 0) || isStreaming}
             className={cn(
               'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-all',
-              input.trim() && !isStreaming
+              (input.trim() || queuedFiles.length > 0) && !isStreaming
                 ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
@@ -685,6 +903,9 @@ function ChatContent() {
           </button>
         </div>
       </div>
+
+      {/* Click-away for attach menu */}
+      {showAttachMenu && <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />}
     </div>
   );
 }
