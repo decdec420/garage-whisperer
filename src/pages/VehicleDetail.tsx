@@ -16,7 +16,9 @@ import BlueprintTab from '@/components/vehicle/BlueprintTab';
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { openRatchetPanel } = useAppStore();
+  const defaultTab = searchParams.get('tab') || 'overview';
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ['vehicle', vehicleId],
