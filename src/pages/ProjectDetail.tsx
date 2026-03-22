@@ -91,7 +91,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setRatchetProjectContext } = useAppStore();
   const [mechanicMode, setMechanicMode] = useState(false);
   const [safetyCollapsed, setSafetyCollapsed] = useState(false);
   const [partsExpanded, setPartsExpanded] = useState(false);
