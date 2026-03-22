@@ -147,8 +147,8 @@ export default function RatchetFAB() {
     }
 
     if (ds.moved) {
-      const newX = Math.max(0, Math.min(e.clientX - BUTTON_SIZE / 2, window.innerWidth - BUTTON_SIZE));
-      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - BUTTON_SIZE / 2, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const newX = Math.max(0, Math.min(e.clientX - ds.offsetX, window.innerWidth - BUTTON_SIZE));
+      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       setPos({ x: newX, y: newY });
     }
   };
