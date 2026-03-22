@@ -192,8 +192,8 @@ export default function ActiveWork() {
   return (
     <div className="space-y-6">
       {/* Hero Header */}
-      <div className="bg-[hsl(var(--card))] border-b border-border -mx-4 md:-mx-6 px-4 md:px-6 py-6 md:py-8">
-        <div className="flex items-center justify-between max-w-[1200px] mx-auto">
+      <div className="px-4 md:px-6 py-6 md:py-8">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl md:text-[28px] font-bold">Active Work</h1>
             <p className="text-sm text-muted-foreground mt-1">
