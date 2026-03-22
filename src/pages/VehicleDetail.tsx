@@ -11,6 +11,7 @@ import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3 } from '
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
 import ProjectsTab from '@/components/vehicle/ProjectsTab';
+import BlueprintTab from '@/components/vehicle/BlueprintTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
