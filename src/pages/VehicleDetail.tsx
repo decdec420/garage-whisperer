@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,9 @@ import BlueprintTab from '@/components/vehicle/BlueprintTab';
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { openRatchetPanel } = useAppStore();
+  const defaultTab = searchParams.get('tab') || 'overview';
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -75,7 +77,7 @@ export default function VehicleDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="blueprint"><Grid3X3 className="h-3.5 w-3.5 mr-1" />Blueprint</TabsTrigger>
