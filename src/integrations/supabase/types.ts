@@ -208,6 +208,269 @@ export type Database = {
         }
         Relationships: []
       }
+      project_notes: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          project_id: string
+          step_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          project_id: string
+          step_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          project_id?: string
+          step_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_notes_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "project_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_parts: {
+        Row: {
+          actual_cost: number | null
+          brand: string | null
+          buy_url_amazon: string | null
+          buy_url_rockauto: string | null
+          estimated_cost: number | null
+          have_it: boolean | null
+          id: string
+          name: string
+          notes: string | null
+          part_number: string | null
+          project_id: string
+          quantity: number | null
+          sort_order: number | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          brand?: string | null
+          buy_url_amazon?: string | null
+          buy_url_rockauto?: string | null
+          estimated_cost?: number | null
+          have_it?: boolean | null
+          id?: string
+          name: string
+          notes?: string | null
+          part_number?: string | null
+          project_id: string
+          quantity?: number | null
+          sort_order?: number | null
+        }
+        Update: {
+          actual_cost?: number | null
+          brand?: string | null
+          buy_url_amazon?: string | null
+          buy_url_rockauto?: string | null
+          estimated_cost?: number | null
+          have_it?: boolean | null
+          id?: string
+          name?: string
+          notes?: string | null
+          part_number?: string | null
+          project_id?: string
+          quantity?: number | null
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_parts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_steps: {
+        Row: {
+          completed_at: string | null
+          description: string
+          estimated_minutes: number | null
+          id: string
+          notes: string | null
+          photo_urls: string[] | null
+          project_id: string
+          safety_note: string | null
+          sort_order: number | null
+          status: string | null
+          step_number: number
+          sub_steps: string[] | null
+          tip: string | null
+          title: string
+          torque_specs: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          description: string
+          estimated_minutes?: number | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[] | null
+          project_id: string
+          safety_note?: string | null
+          sort_order?: number | null
+          status?: string | null
+          step_number: number
+          sub_steps?: string[] | null
+          tip?: string | null
+          title: string
+          torque_specs?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          description?: string
+          estimated_minutes?: number | null
+          id?: string
+          notes?: string | null
+          photo_urls?: string[] | null
+          project_id?: string
+          safety_note?: string | null
+          sort_order?: number | null
+          status?: string | null
+          step_number?: number
+          sub_steps?: string[] | null
+          tip?: string | null
+          title?: string
+          torque_specs?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_steps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_tools: {
+        Row: {
+          have_it: boolean | null
+          id: string
+          name: string
+          project_id: string
+          required: boolean | null
+          sort_order: number | null
+          spec: string | null
+        }
+        Insert: {
+          have_it?: boolean | null
+          id?: string
+          name: string
+          project_id: string
+          required?: boolean | null
+          sort_order?: number | null
+          spec?: string | null
+        }
+        Update: {
+          have_it?: boolean | null
+          id?: string
+          name?: string
+          project_id?: string
+          required?: boolean | null
+          sort_order?: number | null
+          spec?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tools_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          actual_minutes: number | null
+          ai_generated: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          estimated_minutes: number | null
+          id: string
+          safety_warnings: string[] | null
+          started_at: string | null
+          status: string
+          timer_running: boolean | null
+          timer_started_at: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          actual_minutes?: number | null
+          ai_generated?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          safety_warnings?: string[] | null
+          started_at?: string | null
+          status?: string
+          timer_running?: boolean | null
+          timer_started_at?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          vehicle_id: string
+        }
+        Update: {
+          actual_minutes?: number | null
+          ai_generated?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          safety_warnings?: string[] | null
+          started_at?: string | null
+          status?: string
+          timer_running?: boolean | null
+          timer_started_at?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_logs: {
         Row: {
           created_at: string

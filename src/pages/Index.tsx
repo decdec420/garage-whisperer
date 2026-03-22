@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu } from 'lucide-react';
+import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -102,17 +102,17 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Diagnose a problem', icon: MessageCircle, onClick: () => openRatchetPanel('Diagnose a symptom'), color: 'bg-primary/10 text-primary' },
+            { label: 'Start a project', icon: FolderOpen, onClick: () => { if (activeVehicle) navigate(`/garage/${activeVehicle.id}?tab=projects`); else navigate('/garage'); }, color: 'bg-accent text-accent-foreground' },
             { label: 'Log maintenance', icon: Wrench, onClick: () => navigate('/maintenance'), color: 'bg-success/10 text-success' },
             { label: 'Log a repair', icon: DollarSign, onClick: () => navigate('/repairs'), color: 'bg-warning/10 text-warning' },
-            { label: 'Scan OBD2 codes', icon: Cpu, onClick: () => {}, color: 'bg-secondary text-muted-foreground', badge: 'Coming Soon' },
           ].map((action) => (
             <button
               key={action.label}
               onClick={action.onClick}
               className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center relative"
             >
-              {action.badge && (
-                <span className="absolute top-2 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground">{action.badge}</span>
+              {'badge' in action && (action as any).badge && (
+                <span className="absolute top-2 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground">{(action as any).badge}</span>
               )}
               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${action.color}`}>
                 <action.icon className="h-5 w-5" />
