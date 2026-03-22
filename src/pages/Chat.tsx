@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Send, Plus, Wrench, MessageCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -19,6 +18,7 @@ interface Message {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-memories`;
 
 const quickPrompts = [
   'Diagnose a symptom or noise',
@@ -26,6 +26,67 @@ const quickPrompts = [
   'What maintenance is due?',
   'Is this DIY or should I go to a shop?',
 ];
+
+// Reuse the same markdown components from RatchetPanel
+const markdownComponents: Components = {
+  h2: ({ children }) => (
+    <div className="text-xs font-bold uppercase tracking-wider text-primary mt-4 mb-2 pb-1 border-b border-primary/20 first:mt-0">
+      {children}
+    </div>
+  ),
+  h3: ({ children }) => (
+    <div className="text-sm font-bold text-foreground mt-3 mb-1.5">{children}</div>
+  ),
+  p: ({ children }) => {
+    const text = typeof children === 'string' ? children :
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+    if (text.startsWith('🔩')) {
+      return (
+        <div className="my-1.5 px-3 py-2 rounded-lg border font-mono text-sm"
+          style={{ background: 'rgba(249,115,22,0.1)', borderColor: 'rgba(249,115,22,0.3)', color: '#f97316' }}>
+          {children}
+        </div>
+      );
+    }
+    if (text.startsWith('⚠️')) {
+      return (
+        <div className="my-1.5 px-3 py-2 rounded-r-lg"
+          style={{ background: 'rgba(239,68,68,0.08)', borderLeft: '3px solid #ef4444' }}>
+          <span className="text-sm">{children}</span>
+        </div>
+      );
+    }
+    if (text.startsWith('⚡')) {
+      return (
+        <div className="my-1.5 px-3 py-2 rounded-r-lg"
+          style={{ background: 'rgba(234,179,8,0.08)', borderLeft: '3px solid #eab308' }}>
+          <span className="text-sm">{children}</span>
+        </div>
+      );
+    }
+    return <p className="my-1 text-sm leading-relaxed">{children}</p>;
+  },
+  code: ({ children, className }) => {
+    if (className?.includes('language-')) {
+      return <code className={cn("block my-2 p-3 rounded-lg text-xs font-mono bg-muted/50 overflow-x-auto", className)}>{children}</code>;
+    }
+    return (
+      <code className="px-1.5 py-0.5 rounded font-mono text-xs"
+        style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', color: '#f97316' }}>
+        {children}
+      </code>
+    );
+  },
+  ul: ({ children }) => <ul className="my-1.5 pl-4 space-y-0.5 list-none">{children}</ul>,
+  ol: ({ children }) => <ol className="my-1.5 space-y-1">{children}</ol>,
+  li: ({ children }) => (
+    <li className="text-sm flex gap-1.5 items-start">
+      <span className="text-primary mt-1.5 shrink-0">•</span>
+      <span>{children}</span>
+    </li>
+  ),
+  strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
+};
 
 export default function Chat() {
   const { user } = useAuth();
@@ -37,11 +98,11 @@ export default function Chat() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastUserMsgRef = useRef('');
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(scrollToBottom, [messages]);
 
-  // Load sessions
   const { data: sessions } = useQuery({
     queryKey: ['chat-sessions', activeVehicle?.id],
     queryFn: async () => {
@@ -54,7 +115,6 @@ export default function Chat() {
     enabled: !!user,
   });
 
-  // Load messages for active session
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
     supabase.from('chat_messages').select('*').eq('session_id', activeSessionId).order('created_at').then(({ data }) => {
@@ -80,6 +140,7 @@ export default function Chat() {
   const sendMessage = async (text: string) => {
     if (!text.trim() || isStreaming) return;
     const userMsg: Message = { role: 'user', content: text.trim() };
+    lastUserMsgRef.current = text.trim();
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsStreaming(true);
@@ -88,7 +149,6 @@ export default function Chat() {
       let sessionId = activeSessionId;
       if (!sessionId) {
         sessionId = await createSession();
-        // Auto-title
         const title = text.trim().slice(0, 50);
         await supabase.from('chat_sessions').update({ title }).eq('id', sessionId);
         queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
@@ -96,7 +156,6 @@ export default function Chat() {
 
       await saveMessage(sessionId, 'user', text.trim());
 
-      // Build context
       const vehicleContext = activeVehicle
         ? `Active vehicle: ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}${activeVehicle.trim ? ` ${activeVehicle.trim}` : ''}`
         : '';
@@ -109,7 +168,12 @@ export default function Chat() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: allMessages, vehicleContext }),
+        body: JSON.stringify({
+          messages: allMessages,
+          vehicleContext,
+          userId: user?.id,
+          vehicleId: activeVehicle?.id || null,
+        }),
       });
 
       if (resp.status === 429) { toast.error('Rate limited. Please wait a moment.'); setIsStreaming(false); return; }
@@ -151,7 +215,26 @@ export default function Chat() {
         }
       }
 
-      if (assistantContent) await saveMessage(sessionId, 'assistant', assistantContent);
+      if (assistantContent) {
+        await saveMessage(sessionId, 'assistant', assistantContent);
+        // Background memory extraction
+        if (user?.id) {
+          fetch(EXTRACT_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              userMessage: lastUserMsgRef.current,
+              assistantMessage: assistantContent,
+              userId: user.id,
+              vehicleId: activeVehicle?.id || null,
+              sessionId,
+            }),
+          }).catch(() => {});
+        }
+      }
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
     } catch (e: any) {
       toast.error(e.message || 'Failed to get response');
@@ -220,8 +303,8 @@ export default function Chat() {
                   {m.role === 'assistant' ? (
                     <div className="flex gap-3">
                       <Wrench className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                      <div className="prose prose-sm prose-invert max-w-none">
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                      <div className="max-w-none">
+                        <ReactMarkdown components={markdownComponents}>{m.content}</ReactMarkdown>
                       </div>
                     </div>
                   ) : m.content}
@@ -243,13 +326,17 @@ export default function Chat() {
         {/* Input */}
         <div className="border-t border-border p-4">
           <div className="flex gap-2 items-end max-w-3xl mx-auto">
-            <Textarea
+            <textarea
               ref={textareaRef}
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => {
+                setInput(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+              }}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
               placeholder="Describe your issue or ask a question..."
-              className="bg-popover resize-none min-h-[44px] max-h-[120px]"
+              className="flex-1 bg-muted border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-[160px] focus:outline-none focus:border-primary transition-all"
               rows={1}
             />
             <Button size="icon" onClick={() => sendMessage(input)} disabled={!input.trim() || isStreaming} className="shrink-0 h-11 w-11">
