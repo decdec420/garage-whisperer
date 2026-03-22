@@ -203,6 +203,7 @@ interface BlueprintTabProps {
 
 export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { openRatchetPanel } = useAppStore();
   const [selectedZone, setSelectedZone] = useState<ZoneDefinition | null>(null);
   const [hoveredZone, setHoveredZone] = useState<string | null>(null);
@@ -211,6 +212,7 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
   const [showIssues, setShowIssues] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [generatingComponent, setGeneratingComponent] = useState<string | null>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
 
   const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
