@@ -48,6 +48,13 @@ function TypingIndicator() {
   );
 }
 
+// Format torque specs and part numbers inline
+function formatTorqueSpecs(text: string): string {
+  // Torque specs: "33 ft-lbs", "45 Nm", "33 ft·lbs"
+  let formatted = text.replace(/(\d+)\s*(ft[-·]?lbs?|Nm)/gi, '`$1 $2`');
+  return formatted;
+}
+
 function ChatContent() {
   const { user } = useAuth();
   const { activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen } = useAppStore();
@@ -195,7 +202,10 @@ function ChatContent() {
       if (assistantContent) await saveMessage(sessionId, 'assistant', assistantContent);
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
     } catch (e: any) {
-      toast.error(e.message || 'Failed to get response');
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "I'm having trouble connecting right now. Try again in a moment.",
+      }]);
     }
     setIsStreaming(false);
   };
@@ -326,17 +336,30 @@ function ChatContent() {
               )}
             >
               {m.role === 'assistant' && <RatchetAvatar />}
-              <div className={cn(
-                'px-4 py-3 text-sm',
-                m.role === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm max-w-[80%]'
-                  : 'bg-[#1a1a1a] text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
-              )}>
-                {m.role === 'assistant' ? (
-                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-li:my-0.5 prose-headings:text-foreground prose-headings:border-b prose-headings:border-[#27272a] prose-headings:pb-1 prose-code:bg-primary/20 prose-code:text-primary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-xs prose-strong:text-foreground">
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
-                  </div>
-                ) : m.content}
+              <div className="flex flex-col gap-1">
+                <div className={cn(
+                  'px-4 py-3 text-sm',
+                  m.role === 'user'
+                    ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm max-w-[80%]'
+                    : 'bg-[#1a1a1a] text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
+                )}>
+                  {m.role === 'assistant' ? (
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-li:my-0.5 prose-headings:text-foreground prose-headings:border-b prose-headings:border-[#27272a] prose-headings:pb-1 prose-code:bg-primary/20 prose-code:text-primary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:font-mono prose-code:text-xs prose-strong:text-foreground">
+                      <ReactMarkdown>{formatTorqueSpecs(m.content)}</ReactMarkdown>
+                    </div>
+                  ) : m.content}
+                </div>
+                {m.role === 'assistant' && activeVehicle && m.content.length > 50 && (
+                  <span className="text-[11px] text-success/80 flex items-center gap-1 ml-1">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
+                    Specific to your {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
+                  </span>
+                )}
+                {m.created_at && (
+                  <span className="text-[11px] text-muted-foreground ml-1">
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
               </div>
             </div>
           ))

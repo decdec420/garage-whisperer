@@ -50,6 +50,9 @@
     --sidebar-accent-foreground: 240 5% 96%;
     --sidebar-border: 0 0% 10%;
     --sidebar-ring: 24 95% 53%;
+
+    --surface: 0 0% 6%;
+    --elevated: 0 0% 13%;
   }
 }
 
@@ -80,23 +83,113 @@
   }
 }
 
-/* Ratchet FAB pulse */
+/* ── Shimmer skeleton ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, hsl(0 0% 10%) 25%, hsl(240 4% 16%) 50%, hsl(0 0% 10%) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Ratchet FAB pulse ── */
 @keyframes ratchet-pulse {
   0% { transform: scale(1); opacity: 0.5; }
   50% { transform: scale(1.45); opacity: 0; }
   100% { transform: scale(1); opacity: 0; }
 }
-
 .animate-ratchet-pulse {
   animation: ratchet-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Slide up animation for mobile panel */
+/* ── Slide up panel ── */
 @keyframes slide-up {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
-
 .animate-slide-up {
   animation: slide-up 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── Page fade in ── */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-page-enter {
+  animation: page-enter 200ms ease-out both;
+}
+
+/* ── Scale pop (step completion) ── */
+@keyframes scale-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.animate-scale-pop {
+  animation: scale-pop 300ms ease-out;
+}
+
+/* ── Fade in (messages, cards) ── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 150ms ease-out both;
+}
+
+/* ── Checkmark draw ── */
+@keyframes check-draw {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+.animate-check-draw {
+  animation: check-draw 200ms ease-out forwards;
+}
+
+/* ── Typewriter ── */
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* ── Card hover ── */
+@layer components {
+  .card-hover {
+    @apply transition-all duration-150 ease-out;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 4px 12px hsl(0 0% 0% / 0.3);
+  }
+}
+
+/* ── Torque spec inline badge ── */
+.torque-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.15);
+  border: 1px solid hsl(var(--primary) / 0.4);
+}
+
+/* ── Part number code pill ── */
+.part-number {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.15);
 }

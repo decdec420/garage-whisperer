@@ -4,12 +4,26 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Car, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import AddVehicleModal from '@/components/AddVehicleModal';
+
+function VehicleCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+      <div className="skeleton-shimmer h-5 w-3/5 rounded-md" />
+      <div className="skeleton-shimmer h-3.5 w-2/5 rounded-md" />
+      <div className="skeleton-shimmer h-3 w-1/3 rounded-md" />
+      <div className="flex gap-3 mt-4">
+        <div className="skeleton-shimmer h-3 w-20 rounded-md" />
+        <div className="skeleton-shimmer h-3 w-16 rounded-md" />
+      </div>
+      <div className="skeleton-shimmer h-9 w-full rounded-lg mt-4" />
+    </div>
+  );
+}
 
 export default function Garage() {
   const { user } = useAuth();
@@ -50,7 +64,7 @@ export default function Garage() {
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+          {[1, 2, 3].map((i) => <VehicleCardSkeleton key={i} />)}
         </div>
       ) : !vehicles?.length ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
@@ -66,7 +80,8 @@ export default function Garage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vehicles.map((v) => (
-            <Card key={v.id} className="border-border hover:border-primary/30 transition-colors group relative">
+            <Card key={v.id} className="border-border card-hover group relative cursor-pointer"
+              onClick={() => navigate(`/garage/${v.id}`)}>
               <CardContent className="p-5">
                 {v.nickname && (
                   <span className="absolute top-3 right-12 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
@@ -75,15 +90,16 @@ export default function Garage() {
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+                    <button className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+                      onClick={e => e.stopPropagation()}>
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => navigate(`/garage/${v.id}`)}>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/garage/${v.id}`); }}>
                       <Pencil className="h-4 w-4 mr-2" /> Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={() => deleteMutation.mutate(v.id)}>
+                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(v.id); }}>
                       <Trash2 className="h-4 w-4 mr-2" /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -101,9 +117,6 @@ export default function Garage() {
                     </span>
                   )}
                 </div>
-                <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => navigate(`/garage/${v.id}`)}>
-                  View Details
-                </Button>
               </CardContent>
             </Card>
           ))}
