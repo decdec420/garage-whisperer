@@ -12,6 +12,7 @@ import Garage from "./pages/Garage";
 import VehicleDetail from "./pages/VehicleDetail";
 import Chat from "./pages/Chat";
 import ProjectDetail from "./pages/ProjectDetail";
+import Projects from "./pages/Projects";
 import Maintenance from "./pages/Maintenance";
 import Repairs from "./pages/Repairs";
 import SettingsPage from "./pages/SettingsPage";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/garage" element={<ProtectedRoute><Garage /></ProtectedRoute>} />
             <Route path="/garage/:vehicleId" element={<ProtectedRoute><VehicleDetail /></ProtectedRoute>} />
             <Route path="/garage/:vehicleId/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+            <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
             <Route path="/repairs" element={<ProtectedRoute><Repairs /></ProtectedRoute>} />
