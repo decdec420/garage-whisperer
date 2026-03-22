@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
+import ProjectsTab from '@/components/vehicle/ProjectsTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
@@ -74,6 +75,7 @@ export default function VehicleDetail() {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
         </TabsList>
@@ -140,6 +142,10 @@ export default function VehicleDetail() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <ProjectsTab vehicleId={vehicleId!} />
         </TabsContent>
 
         <TabsContent value="maintenance">
