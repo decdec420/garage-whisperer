@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, AlertTriangle, Cpu, FolderOpen } from 'lucide-react';
+import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, Cpu, FolderOpen, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -46,7 +46,23 @@ export default function Dashboard() {
     },
   });
 
-  // Empty state: no vehicles
+  // Get most recent active project for "Resume" action
+  const { data: activeProject } = useQuery({
+    queryKey: ['most-recent-active-project'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, title, vehicle_id')
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
+
+  const activeProjectVehicle = activeProject && vehicles?.find(v => v.id === activeProject.vehicle_id);
+
   if (!vehiclesLoading && (!vehicles || vehicles.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center">
@@ -99,27 +115,49 @@ export default function Dashboard() {
       {/* Quick actions */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Start a Project', icon: FolderOpen, onClick: () => navigate('/projects'), color: 'bg-primary/10 text-primary' },
-            { label: 'Blueprint my car', icon: Cpu, onClick: () => { if (activeVehicle) navigate(`/garage/${activeVehicle.id}?tab=blueprint`); else navigate('/garage'); }, color: 'bg-accent text-accent-foreground' },
-            { label: 'Log maintenance', icon: Wrench, onClick: () => navigate('/maintenance'), color: 'bg-success/10 text-success' },
-            { label: 'Diagnose a problem', icon: MessageCircle, onClick: () => openRatchetPanel('Diagnose a symptom'), color: 'bg-warning/10 text-warning' },
-          ].map((action) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {activeProject ? (
             <button
-              key={action.label}
-              onClick={action.onClick}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center relative"
+              onClick={() => navigate(`/garage/${activeProject.vehicle_id}/projects/${activeProject.id}`)}
+              className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4 hover:border-primary/50 transition-colors min-h-[100px] justify-center col-span-2 md:col-span-1"
             >
-              {'badge' in action && (action as any).badge && (
-                <span className="absolute top-2 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground">{(action as any).badge}</span>
-              )}
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${action.color}`}>
-                <action.icon className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                <FolderOpen className="h-5 w-5" />
               </div>
-              <span className="text-xs font-medium text-center">{action.label}</span>
+              <span className="text-xs font-medium text-center">Resume: {activeProject.title}</span>
+              {activeProjectVehicle && (
+                <span className="text-[10px] text-muted-foreground">{activeProjectVehicle.year} {activeProjectVehicle.make} {activeProjectVehicle.model}</span>
+              )}
             </button>
-          ))}
+          ) : (
+            <button
+              onClick={() => navigate('/active-work')}
+              className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
+            >
+              <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                <FolderOpen className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-medium text-center">Start a project</span>
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/garage')}
+            className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
+          >
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-accent text-accent-foreground">
+              <Car className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-medium text-center">View my garage</span>
+          </button>
+          <button
+            onClick={() => openRatchetPanel('Diagnose a symptom')}
+            className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
+          >
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-medium text-center">Diagnose a problem</span>
+          </button>
         </div>
       </div>
     </div>

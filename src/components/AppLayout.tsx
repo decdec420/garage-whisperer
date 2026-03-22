@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Grid3X3, ClipboardList, Settings, LogOut, ChevronDown, Plus, Home, Search } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus, Home, Grid3X3, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -16,17 +16,14 @@ import OnboardingFlow from '@/components/OnboardingFlow';
 const sidebarNav = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'My Garage', icon: Car, path: '/garage' },
-  { label: 'Projects', icon: Wrench, path: '/projects' },
-  { label: 'Maintenance', icon: ClipboardList, path: '/maintenance' },
-  { label: 'Repairs', icon: ClipboardList, path: '/repairs' },
+  { label: 'Active Work', icon: Wrench, path: '/active-work' },
 ];
 
 const mobileNav = [
   { label: 'Home', icon: Home, path: '/' },
   { label: 'Garage', icon: Car, path: '/garage' },
-  { label: 'Projects', icon: Wrench, path: '/projects' },
+  { label: 'Active', icon: Wrench, path: '/active-work' },
   { label: 'Blueprint', icon: Grid3X3, path: '/blueprint' },
-  { label: 'Logs', icon: ClipboardList, path: '/maintenance' },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -51,7 +48,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
   }
 
-  // Onboarding check
   useEffect(() => {
     if (user && vehicles !== undefined && vehicles.length === 0) {
       const seen = localStorage.getItem(`ratchet-onboarded-${user.id}`);
@@ -165,7 +161,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1">
             <NotificationCenter />
             <button
-              onClick={() => { /* GlobalSearch listens for Cmd+K, but we can trigger it via a state */ }}
+              onClick={() => {}}
               className="p-2 text-muted-foreground hover:text-foreground"
             >
               <Search className="h-5 w-5" />
