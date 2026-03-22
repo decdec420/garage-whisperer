@@ -79,7 +79,7 @@ export default function RatchetFAB() {
     offsetY: 0,
   });
 
-  const buttonRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Initial position & resize handler
   const updateFromDocked = useCallback((d: DockedPosition) => {
