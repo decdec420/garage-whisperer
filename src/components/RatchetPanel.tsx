@@ -195,7 +195,10 @@ function ChatContent() {
       if (assistantContent) await saveMessage(sessionId, 'assistant', assistantContent);
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
     } catch (e: any) {
-      toast.error(e.message || 'Failed to get response');
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "I'm having trouble connecting right now. Try again in a moment.",
+      }]);
     }
     setIsStreaming(false);
   };
