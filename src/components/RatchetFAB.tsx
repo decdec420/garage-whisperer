@@ -212,10 +212,10 @@ export default function RatchetFAB() {
 
   return (
     <>
-      {isMobile ? (
+      {isMobile || dragging ? (
         button
       ) : (
-        <Tooltip>
+        <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side={docked.edge === 'right' ? 'left' : 'right'} className="bg-popover text-popover-foreground border-border">
             Ask Ratchet
