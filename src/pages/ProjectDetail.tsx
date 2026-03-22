@@ -311,7 +311,9 @@ export default function ProjectDetail() {
         onStepComplete={(stepId) => completeStep.mutate(stepId)}
         onStepChange={setActiveStepIdx}
         onExit={() => setMechanicMode(false)}
+        onFinishJob={() => { setMechanicMode(false); setShowCompletion(true); }}
         openRatchetPanel={openRatchetPanel}
+        elapsedStr={elapsedStr}
       />
     );
   }

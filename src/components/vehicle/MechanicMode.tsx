@@ -1,11 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Check, X, Mic, Volume2, VolumeX, Wrench, AlertTriangle, Lightbulb, Zap, Droplets, ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import {
-  ArrowLeft, ArrowRight, Check, X, Mic, Volume2, VolumeX,
-  Wrench, AlertTriangle, Lightbulb
-} from 'lucide-react';
 
 interface MechanicModeProps {
   project: any;
@@ -15,20 +10,66 @@ interface MechanicModeProps {
   onStepComplete: (stepId: string) => void;
   onStepChange: (idx: number) => void;
   onExit: () => void;
+  onFinishJob: () => void;
   openRatchetPanel: (msg?: string) => void;
+  elapsedStr: string;
+}
+
+// Determine a contextual icon + category label based on step title/description
+function getStepContext(step: any): { icon: React.ReactNode; label: string } {
+  const text = `${step.title} ${step.description}`.toLowerCase();
+  if (text.match(/exhaust|catalytic|muffler|pipe|header/))
+    return { icon: <Wrench className="h-12 w-12 text-primary" />, label: 'Exhaust System' };
+  if (text.match(/jack|lift|support|stand/))
+    return { icon: <ArrowUp className="h-12 w-12 text-primary" />, label: 'Lifting & Support' };
+  if (text.match(/electric|wire|fuse|battery|sensor|connector|harness/))
+    return { icon: <Zap className="h-12 w-12 text-primary" />, label: 'Electrical' };
+  if (text.match(/oil|fluid|coolant|brake fluid|transmission fluid|drain|fill/))
+    return { icon: <Droplets className="h-12 w-12 text-primary" />, label: 'Fluids' };
+  if (text.match(/brake|rotor|caliper|pad/))
+    return { icon: <Wrench className="h-12 w-12 text-primary" />, label: 'Braking System' };
+  if (text.match(/suspen|strut|shock|spring|control arm|tie rod|ball joint/))
+    return { icon: <Wrench className="h-12 w-12 text-primary" />, label: 'Suspension' };
+  if (text.match(/engine|motor|cylinder|piston|valve|cam|timing/))
+    return { icon: <Wrench className="h-12 w-12 text-primary" />, label: 'Engine' };
+  return { icon: <Wrench className="h-12 w-12 text-primary" />, label: 'General' };
+}
+
+// Simple ArrowUp icon for jack/lift context
+function ArrowUp({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  );
 }
 
 export default function MechanicMode({
-  project, vehicle, steps, activeStepIdx, onStepComplete, onStepChange, onExit, openRatchetPanel,
+  project, vehicle, steps, activeStepIdx, onStepComplete, onStepChange, onExit, onFinishJob, openRatchetPanel, elapsedStr,
 }: MechanicModeProps) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [subStepsChecked, setSubStepsChecked] = useState<Set<number>>(new Set());
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [greenFlash, setGreenFlash] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const recognitionRef = useRef<any>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const step = steps[activeStepIdx];
   const isDone = step?.status === 'done';
   const torqueSpecs = Array.isArray(step?.torque_specs) ? step.torque_specs : [];
+  const subSteps = Array.isArray(step?.sub_steps) ? step.sub_steps : [];
+  const completedSteps = steps.filter(s => s.status === 'done').length;
+  const pctDone = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
+  const isLastStep = activeStepIdx >= steps.length - 1;
+  const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
+
+  // Reset sub-steps when step changes
+  useEffect(() => {
+    setSubStepsChecked(new Set());
+    scrollRef.current?.scrollTo(0, 0);
+  }, [activeStepIdx]);
 
   // Wake Lock
   useEffect(() => {
@@ -54,14 +95,13 @@ export default function MechanicMode({
     recognition.onresult = (e: any) => {
       const text = e.results[0][0].transcript;
       setIsListening(false);
-      // Handle voice commands
       const lower = text.toLowerCase();
-      if (lower.includes('next step')) {
+      if (lower.includes('next step') || lower.includes('next')) {
         if (activeStepIdx < steps.length - 1) onStepChange(activeStepIdx + 1);
-      } else if (lower.includes('mark complete') || lower.includes('done')) {
-        if (step && !isDone) onStepComplete(step.id);
-      } else if (lower.includes('torque')) {
-        // Already visible
+      } else if (lower.includes('previous') || lower.includes('prev') || lower.includes('back')) {
+        if (activeStepIdx > 0) onStepChange(activeStepIdx - 1);
+      } else if (lower.includes('mark complete') || lower.includes('done') || lower.includes('finish')) {
+        if (step && !isDone) handleComplete();
       } else {
         openRatchetPanel(
           `I'm on Step ${step?.step_number} of ${project.title}: ${step?.title}. ${text}`
@@ -73,110 +113,321 @@ export default function MechanicMode({
     recognition.start();
     setIsListening(true);
     recognitionRef.current = recognition;
-  }, [activeStepIdx, step, isDone, steps.length, onStepChange, onStepComplete, openRatchetPanel, project.title]);
+  }, [activeStepIdx, step, isDone, steps.length, onStepChange, openRatchetPanel, project.title]);
 
-  if (!step) return null;
+  const handleComplete = useCallback(() => {
+    if (!step) return;
+    if (isLastStep) {
+      // Last step - show green flash then completion
+      setGreenFlash(true);
+      onStepComplete(step.id);
+      setTimeout(() => {
+        setGreenFlash(false);
+        setShowCompletion(true);
+      }, 600);
+    } else {
+      // Green flash then next step
+      setGreenFlash(true);
+      onStepComplete(step.id);
+      setTimeout(() => {
+        setGreenFlash(false);
+        onStepChange(activeStepIdx + 1);
+      }, 400);
+    }
+  }, [step, isLastStep, onStepComplete, onStepChange, activeStepIdx]);
+
+  const toggleSubStep = (idx: number) => {
+    setSubStepsChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const allSubStepsDone = subSteps.length > 0 && subStepsChecked.size === subSteps.length;
+
+  if (!step && !showCompletion) return null;
+
+  // Completion overlay
+  if (showCompletion) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.95)' }}>
+        <div className="text-center space-y-5 p-8 animate-scale-in">
+          <div className="mx-auto flex items-center justify-center rounded-full bg-primary" style={{ width: 80, height: 80 }}>
+            <Check className="h-10 w-10 text-primary-foreground" />
+          </div>
+          <h1 className="text-4xl font-bold text-foreground">Job done.</h1>
+          <p className="text-lg text-primary">{vehicleLabel}</p>
+          <p className="text-muted-foreground">Time spent: {elapsedStr}</p>
+          <div className="space-y-3 pt-4 max-w-xs mx-auto">
+            <button
+              className="w-full h-14 rounded-xl bg-primary text-primary-foreground text-lg font-bold"
+              onClick={onFinishJob}
+            >
+              Log this repair
+            </button>
+            <button
+              className="w-full h-12 rounded-xl text-muted-foreground text-base"
+              onClick={onExit}
+            >
+              Exit Mechanic Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const context = getStepContext(step);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 shrink-0">
-        <span className="text-xs text-muted-foreground">Step {activeStepIdx + 1}/{steps.length}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setVoiceEnabled(!voiceEnabled)} className="text-muted-foreground p-2">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#000000' }}>
+      {/* Green flash overlay */}
+      {greenFlash && (
+        <div className="fixed inset-0 z-[70] pointer-events-none animate-fade-out" style={{ background: 'rgba(34,197,94,0.3)' }} />
+      )}
+
+      {/* Top bar - 52px */}
+      <div className="flex items-center justify-between px-4 shrink-0" style={{ height: 52 }}>
+        <button onClick={onExit} className="text-sm text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-zinc-900 transition-colors">
+          Exit
+        </button>
+        <span className="text-base text-foreground font-medium">Step {activeStepIdx + 1} of {steps.length}</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setVoiceEnabled(!voiceEnabled)}
+            className="p-2 text-muted-foreground rounded-full hover:bg-zinc-900 transition-colors"
+          >
             {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </button>
-          <button onClick={onExit} className="text-muted-foreground p-2 text-xs">
-            <X className="h-4 w-4" />
+          <button
+            className={`flex items-center justify-center rounded-full transition-all ${
+              isListening
+                ? 'bg-destructive animate-pulse'
+                : 'bg-zinc-800'
+            }`}
+            style={{ width: 44, height: 44 }}
+            onClick={startListening}
+          >
+            <Mic className={`h-5 w-5 ${isListening ? 'text-destructive-foreground' : 'text-foreground'}`} />
           </button>
         </div>
       </div>
 
-      {/* Main content - scrollable */}
-      <div className="flex-1 overflow-y-auto px-6 pb-40">
-        {/* Step title */}
-        <h1 className="text-[28px] font-bold text-foreground leading-tight mt-4">{step.title}</h1>
+      {/* Listening indicator */}
+      {isListening && (
+        <div className="text-center py-1">
+          <span className="text-primary animate-pulse text-sm font-medium">Listening...</span>
+        </div>
+      )}
 
-        {step.estimated_minutes && (
-          <Badge variant="secondary" className="mt-3 text-sm">~{step.estimated_minutes}m</Badge>
-        )}
+      {/* Progress bar - 3px */}
+      <div className="w-full shrink-0" style={{ height: 3, background: '#27272a' }}>
+        <div
+          className="h-full transition-all duration-500 ease-out"
+          style={{ width: `${pctDone}%`, background: '#f97316' }}
+        />
+      </div>
+
+      {/* Main content - scrollable */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {/* Step title with number circle */}
+        <div className="flex items-start gap-3 px-5 pt-6 pb-2">
+          <div
+            className="shrink-0 flex items-center justify-center rounded-full bg-primary text-primary-foreground font-bold"
+            style={{ width: 36, height: 36, fontSize: 16 }}
+          >
+            {step.step_number}
+          </div>
+          <h1 className="text-foreground font-bold leading-tight" style={{ fontSize: 28, lineHeight: 1.3 }}>
+            {step.title}
+          </h1>
+        </div>
+
+        {/* Illustration zone */}
+        <div
+          className="mx-5 mt-2 mb-4 flex flex-col items-center justify-center rounded-xl"
+          style={{
+            height: 180,
+            background: '#111111',
+            border: '1px dashed #27272a',
+          }}
+        >
+          {context.icon}
+          <span className="text-muted-foreground text-sm mt-2">{context.label}</span>
+          <span className="text-zinc-700 mt-auto mb-3" style={{ fontSize: 11 }}>
+            Phase 2: Photo guide coming soon
+          </span>
+        </div>
 
         {/* Description */}
-        <div className="mt-6 text-xl leading-[1.8] text-foreground/90 prose prose-invert prose-lg max-w-none">
+        <div className="px-5 pb-4 prose prose-invert max-w-none" style={{ fontSize: 19, lineHeight: 1.75, color: '#e4e4e7' }}>
           <ReactMarkdown>{step.description}</ReactMarkdown>
         </div>
 
-        {/* Torque specs - HUGE */}
+        {/* Torque specs */}
         {torqueSpecs.length > 0 && (
-          <div className="mt-6 space-y-3">
+          <div className="px-5 space-y-2 pb-4">
             {torqueSpecs.map((ts: any, i: number) => (
-              <div key={i}
-                className="flex items-center gap-3 px-5 py-4 rounded-xl border border-primary/40 bg-primary/15 font-mono text-2xl text-primary">
-                <Wrench className="h-6 w-6 shrink-0" />
-                <span>{ts.bolt}: <strong>{ts.spec} {ts.unit}</strong></span>
+              <div
+                key={i}
+                className="rounded-xl"
+                style={{
+                  background: 'rgba(249,115,22,0.15)',
+                  border: '2px solid rgba(249,115,22,0.6)',
+                  padding: '16px 20px',
+                }}
+              >
+                <div className="flex items-center gap-2 text-muted-foreground" style={{ fontSize: 15 }}>
+                  🔩 {ts.bolt || ts.name || 'Torque spec'}
+                </div>
+                <div className="font-mono font-bold text-primary mt-1" style={{ fontSize: 32 }}>
+                  {ts.spec || ts.value} {ts.unit || 'ft-lbs'}
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Tip */}
+        {/* Pro Tip */}
         {step.tip && (
-          <div className="mt-6 rounded-xl border border-warning/30 bg-[#1a1500] p-4" style={{ borderLeftWidth: 4, borderLeftColor: '#eab308' }}>
-            <p className="font-bold text-warning flex items-center gap-2 text-lg"><Lightbulb className="h-5 w-5" /> Pro Tip</p>
-            <p className="text-lg text-foreground mt-2">{step.tip}</p>
+          <div
+            className="mx-5 mb-3 rounded-r-xl"
+            style={{
+              background: 'rgba(234,179,8,0.08)',
+              borderLeft: '4px solid #eab308',
+              padding: '14px 16px',
+            }}
+          >
+            <p className="font-bold uppercase tracking-wide" style={{ fontSize: 13, color: '#eab308' }}>
+              <Lightbulb className="h-4 w-4 inline mr-1" style={{ verticalAlign: '-2px' }} />
+              Pro Tip
+            </p>
+            <p className="text-foreground mt-1.5" style={{ fontSize: 17 }}>{step.tip}</p>
           </div>
         )}
 
         {/* Safety note */}
         {step.safety_note && (
-          <div className="mt-6 rounded-xl border border-destructive/30 bg-[#1f0000] p-4" style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--destructive))' }}>
-            <p className="font-bold text-destructive flex items-center gap-2 text-lg"><AlertTriangle className="h-5 w-5" /> Safety</p>
-            <p className="text-lg text-foreground mt-2">{step.safety_note}</p>
+          <div
+            className="mx-5 mb-3 rounded-r-xl"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              borderLeft: '4px solid #ef4444',
+              padding: '14px 16px',
+            }}
+          >
+            <p className="font-bold uppercase tracking-wide" style={{ fontSize: 13, color: '#ef4444' }}>
+              <AlertTriangle className="h-4 w-4 inline mr-1" style={{ verticalAlign: '-2px' }} />
+              Safety
+            </p>
+            <p className="text-foreground mt-1.5" style={{ fontSize: 17 }}>{step.safety_note}</p>
           </div>
         )}
+
+        {/* Sub-steps checklist */}
+        {subSteps.length > 0 && (
+          <div className="px-5 pb-4 space-y-2">
+            <p className="text-muted-foreground text-sm font-medium uppercase tracking-wide mb-2">Sub-steps</p>
+            {subSteps.map((sub: string, i: number) => (
+              <button
+                key={i}
+                className="flex items-center gap-3 w-full text-left rounded-lg p-3 transition-colors"
+                style={{ background: subStepsChecked.has(i) ? 'rgba(34,197,94,0.1)' : '#111111' }}
+                onClick={() => toggleSubStep(i)}
+              >
+                <div
+                  className="shrink-0 flex items-center justify-center rounded-lg border-2 transition-colors"
+                  style={{
+                    width: 36, height: 36,
+                    borderColor: subStepsChecked.has(i) ? '#22c55e' : '#3f3f46',
+                    background: subStepsChecked.has(i) ? '#22c55e' : 'transparent',
+                  }}
+                >
+                  {subStepsChecked.has(i) && <Check className="h-5 w-5 text-white" />}
+                </div>
+                <span
+                  className={`transition-colors ${subStepsChecked.has(i) ? 'text-muted-foreground line-through' : 'text-foreground'}`}
+                  style={{ fontSize: 18 }}
+                >
+                  {sub}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Bottom spacer for fixed bar */}
+        <div style={{ height: 100 }} />
       </div>
 
-      {/* Voice listening indicator */}
-      {isListening && (
-        <div className="absolute top-16 left-0 right-0 text-center">
-          <span className="text-primary animate-pulse text-lg font-medium">Listening...</span>
-        </div>
-      )}
+      {/* Bottom bar - 80px */}
+      <div
+        className="shrink-0 flex items-center gap-3 px-4"
+        style={{
+          height: 80,
+          background: '#0a0a0a',
+          borderTop: '1px solid #1a1a1a',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        {/* Prev */}
+        <button
+          className="flex items-center justify-center gap-1 rounded-xl font-medium transition-colors"
+          style={{
+            flex: '0 0 30%',
+            height: 56,
+            background: '#1a1a1a',
+            border: '1px solid #27272a',
+            opacity: activeStepIdx <= 0 ? 0.3 : 1,
+            color: '#e4e4e7',
+            fontSize: 15,
+          }}
+          disabled={activeStepIdx <= 0}
+          onClick={() => onStepChange(activeStepIdx - 1)}
+        >
+          <ArrowLeft className="h-5 w-5" />
+          Prev
+        </button>
 
-      {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-border">
-        {/* Mark complete - massive tap target */}
-        {!isDone && (
-          <button
-            className="w-full h-[72px] bg-primary text-primary-foreground text-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            onClick={() => onStepComplete(step.id)}>
-            <Check className="h-6 w-6" /> Done — Next Step
-          </button>
-        )}
+        {/* Mark Complete / Finish */}
+        <button
+          className={`flex items-center justify-center gap-2 rounded-xl font-bold transition-all ${
+            allSubStepsDone && subSteps.length > 0 ? 'animate-pulse' : ''
+          }`}
+          style={{
+            flex: '1 1 40%',
+            height: 56,
+            background: isDone ? '#22c55e' : '#f97316',
+            color: '#fff',
+            fontSize: 18,
+          }}
+          disabled={isDone}
+          onClick={handleComplete}
+        >
+          <Check className="h-5 w-5" />
+          {isDone ? 'Completed' : isLastStep ? 'Finish Job' : 'Done'}
+        </button>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between px-4 h-16 safe-area-bottom">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-12 w-12 text-muted-foreground"
-              disabled={activeStepIdx <= 0}
-              onClick={() => onStepChange(activeStepIdx - 1)}>
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <button
-              className={`h-14 w-14 rounded-full flex items-center justify-center ${
-                isListening ? 'bg-destructive animate-pulse' : 'bg-secondary'
-              }`}
-              onClick={startListening}>
-              <Mic className={`h-6 w-6 ${isListening ? 'text-destructive-foreground' : 'text-foreground'}`} />
-            </button>
-          </div>
-
-          <Button variant="ghost" size="icon" className="h-12 w-12 text-primary"
-            disabled={activeStepIdx >= steps.length - 1}
-            onClick={() => onStepChange(activeStepIdx + 1)}>
-            <ArrowRight className="h-6 w-6" />
-          </Button>
-        </div>
+        {/* Next */}
+        <button
+          className="flex items-center justify-center gap-1 rounded-xl font-medium transition-colors"
+          style={{
+            flex: '0 0 30%',
+            height: 56,
+            background: '#1a1a1a',
+            border: '1px solid #27272a',
+            opacity: isLastStep ? 0.3 : 1,
+            color: '#e4e4e7',
+            fontSize: 15,
+          }}
+          disabled={isLastStep}
+          onClick={() => onStepChange(activeStepIdx + 1)}
+        >
+          Next
+          <ArrowRight className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );
