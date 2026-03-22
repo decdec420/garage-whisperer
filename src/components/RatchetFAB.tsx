@@ -157,20 +157,16 @@ export default function RatchetFAB() {
     const ds = dragState.current;
     if (!ds.active) return;
 
-    if (ds.pointerId !== null) {
-      buttonRef.current?.releasePointerCapture(ds.pointerId);
-    }
+    buttonRef.current?.releasePointerCapture(ds.pointerId);
 
     const elapsed = Date.now() - ds.startTime;
 
     if (!ds.moved && elapsed < TAP_TIME) {
-      // It's a tap
       openRatchetPanel();
     } else if (ds.moved) {
-      // Snap to nearest edge
       const centerX = e.clientX;
       const edge: 'left' | 'right' = centerX < window.innerWidth / 2 ? 'left' : 'right';
-      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - BUTTON_SIZE / 2, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       const verticalPercent = clampedY / window.innerHeight;
       const newDocked: DockedPosition = { edge, verticalPercent };
       setDocked(newDocked);
