@@ -66,15 +66,18 @@ export default function RatchetFAB() {
   const [dragging, setDragging] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
-  const dragState = useRef<{
-    active: boolean;
-    startX: number;
-    startY: number;
-    startTime: number;
-    moved: boolean;
-    pointerId: number | null;
-  }>({ active: false, startX: 0, startY: 0, startTime: 0, moved: false, pointerId: null });
+  const dragState = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    moved: false,
+    pointerId: -1,
+    offsetX: 0,
+    offsetY: 0,
+  });
 
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -110,6 +113,8 @@ export default function RatchetFAB() {
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const rect = buttonRef.current?.getBoundingClientRect();
     dragState.current = {
       active: true,
       startX: e.clientX,
@@ -117,8 +122,11 @@ export default function RatchetFAB() {
       startTime: Date.now(),
       moved: false,
       pointerId: e.pointerId,
+      offsetX: rect ? e.clientX - rect.left : BUTTON_SIZE / 2,
+      offsetY: rect ? e.clientY - rect.top : BUTTON_SIZE / 2,
     };
     buttonRef.current?.setPointerCapture(e.pointerId);
+    setTooltipOpen(false);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -139,8 +147,8 @@ export default function RatchetFAB() {
     }
 
     if (ds.moved) {
-      const newX = Math.max(0, Math.min(e.clientX - BUTTON_SIZE / 2, window.innerWidth - BUTTON_SIZE));
-      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - BUTTON_SIZE / 2, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const newX = Math.max(0, Math.min(e.clientX - ds.offsetX, window.innerWidth - BUTTON_SIZE));
+      const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       setPos({ x: newX, y: newY });
     }
   };
@@ -149,20 +157,16 @@ export default function RatchetFAB() {
     const ds = dragState.current;
     if (!ds.active) return;
 
-    if (ds.pointerId !== null) {
-      buttonRef.current?.releasePointerCapture(ds.pointerId);
-    }
+    buttonRef.current?.releasePointerCapture(ds.pointerId);
 
     const elapsed = Date.now() - ds.startTime;
 
     if (!ds.moved && elapsed < TAP_TIME) {
-      // It's a tap
       openRatchetPanel();
     } else if (ds.moved) {
-      // Snap to nearest edge
       const centerX = e.clientX;
       const edge: 'left' | 'right' = centerX < window.innerWidth / 2 ? 'left' : 'right';
-      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - BUTTON_SIZE / 2, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
+      const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - ds.offsetY, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       const verticalPercent = clampedY / window.innerHeight;
       const newDocked: DockedPosition = { edge, verticalPercent };
       setDocked(newDocked);
@@ -208,10 +212,10 @@ export default function RatchetFAB() {
 
   return (
     <>
-      {isMobile ? (
+      {isMobile || dragging ? (
         button
       ) : (
-        <Tooltip>
+        <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side={docked.edge === 'right' ? 'left' : 'right'} className="bg-popover text-popover-foreground border-border">
             Ask Ratchet
