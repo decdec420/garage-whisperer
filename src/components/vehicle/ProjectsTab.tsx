@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 
 export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
@@ -165,10 +167,11 @@ export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps
         const diffClass = DIFFICULTY_COLORS[project.difficulty || ''] || '';
 
         return (
-          <Card key={project.id} className={`border-border ${project.status === 'completed' ? 'opacity-60' : ''}`}>
+          <Card key={project.id} className={`border-border ${project.status === 'completed' ? 'opacity-60' : ''} cursor-pointer hover:border-primary/30 transition-colors`}
+            onClick={() => navigate(`/garage/${vehicleId}/projects/${project.id}`)}>
             <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(project.id)}>
               <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-accent/5 transition-colors p-4">
+                <CardHeader className="cursor-pointer hover:bg-accent/5 transition-colors p-4" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="mt-0.5">
