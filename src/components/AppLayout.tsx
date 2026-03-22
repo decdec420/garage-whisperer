@@ -47,7 +47,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="p-4 border-b border-sidebar-border">
           <div className="flex items-center gap-2 mb-4">
             <Wrench className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-primary">GarageOS</span>
+            <span className="text-xl font-bold text-primary">Ratchet</span>
           </div>
 
           {/* Vehicle Switcher */}
