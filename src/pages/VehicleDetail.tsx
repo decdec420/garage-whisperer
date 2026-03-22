@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3 } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
 import ProjectsTab from '@/components/vehicle/ProjectsTab';
