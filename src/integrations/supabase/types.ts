@@ -471,6 +471,54 @@ export type Database = {
           },
         ]
       }
+      ratchet_memory: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          memory_type: string
+          source_session_id: string | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          memory_type: string
+          source_session_id?: string | null
+          updated_at?: string
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          memory_type?: string
+          source_session_id?: string | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratchet_memory_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratchet_memory_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_logs: {
         Row: {
           created_at: string
