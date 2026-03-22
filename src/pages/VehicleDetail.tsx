@@ -7,12 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3, Search } from 'lucide-react';
+import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3, Search, BookOpen } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
 import ProjectsTab from '@/components/vehicle/ProjectsTab';
 import BlueprintTab from '@/components/vehicle/BlueprintTab';
 import DiagnoseTab from '@/components/vehicle/DiagnoseTab';
+import DocsTab from '@/components/vehicle/DocsTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
@@ -86,6 +87,7 @@ export default function VehicleDetail() {
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
+          <TabsTrigger value="docs"><BookOpen className="h-3.5 w-3.5 mr-1" />Docs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -170,6 +172,10 @@ export default function VehicleDetail() {
 
         <TabsContent value="repairs">
           <RepairsTab vehicleId={vehicleId!} />
+        </TabsContent>
+
+        <TabsContent value="docs">
+          <DocsTab vehicleId={vehicleId!} vehicle={vehicle} />
         </TabsContent>
       </Tabs>
     </div>
