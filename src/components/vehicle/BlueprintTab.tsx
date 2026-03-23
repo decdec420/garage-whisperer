@@ -575,6 +575,45 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                           </div>
 
                           <div className="flex flex-col gap-2 pt-1">
+                            {/* View Factory Procedure button */}
+                            {vehicle.year >= 1982 && vehicle.year <= 2013 && (
+                              <Button size="sm" variant="outline" className="w-full border-primary/30 text-primary"
+                                disabled={loadingCharm === compKey}
+                                onClick={async () => {
+                                  setLoadingCharm(compKey);
+                                  try {
+                                    const keyword = componentToJobKeyword(comp.name);
+                                    const resp = await supabase.functions.invoke('fetch-charm-data', {
+                                      body: {
+                                        make: vehicle.make,
+                                        year: vehicle.year,
+                                        model: vehicle.model,
+                                        engine: vehicle.engine || null,
+                                        jobKeyword: keyword,
+                                      },
+                                    });
+                                    if (resp.error) throw resp.error;
+                                    const data = resp.data;
+                                    if (data?.found) {
+                                      setCharmSheet({ compName: comp.name, data });
+                                    } else {
+                                      toast.info('No factory procedure available for this component');
+                                    }
+                                  } catch (err) {
+                                    console.error('Charm fetch failed:', err);
+                                    toast.error('Could not load factory procedure');
+                                  } finally {
+                                    setLoadingCharm(null);
+                                  }
+                                }}>
+                                {loadingCharm === compKey ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                ) : (
+                                  <BookOpen className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                View Factory Procedure
+                              </Button>
+                            )}
                             {generatingComponent === compKey ? (
                               <div className="space-y-2">
                                 <Button size="sm" className="w-full bg-primary text-primary-foreground" disabled>
@@ -589,7 +628,6 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                                 onClick={async () => {
                                   setGeneratingComponent(compKey);
                                   try {
-                                    // Infer action
                                     const action = comp.commonIssue
                                       ? 'Inspect and replace if needed'
                                       : 'Replace';
