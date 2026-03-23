@@ -1,19 +1,19 @@
 project_id = "kzspxrjehqrcwmxicehj"
 
 [functions.chat]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-project]
-verify_jwt = true
+verify_jwt = false
 
 [functions.extract-memories]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-diagnosis]
-verify_jwt = true
+verify_jwt = false
 
 [functions.search-manuals]
-verify_jwt = true
+verify_jwt = false
 
 [functions.fetch-charm-data]
-verify_jwt = true
+verify_jwt = false
