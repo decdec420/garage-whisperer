@@ -12,8 +12,9 @@ import { toast } from 'sonner';
 import {
   Search, X, Plus, Minus, AlertTriangle, Clock,
   Box, ChevronRight, ChevronDown, Wrench, MessageCircle,
-  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon, Loader2
+  Zap, Shield, Fuel, Disc, Cable, Sofa, Car as CarIcon, Loader2, BookOpen, ExternalLink
 } from 'lucide-react';
+import { componentToJobKeyword } from '@/lib/charm-url';
 
 // ── Zone definitions with top-down car positions (percentages) ──
 interface ZoneDefinition {
