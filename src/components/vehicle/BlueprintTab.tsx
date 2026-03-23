@@ -214,6 +214,8 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
   const [showRecent, setShowRecent] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [generatingComponent, setGeneratingComponent] = useState<string | null>(null);
+  const [charmSheet, setCharmSheet] = useState<{ compName: string; data: any } | null>(null);
+  const [loadingCharm, setLoadingCharm] = useState<string | null>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
 
   const vehicleLabel = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
