@@ -99,7 +99,59 @@ serve(async (req) => {
       }
     }
 
-    let systemContent = SYSTEM_PROMPT + memoryBlock;
+    // --- Inject charm.li factory data if relevant ---
+    let charmBlock = "";
+    if (vehicleId) {
+      try {
+        const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || '';
+        // Quick keyword scan to see if we should look up charm data
+        const charmKeywords = [
+          'starter', 'alternator', 'catalytic', 'oxygen sensor', 'o2 sensor',
+          'vtec', 'valve cover', 'timing chain', 'water pump', 'thermostat',
+          'radiator', 'brake pad', 'brake rotor', 'strut', 'spark plug',
+          'wheel bearing', 'cv axle', 'fuel pump', 'engine mount', 'control arm',
+          'ac compressor', 'serpentine', 'drive belt', 'head gasket', 'power steering',
+          'throttle body', 'ignition coil', 'oil pan', 'tie rod', 'ball joint',
+          'brake caliper', 'sway bar', 'abs sensor', 'fuel injector', 'vtc actuator',
+          'battery', 'transmission fluid', 'oil pump', 'camshaft', 'crankshaft',
+          'maf sensor', 'mass air flow',
+        ];
+        const matchedKeyword = charmKeywords.find(kw => lastUserMsg.includes(kw));
+
+        if (matchedKeyword && vehicleContext) {
+          // Extract year from vehicleContext
+          const yearMatch = vehicleContext.match(/(\d{4})/);
+          const year = yearMatch ? parseInt(yearMatch[1]) : 0;
+          if (year >= 1982 && year <= 2013) {
+            // Try to fetch charm data via the edge function
+            const charmResp = await fetch(`${supabaseUrl}/functions/v1/fetch-charm-data`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
+              body: JSON.stringify({
+                make: vehicleContext.match(/\d{4}\s+(\w+)/)?.[1] || '',
+                year,
+                model: vehicleContext.match(/\d{4}\s+\w+\s+(\w+)/)?.[1] || '',
+                engine: vehicleContext.match(/Engine:\s*(.+)/i)?.[1]?.trim() || null,
+                jobKeyword: matchedKeyword,
+              }),
+            });
+            if (charmResp.ok) {
+              const charmData = await charmResp.json();
+              if (charmData.found && charmData.procedureText) {
+                const torqueLines = (charmData.torqueSpecs || [])
+                  .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
+                  .join('; ');
+                charmBlock = `\n\n## Factory Service Manual Reference (charm.li)\nThe following is from the official factory service manual. Use it as your primary reference. When citing torque specs from this data, append [📖 FSM] inline.\n\n${charmData.procedureText.slice(0, 4000)}${torqueLines ? `\n\nFactory torque specs: ${torqueLines}` : ''}`;
+              }
+            }
+          }
+        }
+      } catch (charmErr) {
+        console.error("Charm lookup in chat failed (non-fatal):", charmErr);
+      }
+    }
+
+    let systemContent = SYSTEM_PROMPT + memoryBlock + charmBlock;
     if (vehicleContext) {
       systemContent += `\n\n${vehicleContext}\n\nAll advice must be specific to this exact vehicle.`;
     }

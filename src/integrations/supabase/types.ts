@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      charm_cache: {
+        Row: {
+          charm_url: string
+          created_at: string | null
+          fetched_at: string | null
+          id: string
+          images: string[] | null
+          procedure_text: string | null
+          torque_specs: Json | null
+        }
+        Insert: {
+          charm_url: string
+          created_at?: string | null
+          fetched_at?: string | null
+          id?: string
+          images?: string[] | null
+          procedure_text?: string | null
+          torque_specs?: Json | null
+        }
+        Update: {
+          charm_url?: string
+          created_at?: string | null
+          fetched_at?: string | null
+          id?: string
+          images?: string[] | null
+          procedure_text?: string | null
+          torque_specs?: Json | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -388,10 +418,13 @@ export type Database = {
       }
       project_steps: {
         Row: {
+          charm_image_url: string | null
+          charm_source_url: string | null
           completed_at: string | null
           description: string
           estimated_minutes: number | null
           id: string
+          is_factory_verified: boolean | null
           notes: string | null
           photo_urls: string[] | null
           project_id: string
@@ -405,10 +438,13 @@ export type Database = {
           torque_specs: Json | null
         }
         Insert: {
+          charm_image_url?: string | null
+          charm_source_url?: string | null
           completed_at?: string | null
           description: string
           estimated_minutes?: number | null
           id?: string
+          is_factory_verified?: boolean | null
           notes?: string | null
           photo_urls?: string[] | null
           project_id: string
@@ -422,10 +458,13 @@ export type Database = {
           torque_specs?: Json | null
         }
         Update: {
+          charm_image_url?: string | null
+          charm_source_url?: string | null
           completed_at?: string | null
           description?: string
           estimated_minutes?: number | null
           id?: string
+          is_factory_verified?: boolean | null
           notes?: string | null
           photo_urls?: string[] | null
           project_id?: string

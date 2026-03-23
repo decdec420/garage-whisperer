@@ -203,12 +203,33 @@ export default function MechanicMode({
           </h1>
         </div>
 
-        {/* Illustration zone */}
-        <div className="mx-5 mt-2 mb-4 flex flex-col items-center justify-center rounded-xl" style={{ height: 180, background: '#111111', border: '1px dashed #27272a' }}>
-          {getStepContext(step!).icon}
-          <span className="text-muted-foreground text-sm mt-2">{getStepContext(step!).label}</span>
-          <span className="mt-auto mb-3" style={{ fontSize: 11, color: '#3f3f46' }}>Phase 2: Photo guide coming soon</span>
-        </div>
+        {/* Illustration zone — factory photo or icon placeholder */}
+        {(step as any)?.charm_image_url ? (
+          <div className="mx-5 mt-2 mb-4 rounded-xl overflow-hidden" style={{ background: '#0f0f0f', border: '1px solid #27272a' }}>
+            <img
+              src={(step as any).charm_image_url}
+              alt={`Factory diagram — ${step!.title}`}
+              className="w-full block"
+              style={{ maxHeight: 240, objectFit: 'contain', padding: 12, background: '#0f0f0f' }}
+              loading="lazy"
+            />
+            <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#0a0a0a', borderTop: '1px solid #1a1a1a' }}>
+              <span style={{ fontSize: 11, color: '#52525b' }}>📖 Factory Service Manual</span>
+              {(step as any)?.charm_source_url && (
+                <a href={(step as any).charm_source_url} target="_blank" rel="noopener noreferrer"
+                  className="ml-auto hover:underline" style={{ fontSize: 11, color: '#f97316' }}>
+                  charm.li
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mx-5 mt-2 mb-4 flex flex-col items-center justify-center rounded-xl" style={{ height: 180, background: '#111111', border: '1px dashed #27272a' }}>
+            {getStepContext(step!).icon}
+            <span className="text-muted-foreground text-sm mt-2">{getStepContext(step!).label}</span>
+            <span className="mt-auto mb-3" style={{ fontSize: 11, color: '#3f3f46' }}>Phase 2: Photo guide coming soon</span>
+          </div>
+        )}
 
         {/* Description */}
         <div className="px-5 pb-4 prose prose-invert max-w-none" style={{ fontSize: 19, lineHeight: 1.75, color: '#e4e4e7' }}>
