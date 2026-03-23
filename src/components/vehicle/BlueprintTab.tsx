@@ -686,6 +686,103 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
           </div>
         </>
       )}
+
+      {/* Charm.li Factory Procedure Bottom Sheet */}
+      {charmSheet && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[60]" onClick={() => setCharmSheet(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-[61] bg-card border-t border-border rounded-t-2xl animate-slide-up flex flex-col"
+            style={{ height: '80vh' }}>
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-border" />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-foreground">{vehicle.make} Factory Service Manual</h3>
+                  <p className="text-xs text-muted-foreground">{charmSheet.compName} — {vehicleLabel}</p>
+                </div>
+              </div>
+              <button onClick={() => setCharmSheet(null)} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-secondary">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {charmSheet.data.images?.length > 0 && (
+                <div className="space-y-3">
+                  {charmSheet.data.images.slice(0, 10).map((img: string, i: number) => (
+                    <div key={i} className="rounded-xl overflow-hidden border border-border" style={{ background: '#0f0f0f' }}>
+                      <img src={img} alt={`Factory diagram ${i + 1}`} className="w-full block"
+                        style={{ maxHeight: 300, objectFit: 'contain', padding: 12, background: '#0f0f0f' }} loading="lazy" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {charmSheet.data.procedureText && (
+                <div className="prose prose-invert prose-sm max-w-none">
+                  {charmSheet.data.procedureText.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => (
+                    <p key={i} className="text-sm text-foreground/90 leading-relaxed">{line}</p>
+                  ))}
+                </div>
+              )}
+              {charmSheet.data.torqueSpecs?.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-foreground">Factory Torque Specs</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {charmSheet.data.torqueSpecs.map((ts: any, i: number) => (
+                      <div key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-primary/60 bg-primary/20 font-mono text-sm text-primary">
+                        <BookOpen className="h-4 w-4" />
+                        {ts.context ? `${ts.context}: ` : ''}{ts.value} {ts.unit}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                <BookOpen className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
+                {charmSheet.data.charmUrl && (
+                  <a href={charmSheet.data.charmUrl} target="_blank" rel="noopener noreferrer"
+                    className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
+                    View on charm.li <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+              <Button className="w-full bg-primary text-primary-foreground"
+                onClick={() => {
+                  const jobDescription = `Replace ${charmSheet.compName} on ${vehicleLabel}${vehicle.engine ? ` ${vehicle.engine}` : ''}`;
+                  setCharmSheet(null);
+                  setSelectedZone(null);
+                  (async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) throw new Error('Not authenticated');
+                      toast.info('Generating project from factory procedure...');
+                      const resp = await supabase.functions.invoke('generate-project', {
+                        body: { vehicleId, jobDescription },
+                      });
+                      if (resp.error) throw resp.error;
+                      const result = resp.data;
+                      if (result?.error) throw new Error(result.error);
+                      const projectId = result?.project?.id;
+                      if (projectId) {
+                        toast.success('Project created from factory procedure!');
+                        navigate(`/garage/${vehicleId}/projects/${projectId}`);
+                      }
+                    } catch (err: any) {
+                      toast.error(err?.message || "Couldn't create project");
+                    }
+                  })();
+                }}>
+                <Wrench className="h-4 w-4 mr-2" /> Create Project from this
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
