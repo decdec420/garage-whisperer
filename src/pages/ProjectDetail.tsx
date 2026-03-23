@@ -615,22 +615,64 @@ export default function ProjectDetail() {
                       <Badge variant="secondary" className="text-xs gap-1"><Clock className="h-3 w-3" /> ~{step.estimated_minutes}m</Badge>
                     )}
 
+                    {/* Factory photo from charm.li */}
+                    {step.charm_image_url && (
+                      <div className="rounded-xl overflow-hidden border border-border" style={{ background: '#0f0f0f' }}>
+                        <img
+                          src={step.charm_image_url}
+                          alt={`Factory diagram — ${step.title}`}
+                          className="w-full block"
+                          style={{ maxHeight: 320, objectFit: 'contain', padding: 12, background: '#0f0f0f' }}
+                          loading="lazy"
+                        />
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-border" style={{ background: '#0a0a0a' }}>
+                          <BookOpen className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground" style={{ fontSize: 11 }}>{vehicle?.make} Factory Service Manual</span>
+                          {step.charm_source_url && (
+                            <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
+                              className="ml-auto text-primary flex items-center gap-1 hover:underline" style={{ fontSize: 11 }}>
+                              charm.li <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Description */}
                     <div className="text-[15px] md:text-base leading-relaxed text-foreground/90 prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown>{step.description}</ReactMarkdown>
                     </div>
 
                     {/* Torque specs */}
+                    <TooltipProvider>
                     {torqueSpecs.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {torqueSpecs.map((ts: any, i: number) => (
-                          <div key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/40 bg-primary/15 font-mono text-sm text-primary">
-                            <Wrench className="h-4 w-4" />
-                            {ts.bolt}: {ts.spec} {ts.unit}
-                          </div>
+                          <Tooltip key={i}>
+                            <TooltipTrigger asChild>
+                              <div className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg font-mono text-sm text-primary ${
+                                step.is_factory_verified
+                                  ? 'border-2 border-primary/60 bg-primary/20'
+                                  : 'border border-primary/40 bg-primary/15'
+                              }`}>
+                                {step.is_factory_verified ? (
+                                  <BookOpen className="h-4 w-4" />
+                                ) : (
+                                  <Wrench className="h-4 w-4" />
+                                )}
+                                {!step.is_factory_verified && '~'}{ts.bolt}: {ts.spec} {ts.unit}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {step.is_factory_verified
+                                ? `Confirmed — ${vehicle?.make} Factory Service Manual`
+                                : 'AI estimate — verify with your service manual'}
+                            </TooltipContent>
+                          </Tooltip>
                         ))}
                       </div>
                     )}
+                    </TooltipProvider>
 
                     {/* Sub-steps */}
                     {step.sub_steps && step.sub_steps.length > 0 && (
@@ -657,6 +699,18 @@ export default function ProjectDetail() {
                       <div className="rounded-lg border border-destructive/30 bg-[#1f0000] p-3" style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--destructive))' }}>
                         <p className="text-sm font-bold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-4 w-4" /> Safety</p>
                         <p className="text-sm text-foreground mt-1">{step.safety_note}</p>
+                      </div>
+                    )}
+
+                    {/* Factory source attribution */}
+                    {step.is_factory_verified && step.charm_source_url && !step.charm_image_url && (
+                      <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                        <BookOpen className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
+                        <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
+                          className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
+                          View <ExternalLink className="h-3 w-3" />
+                        </a>
                       </div>
                     )}
 
