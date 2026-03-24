@@ -107,34 +107,19 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
   );
 
   return (
-    <div className="space-y-6 mt-4">
-      {projectSessions.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <FolderOpen className="h-3.5 w-3.5" />
-            Project Conversations
-          </h3>
-          <div className="space-y-2">
-            {projectSessions.map(s => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {generalSessions.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <MessageCircle className="h-3.5 w-3.5" />
-            General Conversations
-          </h3>
-          <div className="space-y-2">
-            {generalSessions.map(s => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="space-y-3 mt-4">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+        <MessageCircle className="h-3.5 w-3.5" />
+        General Conversations
+      </h3>
+      <div className="space-y-2">
+        {sessions.map(s => (
+          <SessionRow key={s.id} session={s} />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground text-center pt-2">
+        Project-specific chats live inside each project
+      </p>
     </div>
   );
 }
