@@ -67,6 +67,17 @@ serve(async (req) => {
       }
     }
 
+    // Verify sessionId belongs to authenticated user
+    if (sessionId) {
+      const { data: session } = await supabase
+        .from("chat_sessions").select("id").eq("id", sessionId).eq("user_id", userId).single();
+      if (!session) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const conversationText = `User: ${userMessage}\nAssistant: ${assistantMessage}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
