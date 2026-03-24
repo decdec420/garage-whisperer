@@ -9,7 +9,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   ArrowLeft, Search, Send, CheckCircle2, AlertCircle, Clock, Wrench,
   ChevronRight, ChevronDown, Zap, AlertTriangle, ShieldAlert, Package,
-  MessageCircle, X,
+  MessageCircle, X, BookOpen, Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
@@ -38,6 +39,7 @@ type StepRow = {
   torque_specs: any; sub_steps: string[] | null; tip: string | null; safety_note: string | null;
   estimated_minutes: number | null; status: string | null; notes: string | null;
   completed_at: string | null; sort_order: number | null; photo_urls: string[] | null;
+  charm_image_url: string | null; charm_source_url: string | null; is_factory_verified: boolean | null;
 };
 
 type ToolRow = {
@@ -84,11 +86,13 @@ function StepCard({
   isActive,
   isCompleted,
   onMarkResult,
+  onImageClick,
 }: {
   step: StepRow;
   isActive: boolean;
   isCompleted: boolean;
   onMarkResult: (stepId: string, result: 'healthy' | 'faulty') => void;
+  onImageClick?: (url: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(isActive);
   const torqueSpecs = step.torque_specs as any[] | null;
@@ -152,6 +156,25 @@ function StepCard({
           <div className="text-sm text-foreground leading-relaxed">
             <ReactMarkdown>{step.description}</ReactMarkdown>
           </div>
+
+          {/* Step diagram */}
+          {step.charm_image_url && (
+            <button
+              onClick={() => onImageClick?.(step.charm_image_url!)}
+              className="w-full rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
+            >
+              <img
+                src={step.charm_image_url}
+                alt={`Diagram: ${step.title}`}
+                className="w-full max-h-[200px] object-contain bg-white"
+                loading="lazy"
+              />
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 text-[10px] text-muted-foreground">
+                <BookOpen className="h-2.5 w-2.5" />
+                Factory Diagram · Tap to enlarge
+              </div>
+            </button>
+          )}
 
           {/* Sub-steps */}
           {step.sub_steps && step.sub_steps.length > 0 && (
@@ -242,6 +265,7 @@ export default function DiagnosisSession() {
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatStreaming, setIsChatStreaming] = useState(false);
+  const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -307,7 +331,11 @@ export default function DiagnosisSession() {
   useEffect(() => {
     if (!diagSession) return;
     if (diagSession.tree_data && Array.isArray(diagSession.tree_data)) {
-      setTreeNodes(diagSession.tree_data as TreeNode[]);
+      // Handle both old format {cause: c} and new format {name: c}
+      setTreeNodes((diagSession.tree_data as any[]).map((n: any) => ({
+        name: n.name || n.cause || 'Unknown',
+        status: n.status || 'untested',
+      })));
     }
     // Load chat messages
     if (diagSession.chat_session_id) {
@@ -533,6 +561,20 @@ export default function DiagnosisSession() {
   const hasFault = treeNodes.some(n => n.status === 'faulty');
   const faultName = treeNodes.find(n => n.status === 'faulty')?.name || diagSession.conclusion;
 
+  // Collect factory images from steps for diagrams gallery
+  const factoryImages = (steps || [])
+    .filter(s => s.charm_image_url)
+    .map(s => ({ url: s.charm_image_url!, title: s.title, sourceUrl: s.charm_source_url || undefined }));
+
+  const openImageInLightbox = (imageUrl: string) => {
+    const idx = factoryImages.findIndex(img => img.url === imageUrl);
+    if (idx >= 0) {
+      setLightboxState({ images: factoryImages, index: idx });
+    } else {
+      setLightboxState({ images: [{ url: imageUrl }], index: 0 });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Progress bar */}
@@ -622,6 +664,36 @@ export default function DiagnosisSession() {
             </Card>
           )}
 
+          {/* Factory Diagrams Gallery */}
+          {factoryImages.length > 0 && (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">Factory Diagrams</h3>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{factoryImages.length} diagrams</Badge>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                  {factoryImages.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setLightboxState({ images: factoryImages, index: i })}
+                      className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
+                      style={{ width: 140, height: 110 }}
+                    >
+                      <img
+                        src={img.url}
+                        alt={img.title || `Diagram ${i + 1}`}
+                        className="w-full h-full object-contain bg-white"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Diagnostic tree summary */}
           <Card className="border-border">
             <CardContent className="p-4">
@@ -688,6 +760,7 @@ export default function DiagnosisSession() {
                     isActive={i === currentStepIndex}
                     isCompleted={step.status === 'healthy' || step.status === 'faulty'}
                     onMarkResult={markStepResult}
+                    onImageClick={openImageInLightbox}
                   />
                 ))}
               </div>
@@ -806,6 +879,14 @@ export default function DiagnosisSession() {
             </div>
           </div>
         </>
+      )}
+      {/* Factory Photo Lightbox */}
+      {lightboxState && (
+        <FactoryPhotoLightbox
+          images={lightboxState.images}
+          initialIndex={lightboxState.index}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );
