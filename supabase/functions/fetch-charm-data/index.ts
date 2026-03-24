@@ -218,9 +218,10 @@ serve(async (req) => {
     }
 
     const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
+    const charmMake = titleCaseMake(make);
     const charmModel = formatEngineForCharm(engine || null, model);
     const encodedModel = encodeURIComponent(charmModel);
-    const charmUrls = paths.map(p => `https://charm.li/${make}/${year}/${encodedModel}/${p}/`);
+    const charmUrls = paths.map(p => `https://charm.li/${charmMake}/${year}/${encodedModel}/${p}/`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
