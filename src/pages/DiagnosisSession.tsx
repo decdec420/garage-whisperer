@@ -561,6 +561,20 @@ export default function DiagnosisSession() {
   const hasFault = treeNodes.some(n => n.status === 'faulty');
   const faultName = treeNodes.find(n => n.status === 'faulty')?.name || diagSession.conclusion;
 
+  // Collect factory images from steps for diagrams gallery
+  const factoryImages = (steps || [])
+    .filter(s => s.charm_image_url)
+    .map(s => ({ url: s.charm_image_url!, title: s.title, sourceUrl: s.charm_source_url || undefined }));
+
+  const openImageInLightbox = (imageUrl: string) => {
+    const idx = factoryImages.findIndex(img => img.url === imageUrl);
+    if (idx >= 0) {
+      setLightboxState({ images: factoryImages, index: idx });
+    } else {
+      setLightboxState({ images: [{ url: imageUrl }], index: 0 });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Progress bar */}
