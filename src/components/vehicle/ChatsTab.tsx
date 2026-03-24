@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppStore } from '@/stores/app-store';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, FolderOpen, Clock } from 'lucide-react';
+import { MessageCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ChatsTabProps {
@@ -26,11 +25,12 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['vehicle-chat-sessions', vehicleId],
     queryFn: async () => {
-      // Get all chat sessions for this vehicle
+      // Get only general chat sessions (no project_id) for this vehicle
       const { data: chatSessions, error } = await supabase
         .from('chat_sessions')
         .select('id, title, project_id, updated_at, created_at, vehicle_id')
         .eq('vehicle_id', vehicleId)
+        .is('project_id', null)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       if (!chatSessions?.length) return [];
@@ -46,30 +46,13 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
         counts[id] = count || 0;
       }
 
-      // Get project titles for project sessions
-      const projectIds = chatSessions.filter(s => s.project_id).map(s => s.project_id!);
-      let projectTitles: Record<string, string> = {};
-      if (projectIds.length) {
-        const { data: projects } = await supabase
-          .from('projects')
-          .select('id, title')
-          .in('id', projectIds);
-        if (projects) {
-          projectTitles = Object.fromEntries(projects.map(p => [p.id, p.title]));
-        }
-      }
-
       return chatSessions.map(s => ({
         ...s,
         message_count: counts[s.id] || 0,
-        project_title: s.project_id ? projectTitles[s.project_id] || null : null,
       })) as SessionWithCount[];
     },
     enabled: !!vehicleId,
   });
-
-  const projectSessions = sessions?.filter(s => s.project_id) || [];
-  const generalSessions = sessions?.filter(s => !s.project_id) || [];
 
   if (isLoading) {
     return (
@@ -102,11 +85,7 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
     >
       <CardContent className="p-4 flex items-center gap-3">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          {session.project_id ? (
-            <FolderOpen className="h-4 w-4 text-primary" />
-          ) : (
-            <MessageCircle className="h-4 w-4 text-primary" />
-          )}
+          <MessageCircle className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">
@@ -122,44 +101,24 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
             </span>
           </div>
         </div>
-        {session.project_title && (
-          <Badge variant="secondary" className="text-[10px] shrink-0">
-            {session.project_title}
-          </Badge>
-        )}
       </CardContent>
     </Card>
   );
 
   return (
-    <div className="space-y-6 mt-4">
-      {projectSessions.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <FolderOpen className="h-3.5 w-3.5" />
-            Project Conversations
-          </h3>
-          <div className="space-y-2">
-            {projectSessions.map(s => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {generalSessions.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-            <MessageCircle className="h-3.5 w-3.5" />
-            General Conversations
-          </h3>
-          <div className="space-y-2">
-            {generalSessions.map(s => (
-              <SessionRow key={s.id} session={s} />
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="space-y-3 mt-4">
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+        <MessageCircle className="h-3.5 w-3.5" />
+        General Conversations
+      </h3>
+      <div className="space-y-2">
+        {sessions.map(s => (
+          <SessionRow key={s.id} session={s} />
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground text-center pt-2">
+        Project-specific chats live inside each project
+      </p>
     </div>
   );
 }
