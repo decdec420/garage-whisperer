@@ -50,7 +50,6 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
       return chatSessions.map(s => ({
         ...s,
         message_count: counts[s.id] || 0,
-        project_title: s.project_id ? projectTitles[s.project_id] || null : null,
       })) as SessionWithCount[];
     },
     enabled: !!vehicleId,
