@@ -180,13 +180,15 @@ async function extractMemories(
   sessionId: string | null,
 ) {
   try {
+    const token = await getAccessToken();
+    if (!token) return;
     await fetch(EXTRACT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ userMessage, assistantMessage, userId, vehicleId, sessionId }),
+      body: JSON.stringify({ userMessage, assistantMessage, vehicleId, sessionId }),
     });
   } catch { /* non-critical */ }
 }
