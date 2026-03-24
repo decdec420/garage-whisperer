@@ -307,7 +307,11 @@ export default function DiagnosisSession() {
   useEffect(() => {
     if (!diagSession) return;
     if (diagSession.tree_data && Array.isArray(diagSession.tree_data)) {
-      setTreeNodes(diagSession.tree_data as TreeNode[]);
+      // Handle both old format {cause: c} and new format {name: c}
+      setTreeNodes((diagSession.tree_data as any[]).map((n: any) => ({
+        name: n.name || n.cause || 'Unknown',
+        status: n.status || 'untested',
+      })));
     }
     // Load chat messages
     if (diagSession.chat_session_id) {
