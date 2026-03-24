@@ -65,7 +65,34 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
-    const { messages, vehicleContext, vehicleId } = await req.json();
+    const body = await req.json();
+    const { messages, vehicleContext, vehicleId } = body;
+
+    // --- Input validation ---
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (vehicleId && !UUID_RE.test(vehicleId)) {
+      return new Response(JSON.stringify({ error: "Invalid vehicleId format" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
+      return new Response(JSON.stringify({ error: "messages must be an array of 1-50 items" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    for (const msg of messages) {
+      if (typeof msg.content === 'string' && msg.content.length > 10000) {
+        return new Response(JSON.stringify({ error: "Message content exceeds maximum length" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    if (vehicleContext && typeof vehicleContext === 'string' && vehicleContext.length > 2000) {
+      return new Response(JSON.stringify({ error: "vehicleContext too long" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

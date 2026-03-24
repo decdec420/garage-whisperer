@@ -74,11 +74,23 @@ serve(async (req) => {
     }
 
     const { vehicleId, symptom, diagnosisId } = await req.json();
-    if (!vehicleId || !symptom) {
-      return new Response(
-        JSON.stringify({ error: "vehicleId and symptom are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+    // --- Input validation ---
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!vehicleId || !UUID_RE.test(vehicleId)) {
+      return new Response(JSON.stringify({ error: "Invalid or missing vehicleId" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!symptom || typeof symptom !== 'string' || symptom.trim().length === 0 || symptom.length > 500) {
+      return new Response(JSON.stringify({ error: "symptom must be 1-500 characters" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (diagnosisId && !UUID_RE.test(diagnosisId)) {
+      return new Response(JSON.stringify({ error: "Invalid diagnosisId format" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
