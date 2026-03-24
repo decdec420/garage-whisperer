@@ -14,6 +14,7 @@ import ProjectsTab from '@/components/vehicle/ProjectsTab';
 import BlueprintTab from '@/components/vehicle/BlueprintTab';
 import DiagnoseTab from '@/components/vehicle/DiagnoseTab';
 import DocsTab from '@/components/vehicle/DocsTab';
+import ChatsTab from '@/components/vehicle/ChatsTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();

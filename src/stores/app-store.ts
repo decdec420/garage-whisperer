@@ -33,6 +33,9 @@ interface AppState {
   closeRatchetPanel: () => void;
   setRatchetPanelMode: (mode: 'default' | 'fullscreen') => void;
   setRatchetProjectContext: (ctx: ProjectContext | null) => void;
+  // Open Ratchet with a specific session pre-loaded
+  ratchetActiveSessionId: string | null;
+  openRatchetWithSession: (sessionId: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
