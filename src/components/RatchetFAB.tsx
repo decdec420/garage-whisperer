@@ -68,8 +68,10 @@ export default function RatchetFAB() {
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
   const isDragging = useRef(false);
+  const pointerDown = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const mouseDownTime = useRef(0);
+  const startPointer = useRef({ x: 0, y: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const isInProject = !!ratchetProjectContext;
