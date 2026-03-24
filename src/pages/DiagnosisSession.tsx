@@ -664,6 +664,36 @@ export default function DiagnosisSession() {
             </Card>
           )}
 
+          {/* Factory Diagrams Gallery */}
+          {factoryImages.length > 0 && (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">Factory Diagrams</h3>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{factoryImages.length} diagrams</Badge>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                  {factoryImages.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setLightboxState({ images: factoryImages, index: i })}
+                      className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
+                      style={{ width: 140, height: 110 }}
+                    >
+                      <img
+                        src={img.url}
+                        alt={img.title || `Diagram ${i + 1}`}
+                        className="w-full h-full object-contain bg-white"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Diagnostic tree summary */}
           <Card className="border-border">
             <CardContent className="p-4">
