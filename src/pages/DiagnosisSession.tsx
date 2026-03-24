@@ -39,6 +39,7 @@ type StepRow = {
   torque_specs: any; sub_steps: string[] | null; tip: string | null; safety_note: string | null;
   estimated_minutes: number | null; status: string | null; notes: string | null;
   completed_at: string | null; sort_order: number | null; photo_urls: string[] | null;
+  charm_image_url: string | null; charm_source_url: string | null; is_factory_verified: boolean | null;
 };
 
 type ToolRow = {
