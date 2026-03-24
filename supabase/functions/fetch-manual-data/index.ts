@@ -83,19 +83,20 @@ const PATH_MAP: Record<string, string> = {
   "cabin air filter": "Maintenance/Filters",
 };
 
-// Extended sub-pages to crawl — covers all common charm.li patterns
-const SUB_PAGES = [
-  "index.html",
-  "Service%20and%20Repair/index.html",
-  "Service%20and%20Repair/Removal/index.html",
-  "Service%20and%20Repair/Installation/index.html",
-  "Service%20and%20Repair/Removal%20and%20Replacement/index.html",
-  "Service%20and%20Repair/Overhaul/index.html",
-  "Locations/index.html",
-  "Description%20and%20Operation/index.html",
-  "Testing%20and%20Inspection/index.html",
-  "Specifications/index.html",
-  "Diagrams/index.html",
+// Sub-page paths to crawl for each component
+// Cloudflare uses /index.html, charm.li uses trailing slash
+const SUB_PAGE_PATHS = [
+  "",
+  "Service%20and%20Repair",
+  "Service%20and%20Repair/Removal",
+  "Service%20and%20Repair/Installation",
+  "Service%20and%20Repair/Removal%20and%20Replacement",
+  "Service%20and%20Repair/Overhaul",
+  "Locations",
+  "Description%20and%20Operation",
+  "Testing%20and%20Inspection",
+  "Specifications",
+  "Diagrams",
 ];
 
 function matchKeyword(job: string): string | null {
