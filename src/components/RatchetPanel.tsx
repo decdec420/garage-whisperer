@@ -201,16 +201,16 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
-async function uploadToStorage(file: File, projectId: string): Promise<string> {
+async function uploadToStorage(file: File, userId: string): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg';
-  const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `${userId}/chat/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { error } = await supabase.storage.from('repair-photos').upload(path, file, {
     contentType: file.type,
     upsert: false,
   });
   if (error) throw error;
-  const { data } = supabase.storage.from('repair-photos').getPublicUrl(path);
-  return data.publicUrl;
+  // Return just the path — images sent to chat are base64 encoded, not URLs
+  return path;
 }
 
 function ChatContent() {

@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { getSignedUrl } from '@/lib/storage-helpers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,10 +109,8 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           .upload(path, selectedFile);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from('vehicle-documents')
-          .getPublicUrl(path);
-        fileUrl = urlData.publicUrl;
+        // Store the path, not a public URL — bucket is private
+        fileUrl = path;
         mimeType = selectedFile.type;
         fileSize = selectedFile.size;
       }
@@ -172,6 +171,72 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // DocCard handles signed URL resolution for private bucket files
+  function DocCard({ doc, onDelete }: { doc: any; onDelete: (id: string) => void }) {
+    const Icon = getDocIcon(doc.doc_type);
+    const isImage = doc.mime_type?.startsWith('image/');
+    const typeLabel = DOC_TYPES.find(dt => dt.value === doc.doc_type)?.label || doc.doc_type;
+    const [signedImgUrl, setSignedImgUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (isImage && doc.file_url && !doc.file_url.startsWith('http')) {
+        getSignedUrl('vehicle-documents', doc.file_url).then(url => setSignedImgUrl(url));
+      }
+    }, [doc.file_url, isImage]);
+
+    const handleOpen = useCallback(async () => {
+      if (doc.external_url) {
+        window.open(doc.external_url, '_blank');
+      } else if (doc.file_url) {
+        if (doc.file_url.startsWith('http')) {
+          window.open(doc.file_url, '_blank');
+        } else {
+          const url = await getSignedUrl('vehicle-documents', doc.file_url);
+          if (url) window.open(url, '_blank');
+        }
+      }
+    }, [doc.file_url, doc.external_url]);
+
+    const imgSrc = doc.file_url?.startsWith('http') ? doc.file_url : signedImgUrl;
+
+    return (
+      <Card className="group relative overflow-hidden hover:border-primary/40 transition-colors">
+        {isImage && imgSrc ? (
+          <div className="h-40 overflow-hidden bg-muted">
+            <img src={imgSrc} alt={doc.title} className="w-full h-full object-cover" loading="lazy" />
+          </div>
+        ) : (
+          <div className="h-24 bg-muted/50 flex items-center justify-center">
+            <Icon className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+        )}
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-medium text-sm truncate">{doc.title}</h3>
+              {doc.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{doc.description}</p>}
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="secondary" className="text-xs">{typeLabel}</Badge>
+                {doc.source === 'auto_search' && <Badge variant="outline" className="text-xs border-primary/30 text-primary">Auto-found</Badge>}
+                {doc.file_size && <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            {(doc.file_url || doc.external_url) && (
+              <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={handleOpen}>
+                <ExternalLink className="h-3 w-3 mr-1" /> Open
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(doc.id)}>
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-4">
@@ -247,72 +312,9 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDocs.map((doc: any) => {
-            const Icon = getDocIcon(doc.doc_type);
-            const isImage = doc.mime_type?.startsWith('image/');
-            const typeLabel = DOC_TYPES.find(dt => dt.value === doc.doc_type)?.label || doc.doc_type;
-
-            return (
-              <Card key={doc.id} className="group relative overflow-hidden hover:border-primary/40 transition-colors">
-                {/* Image preview */}
-                {isImage && doc.file_url ? (
-                  <div className="h-40 overflow-hidden bg-muted">
-                    <img
-                      src={doc.file_url}
-                      alt={doc.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-24 bg-muted/50 flex items-center justify-center">
-                    <Icon className="h-10 w-10 text-muted-foreground/40" />
-                  </div>
-                )}
-
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-sm truncate">{doc.title}</h3>
-                      {doc.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{doc.description}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="text-xs">{typeLabel}</Badge>
-                        {doc.source === 'auto_search' && (
-                          <Badge variant="outline" className="text-xs border-primary/30 text-primary">Auto-found</Badge>
-                        )}
-                        {doc.file_size && (
-                          <span className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-3">
-                    {(doc.file_url || doc.external_url) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
-                        onClick={() => window.open(doc.file_url || doc.external_url, '_blank')}
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" /> Open
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => deleteMutation.mutate(doc.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {filteredDocs.map((doc: any) => (
+            <DocCard key={doc.id} doc={doc} onDelete={(id: string) => deleteMutation.mutate(id)} />
+          ))}
         </div>
       )}
 
