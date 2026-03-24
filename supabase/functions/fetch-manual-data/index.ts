@@ -7,17 +7,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MANUAL_BASE = "https://ratchet-accord-manual.pages.dev";
+const CLOUDFLARE_BASE = "https://ratchet-accord-manual.pages.dev";
+const CHARM_BASE = "https://charm.li/Honda/2012/Accord%20L4-2.4L/Repair%20and%20Diagnosis";
 
+// Corrected path map matching actual charm.li structure
 const PATH_MAP: Record<string, string> = {
-  "starter": "Starting%20and%20Charging/Starter",
-  "alternator": "Starting%20and%20Charging/Generator",
+  // Starting and Charging
+  "starter": "Starting%20and%20Charging/Starting%20System/Starter%20Motor",
+  "alternator": "Starting%20and%20Charging/Charging%20System/Alternator",
   "battery": "Starting%20and%20Charging/Battery",
-  "catalytic converter": "Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter",
-  "oxygen sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor",
-  "o2 sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor",
-  "vtec solenoid": "Powertrain%20Management/Computers%20and%20Control%20Systems/Variable%20Valve%20Timing%20Solenoid",
+  "starter relay": "Starting%20and%20Charging/Starting%20System/Starter%20Relay",
+  "starter solenoid": "Starting%20and%20Charging/Starting%20System/Starter%20Solenoid",
+
+  // Engine, Cooling and Exhaust
   "vtc actuator": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly",
+  "vtec solenoid": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Actuators%20and%20Solenoids%20-%20Engine/Variable%20Valve%20Timing%20Solenoid",
   "valve cover gasket": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover",
   "valve cover": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover",
   "timing chain": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Timing%20Components",
@@ -31,6 +35,13 @@ const PATH_MAP: Record<string, string> = {
   "oil pan": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pan",
   "oil pump": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pump",
   "head gasket": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly",
+  "exhaust manifold": "Engine%2C%20Cooling%20and%20Exhaust/Exhaust/Exhaust%20Manifold",
+  "coolant": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System",
+
+  // Powertrain Management
+  "catalytic converter": "Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter",
+  "oxygen sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor",
+  "o2 sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor",
   "spark plugs": "Powertrain%20Management/Ignition%20System/Spark%20Plug",
   "spark plug": "Powertrain%20Management/Ignition%20System/Spark%20Plug",
   "ignition coil": "Powertrain%20Management/Ignition%20System/Ignition%20Coil",
@@ -41,15 +52,19 @@ const PATH_MAP: Record<string, string> = {
   "throttle body": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Throttle%20Body",
   "maf sensor": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor",
   "mass air flow": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor",
+
+  // Brakes
   "front brake pad": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement",
   "rear brake pad": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement",
   "brake pads": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad",
   "brake pad": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad",
-  "brake rotors": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Rotor",
-  "brake rotor": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Rotor",
+  "brake rotors": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc",
+  "brake rotor": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc",
   "brake caliper": "Brakes%20and%20Traction%20Control/Hydraulic%20System/Brake%20Caliper",
   "brake master cylinder": "Brakes%20and%20Traction%20Control/Hydraulic%20System/Master%20Cylinder",
-  "abs sensor": "Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes/Wheel%20Speed%20Sensor",
+  "abs sensor": "Brakes%20and%20Traction%20Control/Antilock%20Brakes%20%2F%20Traction%20Control%20Systems/Wheel%20Speed%20Sensor",
+
+  // Steering and Suspension
   "strut": "Steering%20and%20Suspension/Front%20Suspension/Strut",
   "ball joint": "Steering%20and%20Suspension/Front%20Suspension/Ball%20Joint",
   "control arm": "Steering%20and%20Suspension/Front%20Suspension/Control%20Arm",
@@ -57,24 +72,30 @@ const PATH_MAP: Record<string, string> = {
   "sway bar": "Steering%20and%20Suspension/Front%20Suspension/Stabilizer%20Bar",
   "tie rod": "Steering%20and%20Suspension/Steering/Tie%20Rod",
   "power steering": "Steering%20and%20Suspension/Steering/Power%20Steering",
+
+  // Transmission
   "cv axle": "Transmission%20and%20Drivetrain/Drive%20Axles",
   "transmission fluid": "Transmission%20and%20Drivetrain/Automatic%20Transmission%2FTransaxle/Fluid",
+
+  // HVAC
   "ac compressor": "Heating%20and%20Air%20Conditioning/Compressor",
   "ac line": "Heating%20and%20Air%20Conditioning/Hose%2FLine%20HVAC",
   "cabin air filter": "Maintenance/Filters",
 };
 
-// Sub-pages to crawl for each component
+// Extended sub-pages to crawl — covers all common charm.li patterns
 const SUB_PAGES = [
   "index.html",
   "Service%20and%20Repair/index.html",
   "Service%20and%20Repair/Removal/index.html",
   "Service%20and%20Repair/Installation/index.html",
   "Service%20and%20Repair/Removal%20and%20Replacement/index.html",
+  "Service%20and%20Repair/Overhaul/index.html",
   "Locations/index.html",
   "Description%20and%20Operation/index.html",
   "Testing%20and%20Inspection/index.html",
   "Specifications/index.html",
+  "Diagrams/index.html",
 ];
 
 function matchKeyword(job: string): string | null {
@@ -90,16 +111,28 @@ function matchKeyword(job: string): string | null {
   return best;
 }
 
-function extractImages(html: string): Array<{ url: string; context: string; page: string }> {
+function extractImages(html: string, baseUrl: string): Array<{ url: string; context: string; page: string }> {
   const results: Array<{ url: string; context: string; page: string }> = [];
-  // Match img tags, capturing surrounding text
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*(?:alt=["']([^"']*)["'])?[^>]*>/gi;
   let match;
   while ((match = imgRegex.exec(html)) !== null) {
     const src = match[1];
     const alt = match[2] || '';
-    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
-      const url = src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`;
+
+    // Skip navigation icons and SVGs
+    if (src.includes('/icons/') || src.endsWith('.svg')) continue;
+
+    // Accept charm.li image paths (relative or absolute)
+    if (src.includes('/images/') || src.includes('charm.li/images')) {
+      let url: string;
+      if (src.startsWith('http')) {
+        url = src;
+      } else if (src.startsWith('/')) {
+        url = `https://charm.li${src}`;
+      } else {
+        url = `https://charm.li/${src}`;
+      }
+
       // Get surrounding text for context
       const start = Math.max(0, match.index - 200);
       const end = Math.min(html.length, match.index + match[0].length + 200);
@@ -131,21 +164,21 @@ function extractText(html: string): string {
 
 function extractTorqueSpecs(text: string): Array<{ value: string; unit: string; context: string }> {
   const specs: Array<{ value: string; unit: string; context: string }> = [];
-  const re = /(\d+(?:\.\d+)?)\s*(ft[\s·.-]?lb[s]?|N[\s·.-]?m)/gi;
+  const re = /(\d+(?:\.\d+)?)\s*(ft[\s·.\-]?lb[s]?|N[\s·.\-]?m)/gi;
   let m;
   while ((m = re.exec(text)) !== null) {
     const start = Math.max(0, m.index - 80);
     const ctx = text.slice(start, m.index).replace(/\n/g, ' ').trim();
     specs.push({
       value: m[1],
-      unit: m[2].replace(/[\s·.-]/g, ' ').trim(),
+      unit: m[2].replace(/[\s·.\-]/g, ' ').trim(),
       context: ctx.split('.').pop()?.trim() || '',
     });
   }
   return specs;
 }
 
-async function fetchPage(url: string, timeout = 5000): Promise<string | null> {
+async function fetchPage(url: string, timeout = 6000): Promise<string | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -155,7 +188,10 @@ async function fetchPage(url: string, timeout = 5000): Promise<string | null> {
     });
     clearTimeout(timer);
     if (!resp.ok) return null;
-    return await resp.text();
+    const text = await resp.text();
+    // Skip 404 pages
+    if (text.includes('Page Not Found') && text.length < 600) return null;
+    return text;
   } catch {
     return null;
   }
@@ -173,7 +209,6 @@ serve(async (req) => {
       });
     }
 
-    // Year check — manual is for 2012 Honda Accord specifically
     if (vehicleYear && (vehicleYear < 1982 || vehicleYear > 2013)) {
       return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside manual coverage (1982-2013)" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -203,7 +238,7 @@ serve(async (req) => {
       const fetchedAt = new Date(cached.fetched_at);
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 30);
-      if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || cached.all_images?.length > 0)) {
+      if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || (cached.all_images as any[])?.length > 0)) {
         console.log(`Cache hit for ${cacheKey}`);
         return new Response(JSON.stringify({
           found: true,
@@ -211,19 +246,29 @@ serve(async (req) => {
           allImages: cached.all_images || [],
           procedureText: cached.procedure_text || '',
           torqueSpecs: cached.torque_specs || [],
-          sourceUrl: `${MANUAL_BASE}/${basePath}/`,
+          sourceUrl: `${CHARM_BASE}/${basePath}/`,
           pagesCrawled: cached.sub_pages_crawled || [],
           cached: true,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
-    // Crawl sub-pages in parallel
-    const baseUrl = `${MANUAL_BASE}/${basePath}`;
-    const subPageUrls = SUB_PAGES.map(sp => `${baseUrl}/${sp}`);
+    // Crawl BOTH sources in parallel:
+    // 1. Cloudflare (text-heavy, full manual content)
+    // 2. charm.li directly (has the actual factory photos)
+    const cloudflareBase = `${CLOUDFLARE_BASE}/${basePath}`;
+    const charmBase = `${CHARM_BASE}/${basePath}`;
 
-    console.log(`Crawling ${subPageUrls.length} sub-pages for: ${basePath}`);
-    const results = await Promise.all(subPageUrls.map(url => fetchPage(url)));
+    const allUrls: { url: string; source: string; subPage: string }[] = [];
+
+    for (const sp of SUB_PAGES) {
+      allUrls.push({ url: `${cloudflareBase}/${sp}`, source: 'cloudflare', subPage: sp });
+      allUrls.push({ url: `${charmBase}/${sp}`, source: 'charm', subPage: sp });
+    }
+
+    console.log(`Crawling ${allUrls.length} URLs (${SUB_PAGES.length} sub-pages × 2 sources) for: ${basePath}`);
+
+    const results = await Promise.all(allUrls.map(({ url }) => fetchPage(url)));
 
     let allText = '';
     let allImages: Array<{ url: string; context: string; page: string }> = [];
@@ -232,21 +277,33 @@ serve(async (req) => {
 
     results.forEach((html, idx) => {
       if (!html) return;
-      const pageName = SUB_PAGES[idx].replace('/index.html', '').replace('index.html', 'Overview')
-        .replace(/%20/g, ' ').replace(/%2C/g, ',').replace(/%2F/g, '/');
-      crawledPages.push(pageName);
 
+      const { source, subPage } = allUrls[idx];
+      const pageName = subPage.replace('/index.html', '').replace('index.html', 'Overview')
+        .replace(/%20/g, ' ').replace(/%2C/g, ',').replace(/%2F/g, '/');
+
+      const pageLabel = `${pageName} (${source})`;
+
+      if (!crawledPages.includes(pageName)) {
+        crawledPages.push(pageName);
+      }
+
+      // Extract text from both sources (Cloudflare often has richer text)
       const pageText = extractText(html);
       if (pageText.length > 10) {
         allText += `\n\n--- ${pageName} ---\n${pageText}`;
       }
 
-      const pageImages = extractImages(html);
+      // Extract images — charm.li is the primary image source
+      const pageImages = extractImages(html, source === 'charm' ? charmBase : cloudflareBase);
       pageImages.forEach(img => { img.page = pageName; });
       allImages.push(...pageImages);
 
+      // Extract torque specs from text
       const pageTorque = extractTorqueSpecs(pageText);
       allTorqueSpecs.push(...pageTorque);
+
+      console.log(`  ${pageLabel}: ${pageText.length > 0 ? '✓ text' : '✗ text'}, ${pageImages.length} imgs`);
     });
 
     if (crawledPages.length === 0) {
@@ -263,15 +320,39 @@ serve(async (req) => {
       return true;
     });
 
+    // Dedupe torque specs
+    const seenSpecs = new Set<string>();
+    allTorqueSpecs = allTorqueSpecs.filter(spec => {
+      const key = `${spec.value}${spec.unit}`;
+      if (seenSpecs.has(key)) return false;
+      seenSpecs.add(key);
+      return true;
+    });
+
+    // Dedupe text paragraphs
+    const textLines = allText.split('\n');
+    const seenLines = new Set<string>();
+    const dedupedLines: string[] = [];
+    for (const line of textLines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('---') || !seenLines.has(trimmed)) {
+        seenLines.add(trimmed);
+        dedupedLines.push(line);
+      }
+    }
+    allText = dedupedLines.join('\n').trim();
+
     const imageUrls = allImages.map(i => i.url);
+
+    console.log(`Total: ${crawledPages.length} pages, ${allImages.length} images, ${allTorqueSpecs.length} torque specs`);
 
     // Upsert cache
     const cacheData = {
       charm_url: cacheKey,
-      base_url: baseUrl,
+      base_url: charmBase,
       images: imageUrls,
       all_images: allImages,
-      procedure_text: allText.trim(),
+      procedure_text: allText,
       torque_specs: allTorqueSpecs,
       sub_pages_crawled: crawledPages,
       fetched_at: new Date().toISOString(),
@@ -283,15 +364,13 @@ serve(async (req) => {
       await supabase.from("charm_cache").insert(cacheData);
     }
 
-    console.log(`Crawled ${crawledPages.length} pages, found ${allImages.length} images, ${allTorqueSpecs.length} torque specs`);
-
     return new Response(JSON.stringify({
       found: true,
       images: imageUrls,
       allImages,
-      procedureText: allText.trim(),
+      procedureText: allText,
       torqueSpecs: allTorqueSpecs,
-      sourceUrl: `${MANUAL_BASE}/${basePath}/`,
+      sourceUrl: `${CHARM_BASE}/${basePath}/`,
       pagesCrawled: crawledPages,
       cached: false,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
