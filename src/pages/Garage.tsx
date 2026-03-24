@@ -34,7 +34,7 @@ export default function Garage() {
   const { data: vehicles, isLoading } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, mileage, nickname, color, engine, trim').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },

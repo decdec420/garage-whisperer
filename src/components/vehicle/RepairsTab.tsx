@@ -19,7 +19,7 @@ export default function RepairsTab({ vehicleId }: { vehicleId: string }) {
   const { data: repairs, isLoading } = useQuery({
     queryKey: ['repairs', vehicleId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('repair_logs').select('*').eq('vehicle_id', vehicleId).order('date', { ascending: false });
+      const { data, error } = await supabase.from('repair_logs').select('id, title, date, mileage, diy_cost, shop_quote, total_cost, difficulty, labor_hours, description, notes').eq('vehicle_id', vehicleId).order('date', { ascending: false });
       if (error) throw error;
       return data;
     },

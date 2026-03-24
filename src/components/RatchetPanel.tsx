@@ -264,14 +264,14 @@ function ChatContent() {
     queryKey: ['ratchet-sessions', activeVehicle?.id, ratchetProjectContext?.id],
     queryFn: async () => {
       if (isProjectMode) {
-        const { data, error } = await supabase.from('chat_sessions').select('*')
+        const { data, error } = await supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
           .eq('project_id', ratchetProjectContext!.id)
           .order('updated_at', { ascending: false })
           .limit(1);
         if (error) throw error;
         return data;
       } else {
-        const q = supabase.from('chat_sessions').select('*')
+        const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
           .is('project_id', null)
           .order('updated_at', { ascending: false })
           .limit(20);
@@ -287,7 +287,7 @@ function ChatContent() {
   const { data: generalSessions } = useQuery({
     queryKey: ['ratchet-general-sessions', activeVehicle?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*')
+      const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
         .is('project_id', null)
         .order('updated_at', { ascending: false })
         .limit(10);
@@ -312,7 +312,7 @@ function ChatContent() {
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
-    supabase.from('chat_messages').select('*').eq('session_id', activeSessionId)
+    supabase.from('chat_messages').select('id, role, content, image_urls, created_at').eq('session_id', activeSessionId)
       .order('created_at').limit(50)
       .then(({ data }) => {
         if (data) setMessages(data.map(m => ({

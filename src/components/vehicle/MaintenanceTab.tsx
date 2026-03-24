@@ -24,7 +24,7 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
   const { data: logs, isLoading } = useQuery({
     queryKey: ['maintenance', vehicleId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('maintenance_logs').select('*').eq('vehicle_id', vehicleId).order('date', { ascending: false });
+      const { data, error } = await supabase.from('maintenance_logs').select('id, service, date, mileage, cost, shop, notes, next_due_date, next_due_mileage').eq('vehicle_id', vehicleId).order('date', { ascending: false });
       if (error) throw error;
       return data;
     },

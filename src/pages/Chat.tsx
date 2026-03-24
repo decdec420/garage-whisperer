@@ -107,7 +107,7 @@ export default function Chat() {
   const { data: sessions } = useQuery({
     queryKey: ['chat-sessions', activeVehicle?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*').order('updated_at', { ascending: false });
+      const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at').order('updated_at', { ascending: false });
       if (activeVehicle) q.eq('vehicle_id', activeVehicle.id);
       const { data, error } = await q;
       if (error) throw error;
@@ -118,7 +118,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
-    supabase.from('chat_messages').select('*').eq('session_id', activeSessionId).order('created_at').then(({ data }) => {
+    supabase.from('chat_messages').select('id, role, content').eq('session_id', activeSessionId).order('created_at').then(({ data }) => {
       if (data) setMessages(data.map(m => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })));
     });
   }, [activeSessionId]);
