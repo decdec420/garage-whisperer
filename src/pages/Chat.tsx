@@ -118,7 +118,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
-    supabase.from('chat_messages').select('*').eq('session_id', activeSessionId).order('created_at').then(({ data }) => {
+    supabase.from('chat_messages').select('id, role, content').eq('session_id', activeSessionId).order('created_at').then(({ data }) => {
       if (data) setMessages(data.map(m => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })));
     });
   }, [activeSessionId]);

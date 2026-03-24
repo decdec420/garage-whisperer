@@ -41,7 +41,7 @@ export default function ActiveWork() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, title, status, difficulty, vehicle_id, estimated_minutes, created_at, updated_at')
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data;

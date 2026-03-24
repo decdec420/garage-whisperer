@@ -20,7 +20,7 @@ export default function Dashboard() {
   const { data: vehicles, isLoading: vehiclesLoading } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('*');
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, mileage, nickname');
       if (error) throw error;
       return data;
     },

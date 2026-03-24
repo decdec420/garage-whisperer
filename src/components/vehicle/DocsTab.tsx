@@ -45,7 +45,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vehicle_documents')
-        .select('*')
+        .select('id, title, description, doc_type, file_url, external_url, mime_type, file_size, source, created_at')
         .eq('vehicle_id', vehicleId)
         .order('created_at', { ascending: false });
       if (error) throw error;
