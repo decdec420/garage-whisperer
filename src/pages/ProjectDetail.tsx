@@ -408,6 +408,7 @@ export default function ProjectDetail() {
                   </PopoverContent>
                 </Popover>
               )}
+            </div>
           </div>
           <div className="flex flex-col items-center gap-1 shrink-0">
             <ProgressRing completed={completedSteps} total={steps.length} />
