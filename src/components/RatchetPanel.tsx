@@ -264,7 +264,7 @@ function ChatContent() {
     queryKey: ['ratchet-sessions', activeVehicle?.id, ratchetProjectContext?.id],
     queryFn: async () => {
       if (isProjectMode) {
-        const { data, error } = await supabase.from('chat_sessions').select('*')
+        const { data, error } = await supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
           .eq('project_id', ratchetProjectContext!.id)
           .order('updated_at', { ascending: false })
           .limit(1);
