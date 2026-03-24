@@ -160,10 +160,12 @@ export default function RatchetFAB() {
   }, []);
 
   const hasMoved = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownTime.current = Date.now();
     hasMoved.current = false;
+    startPos.current = { x: e.clientX, y: e.clientY };
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
       dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -177,17 +179,28 @@ export default function RatchetFAB() {
     }
   };
 
-  // Track if mouse actually moved (drag vs tap)
+  // Track if mouse actually moved a meaningful distance (drag vs tap)
   useEffect(() => {
-    const onMove = () => { if (isDragging.current) hasMoved.current = true; };
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const dx = e.clientX - startPos.current.x;
+      const dy = e.clientY - startPos.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved.current = true;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isDragging.current) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startPos.current.x;
+      const dy = t.clientY - startPos.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved.current = true;
+    };
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove); };
+    window.addEventListener('touchmove', onTouchMove);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onTouchMove); };
   }, []);
 
-  const handleClick = (e: React.MouseEvent) => {
-    const elapsed = Date.now() - mouseDownTime.current;
-    if (elapsed < 300 && !hasMoved.current) {
+  const handleClick = () => {
+    if (!hasMoved.current) {
       openRatchetPanel();
     }
   };
