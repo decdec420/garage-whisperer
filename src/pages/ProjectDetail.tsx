@@ -310,6 +310,12 @@ export default function ProjectDetail() {
   const remainingMin = project?.estimated_minutes ? Math.max(0, project.estimated_minutes - Math.floor(elapsedSeconds / 60)) : null;
   const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
 
+  // Collect all factory images from steps
+  const factoryImages = steps
+    .filter(s => s.charm_image_url)
+    .map(s => ({ url: s.charm_image_url!, title: s.title, sourceUrl: s.charm_source_url || undefined }));
+  const hasFactoryData = steps.some(s => s.is_factory_verified);
+
   if (!project || !vehicle) {
     return <div className="p-6 flex items-center justify-center min-h-[60vh]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
   }
