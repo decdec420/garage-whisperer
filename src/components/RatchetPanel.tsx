@@ -508,7 +508,7 @@ function ChatContent() {
       if (assistantContent) {
         await saveMessage(sessionId, 'assistant', assistantContent);
         if (user?.id) {
-          extractMemories(lastUserMsgRef.current, assistantContent, user.id, activeVehicle?.id || null, sessionId);
+          extractMemories(lastUserMsgRef.current, assistantContent, activeVehicle?.id || null, sessionId);
         }
       }
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
