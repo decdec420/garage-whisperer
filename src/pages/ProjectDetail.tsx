@@ -674,22 +674,6 @@ export default function ProjectDetail() {
                       </div>
                     )}
 
-                    {/* Factory photo inline */}
-                    {step.charm_image_url && (
-                      <button className="w-full rounded-xl overflow-hidden border border-border hover:border-primary/40 transition-colors"
-                        style={{ background: '#0f0f0f' }}
-                        onClick={() => {
-                          const stepIdx = factoryImages.findIndex(fi => fi.url === step.charm_image_url);
-                          setLightboxState({ images: stepIdx >= 0 ? factoryImages : [{ url: step.charm_image_url!, title: step.title, sourceUrl: step.charm_source_url || undefined }], index: Math.max(0, stepIdx) });
-                        }}>
-                        <img src={step.charm_image_url} alt={`Factory diagram — ${step.title}`}
-                          className="w-full block" style={{ maxHeight: 280, objectFit: 'contain', padding: 12, background: '#0f0f0f' }} loading="lazy" />
-                        <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#0a0a0a', borderTop: '1px solid hsl(var(--border))' }}>
-                          <BookOpen className="h-3 w-3 text-primary" />
-                          <span className="text-[11px] text-muted-foreground">Honda FSM · charm.li</span>
-                        </div>
-                      </button>
-                    )}
                     <div className="text-[15px] md:text-base leading-relaxed text-foreground/90 prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown>{step.description}</ReactMarkdown>
                     </div>
