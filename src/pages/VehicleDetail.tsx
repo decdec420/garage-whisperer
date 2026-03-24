@@ -361,6 +361,10 @@ export default function VehicleDetail() {
         <TabsContent value="docs">
           <DocsTab vehicleId={vehicleId!} vehicle={vehicle} />
         </TabsContent>
+
+        <TabsContent value="chats">
+          <ChatsTab vehicleId={vehicleId!} />
+        </TabsContent>
       </Tabs>
     </div>
   );
