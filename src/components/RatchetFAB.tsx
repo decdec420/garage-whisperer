@@ -159,9 +159,11 @@ export default function RatchetFAB() {
     };
   }, []);
 
+  const hasMoved = useRef(false);
+
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
     mouseDownTime.current = Date.now();
+    hasMoved.current = false;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
       dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -175,9 +177,17 @@ export default function RatchetFAB() {
     }
   };
 
+  // Track if mouse actually moved (drag vs tap)
+  useEffect(() => {
+    const onMove = () => { if (isDragging.current) hasMoved.current = true; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchmove', onMove);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove); };
+  }, []);
+
   const handleClick = (e: React.MouseEvent) => {
     const elapsed = Date.now() - mouseDownTime.current;
-    if (elapsed < 200) {
+    if (elapsed < 300 && !hasMoved.current) {
       openRatchetPanel();
     }
   };
