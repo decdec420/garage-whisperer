@@ -51,7 +51,7 @@ export const useAppStore = create<AppState>((set) => ({
   ratchetPrefilledMessage: null,
   ratchetProjectContext: null,
   openRatchetPanel: (prefilledMessage?: string) => set({ isRatchetOpen: true, ratchetPrefilledMessage: prefilledMessage ?? null }),
-  closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null }),
+  closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null, ratchetActiveSessionId: null }),
   setRatchetPanelMode: (mode) => set({ ratchetPanelMode: mode }),
   setRatchetProjectContext: (ctx) => set({ ratchetProjectContext: ctx }),
   ratchetActiveSessionId: null,
