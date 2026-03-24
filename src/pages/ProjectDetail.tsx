@@ -615,26 +615,15 @@ export default function ProjectDetail() {
                       <Badge variant="secondary" className="text-xs gap-1"><Clock className="h-3 w-3" /> ~{step.estimated_minutes}m</Badge>
                     )}
 
-                    {/* Factory photo from charm.li */}
-                    {step.charm_image_url && (
-                      <div className="rounded-xl overflow-hidden border border-border" style={{ background: '#0f0f0f' }}>
-                        <img
-                          src={step.charm_image_url}
-                          alt={`Factory diagram — ${step.title}`}
-                          className="w-full block"
-                          style={{ maxHeight: 320, objectFit: 'contain', padding: 12, background: '#0f0f0f' }}
-                          loading="lazy"
-                        />
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-border" style={{ background: '#0a0a0a' }}>
-                          <BookOpen className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground" style={{ fontSize: 11 }}>{vehicle?.make} Factory Service Manual</span>
-                          {step.charm_source_url && (
-                            <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
-                              className="ml-auto text-primary flex items-center gap-1 hover:underline" style={{ fontSize: 11 }}>
-                              charm.li <ExternalLink className="h-2.5 w-2.5" />
-                            </a>
-                          )}
-                        </div>
+                    {/* Factory source attribution (no photo) */}
+                    {step.is_factory_verified && step.charm_source_url && (
+                      <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                        <BookOpen className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
+                        <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
+                          className="ml-auto text-primary flex items-center gap-1 hover:underline text-xs">
+                          View <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
                       </div>
                     )}
 
@@ -701,19 +690,6 @@ export default function ProjectDetail() {
                         <p className="text-sm text-foreground mt-1">{step.safety_note}</p>
                       </div>
                     )}
-
-                    {/* Factory source attribution */}
-                    {step.is_factory_verified && step.charm_source_url && !step.charm_image_url && (
-                      <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-                        <BookOpen className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
-                        <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
-                          className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
-                          View <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-
                     {/* Ask Ratchet */}
                     <Button variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10"
                       onClick={() => openRatchetPanel(
