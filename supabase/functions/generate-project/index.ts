@@ -45,7 +45,8 @@ Required JSON structure:
       "subSteps": ["Sub-step if the main step has multiple distinct actions"],
       "tip": "Vehicle-specific pro tip or null",
       "safetyNote": "Safety warning specific to this step or null",
-      "estimatedMinutes": 5
+      "estimatedMinutes": 5,
+      "factoryImageIndex": null
     }
   ]
 }
@@ -56,52 +57,75 @@ RULES FOR GENERATION:
 - The tip field is for vehicle-specific knowledge that saves time or prevents mistakes.
 - Include a step 1 safety/preparation step for any job with safety risks.
 - Include a final step: "Verify repair — start vehicle and confirm..."
-- Difficulty ratings: Beginner = basic hand tools, no special knowledge. Intermediate = some mechanical knowledge, standard tools. Advanced = significant knowledge, specialty tools possible. Expert = professional knowledge strongly recommended.`;
+- Difficulty ratings: Beginner = basic hand tools, no special knowledge. Intermediate = some mechanical knowledge, standard tools. Advanced = significant knowledge, specialty tools possible. Expert = professional knowledge strongly recommended.
+- If factory images are provided, set factoryImageIndex to the 0-based index of the most relevant image for that step. Only assign each image to the ONE step where it's most useful. Set null if no image is relevant.`;
 
-// --- charm.li keyword map (subset for server-side matching) ---
-const JOB_KEYWORD_MAP: Record<string, string> = {
-  "starter": "Starting%20and%20Charging/Starter/Service%20and%20Repair",
-  "alternator": "Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair",
-  "catalytic converter": "Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair",
-  "oxygen sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair",
-  "o2 sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair",
-  "vtec solenoid": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Variable%20Valve%20Timing%20Solenoid/Service%20and%20Repair",
-  "valve cover": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover/Service%20and%20Repair",
-  "timing chain": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Timing%20Components/Service%20and%20Repair",
-  "water pump": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Water%20Pump/Service%20and%20Repair",
-  "thermostat": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair",
-  "radiator": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair",
-  "brake pads": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pads/Service%20and%20Repair",
-  "brake rotors": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Rotor/Service%20and%20Repair",
-  "strut": "Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair",
-  "spark plugs": "Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair",
-  "wheel bearing": "Steering%20and%20Suspension/Front%20Suspension/Wheel%20Bearing/Service%20and%20Repair",
-  "cv axle": "Transmission%20and%20Drivetrain/Drive%20Axles/CV%20Axle/Service%20and%20Repair",
-  "fuel pump": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Pump/Service%20and%20Repair",
-  "engine mount": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair",
-  "control arm": "Steering%20and%20Suspension/Front%20Suspension/Control%20Arm/Service%20and%20Repair",
-  "ac compressor": "Heating%20and%20Air%20Conditioning/Compressor/Service%20and%20Repair",
-  "serpentine belt": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts/Service%20and%20Repair",
-  "drive belt": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts/Service%20and%20Repair",
-  "head gasket": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair",
-  "power steering": "Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair",
-  "throttle body": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Throttle%20Body/Service%20and%20Repair",
-  "ignition coil": "Powertrain%20Management/Ignition%20System/Ignition%20Coil/Service%20and%20Repair",
-  "oil pan": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pan/Service%20and%20Repair",
-  "tie rod": "Steering%20and%20Suspension/Steering/Tie%20Rod/Service%20and%20Repair",
-  "ball joint": "Steering%20and%20Suspension/Front%20Suspension/Ball%20Joint/Service%20and%20Repair",
-  "brake caliper": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Caliper/Service%20and%20Repair",
-  "sway bar": "Steering%20and%20Suspension/Front%20Suspension/Stabilizer%20Bar/Service%20and%20Repair",
-  "abs sensor": "Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes/Wheel%20Speed%20Sensor/Service%20and%20Repair",
-  "fuel injector": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Injector/Service%20and%20Repair",
-  "vtc actuator": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair",
-  "battery": "Starting%20and%20Charging/Battery/Service%20and%20Repair",
-  "transmission fluid": "Transmission%20and%20Drivetrain/Automatic%20Transmission%2FTransaxle/Fluid/Service%20and%20Repair",
+const R = "Repair%20and%20Diagnosis/";
+
+const JOB_KEYWORD_MAP: Record<string, string | string[]> = {
+  "front brake pad": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  "rear brake pad": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  "brake pads": [
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  ],
+  "brake pad": [
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  ],
+  "starter": `${R}Starting%20and%20Charging/Starter/Service%20and%20Repair`,
+  "alternator": `${R}Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair`,
+  "battery": `${R}Starting%20and%20Charging/Battery/Service%20and%20Repair`,
+  "catalytic converter": `${R}Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair`,
+  "oxygen sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
+  "o2 sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
+  "vtec solenoid": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Actuators%20and%20Solenoids%20-%20Engine/Variable%20Valve%20Timing%20Solenoid`,
+  "valve cover gasket": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover/Service%20and%20Repair`,
+  "valve cover": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover/Service%20and%20Repair`,
+  "timing chain": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Timing%20Components/Service%20and%20Repair`,
+  "water pump": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Water%20Pump/Service%20and%20Repair`,
+  "thermostat": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair`,
+  "radiator": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair`,
+  "brake rotors": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc/Service%20and%20Repair`,
+  "brake rotor": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc/Service%20and%20Repair`,
+  "strut": `${R}Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair`,
+  "spark plugs": `${R}Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair`,
+  "spark plug": `${R}Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair`,
+  "transmission fluid": `${R}Transmission%20and%20Drivetrain/Automatic%20Transmission%2FTransaxle/Fluid/Service%20and%20Repair`,
+  "power steering": `${R}Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair`,
+  "ac compressor": `${R}Heating%20and%20Air%20Conditioning/Compressor/Service%20and%20Repair`,
+  "ac line": `${R}Heating%20and%20Air%20Conditioning/Hose%2FLine%20HVAC/Service%20and%20Repair`,
+  "wheel bearing": `${R}Steering%20and%20Suspension/Front%20Suspension/Wheel%20Bearing/Service%20and%20Repair`,
+  "cv axle": `${R}Transmission%20and%20Drivetrain/Drive%20Axles/CV%20Axle/Service%20and%20Repair`,
+  "tie rod": `${R}Steering%20and%20Suspension/Steering/Tie%20Rod/Service%20and%20Repair`,
+  "ball joint": `${R}Steering%20and%20Suspension/Front%20Suspension/Ball%20Joint/Service%20and%20Repair`,
+  "fuel pump": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Pump/Service%20and%20Repair`,
+  "fuel injector": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Injector/Service%20and%20Repair`,
+  "throttle body": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Throttle%20Body/Service%20and%20Repair`,
+  "mass air flow": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair`,
+  "maf sensor": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair`,
+  "crankshaft sensor": `${R}Powertrain%20Management/Ignition%20System/Crankshaft%20Position%20Sensor/Service%20and%20Repair`,
+  "camshaft sensor": `${R}Powertrain%20Management/Ignition%20System/Camshaft%20Position%20Sensor/Service%20and%20Repair`,
+  "ignition coil": `${R}Powertrain%20Management/Ignition%20System/Ignition%20Coil/Service%20and%20Repair`,
+  "oil pan": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pan/Service%20and%20Repair`,
+  "oil pump": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pump/Service%20and%20Repair`,
+  "vtc actuator": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Camshaft%2C%20Lifters%20and%20Push%20Rods/Variable%20Valve%20Timing%20Actuator`,
+  "head gasket": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair`,
+  "power steering rack": `${R}Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair`,
+  "sway bar": `${R}Steering%20and%20Suspension/Front%20Suspension/Stabilizer%20Bar/Service%20and%20Repair`,
+  "control arm": `${R}Steering%20and%20Suspension/Front%20Suspension/Control%20Arm/Service%20and%20Repair`,
+  "abs sensor": `${R}Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes/Wheel%20Speed%20Sensor/Service%20and%20Repair`,
+  "brake caliper": `${R}Brakes%20and%20Traction%20Control/Hydraulic%20System/Brake%20Caliper/Service%20and%20Repair`,
+  "brake master cylinder": `${R}Brakes%20and%20Traction%20Control/Hydraulic%20System/Master%20Cylinder/Service%20and%20Repair`,
+  "radiator hose": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator%20Hose/Service%20and%20Repair`,
+  "serpentine belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
+  "drive belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
+  "engine mount": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
 };
 
-function matchJobKeyword(job: string): string | null {
+function matchJobKeyword(job: string): string | string[] | null {
   const lower = job.toLowerCase();
-  let best: string | null = null;
+  let best: string | string[] | null = null;
   let bestLen = 0;
   for (const [kw, path] of Object.entries(JOB_KEYWORD_MAP)) {
     if (lower.includes(kw) && kw.length > bestLen) { best = path; bestLen = kw.length; }
@@ -123,75 +147,116 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   return model;
 }
 
+function extractImages(html: string): string[] {
+  const images: string[] = [];
+  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = imgRegex.exec(html)) !== null) {
+    const src = m[1];
+    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
+      images.push(src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`);
+    }
+  }
+  return [...new Set(images)];
+}
+
+function extractProcedureText(html: string): string {
+  let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  const parts: string[] = [];
+  const cRe = /<(?:p|li|td|div|span|h[1-6])[^>]*>([\s\S]*?)<\/(?:p|li|td|div|span|h[1-6])>/gi;
+  let m;
+  while ((m = cRe.exec(cleaned)) !== null) {
+    const t = m[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    if (t.length > 5) parts.push(t);
+  }
+  return [...new Set(parts)].join('\n');
+}
+
+function extractTorqueSpecs(text: string): any[] {
+  const specs: any[] = [];
+  const tRe = /(\d+(?:\.\d+)?)\s*(ft[\s·.-]?lb[s]?|N[\s·.-]?m)/gi;
+  let m;
+  while ((m = tRe.exec(text)) !== null) {
+    const start = Math.max(0, m.index - 60);
+    const ctx = text.slice(start, m.index).replace(/\n/g, ' ').trim();
+    specs.push({ value: m[1], unit: m[2].replace(/[\s·.-]/g, ' ').trim(), context: ctx.split('.').pop()?.trim() || '' });
+  }
+  return specs;
+}
+
 async function fetchCharmData(supabase: any, vehicle: any, jobDescription: string) {
   if (vehicle.year < 1982 || vehicle.year > 2013) return null;
-  const path = matchJobKeyword(jobDescription);
-  if (!path) return null;
+  const pathResult = matchJobKeyword(jobDescription);
+  if (!pathResult) return null;
 
+  const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
   const charmModel = formatEngineForCharm(vehicle.engine, vehicle.model);
-  const charmUrl = `https://charm.li/${vehicle.make}/${vehicle.year}/${encodeURIComponent(charmModel)}/${path}/`;
+  const encodedModel = encodeURIComponent(charmModel);
 
-  // Check cache
-  const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
-  if (cached) {
-    const fetchedAt = new Date(cached.fetched_at);
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-    if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || (cached.images?.length > 0))) {
-      return { charmUrl, images: cached.images || [], procedureText: cached.procedure_text || '', torqueSpecs: cached.torque_specs || [] };
-    }
-  }
+  let allImages: string[] = [];
+  let allText = '';
+  let allTorqueSpecs: any[] = [];
+  const fetchedUrls: string[] = [];
 
-  // Fetch live
-  try {
-    const resp = await fetch(charmUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
-    if (!resp.ok) return null;
-    const html = await resp.text();
+  for (const path of paths) {
+    const charmUrl = `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`;
 
-    // Extract images
-    const images: string[] = [];
-    const imgRe = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-    let m;
-    while ((m = imgRe.exec(html)) !== null) {
-      const src = m[1];
-      if (src.includes('charm.li/images') || src.includes('/images/')) {
-        images.push(src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`);
+    // Check cache
+    const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
+    if (cached) {
+      const fetchedAt = new Date(cached.fetched_at);
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || (cached.images?.length > 0))) {
+        allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${cached.procedure_text || ''}`;
+        allImages.push(...(cached.images || []));
+        allTorqueSpecs.push(...(cached.torque_specs || []));
+        fetchedUrls.push(charmUrl);
+        continue;
       }
     }
-    const uniqueImages = [...new Set(images)];
 
-    // Extract text
-    let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-    const parts: string[] = [];
-    const cRe = /<(?:p|li|td|div|span|h[1-6])[^>]*>([\s\S]*?)<\/(?:p|li|td|div|span|h[1-6])>/gi;
-    while ((m = cRe.exec(cleaned)) !== null) {
-      const t = m[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-      if (t.length > 5) parts.push(t);
+    // Fetch live
+    try {
+      console.log(`Fetching charm.li: ${charmUrl}`);
+      const resp = await fetch(charmUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
+      if (!resp.ok) { console.log(`Charm.li ${resp.status} for ${charmUrl}`); continue; }
+      const html = await resp.text();
+
+      const images = extractImages(html);
+      const procedureText = extractProcedureText(html);
+      const torqueSpecs = extractTorqueSpecs(procedureText);
+
+      if (procedureText.length < 50 && images.length === 0) continue;
+
+      // Upsert cache
+      if (cached) {
+        await supabase.from("charm_cache").update({ images, procedure_text: procedureText, torque_specs: torqueSpecs, fetched_at: new Date().toISOString() }).eq("id", cached.id);
+      } else {
+        await supabase.from("charm_cache").insert({ charm_url: charmUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
+      }
+
+      allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${procedureText}`;
+      allImages.push(...images);
+      allTorqueSpecs.push(...torqueSpecs);
+      fetchedUrls.push(charmUrl);
+    } catch (e) {
+      console.error(`Charm fetch failed for ${charmUrl}:`, e);
+      continue;
     }
-    const procedureText = [...new Set(parts)].join('\n');
-
-    // Extract torque specs
-    const torqueSpecs: any[] = [];
-    const tRe = /(\d+(?:\.\d+)?)\s*(ft[\s·.-]?lb[s]?|N[\s·.-]?m)/gi;
-    while ((m = tRe.exec(procedureText)) !== null) {
-      const start = Math.max(0, m.index - 60);
-      const ctx = procedureText.slice(start, m.index).replace(/\n/g, ' ').trim();
-      torqueSpecs.push({ value: m[1], unit: m[2].replace(/[\s·.-]/g, ' ').trim(), context: ctx.split('.').pop()?.trim() || '' });
-    }
-
-    if (procedureText.length < 50 && uniqueImages.length === 0) return null;
-
-    // Upsert cache
-    if (cached) {
-      await supabase.from("charm_cache").update({ images: uniqueImages, procedure_text: procedureText, torque_specs: torqueSpecs, fetched_at: new Date().toISOString() }).eq("id", cached.id);
-    } else {
-      await supabase.from("charm_cache").insert({ charm_url: charmUrl, images: uniqueImages, procedure_text: procedureText, torque_specs: torqueSpecs });
-    }
-
-    return { charmUrl, images: uniqueImages, procedureText, torqueSpecs };
-  } catch (e) {
-    console.error("Charm fetch failed:", e);
-    return null;
   }
+
+  if (fetchedUrls.length === 0) return null;
+
+  // Dedupe images
+  allImages = [...new Set(allImages)];
+
+  return {
+    charmUrl: fetchedUrls[0],
+    charmUrls: fetchedUrls,
+    images: allImages,
+    procedureText: allText.trim(),
+    torqueSpecs: allTorqueSpecs,
+  };
 }
 
 serve(async (req) => {
@@ -199,7 +264,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    // --- JWT Authentication ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -209,7 +273,6 @@ serve(async (req) => {
 
     const { vehicleId, jobDescription } = await req.json();
 
-    // --- Input validation ---
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
       return new Response(JSON.stringify({ error: "Invalid or missing vehicleId" }), {
@@ -226,7 +289,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate JWT and get userId
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -239,7 +301,6 @@ serve(async (req) => {
     }
     const userId = claimsData.claims.sub as string;
 
-    // Fetch vehicle — scoped to authenticated user
     const { data: vehicle, error: vErr } = await supabase
       .from("vehicles").select("*").eq("id", vehicleId).eq("user_id", userId).single();
 
@@ -252,13 +313,18 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // --- Fetch charm.li factory data ---
+    // --- Fetch charm.li factory data (now supports multiple URLs) ---
     const charmData = await fetchCharmData(supabase, vehicle, jobDescription);
     let charmSystemAddition = '';
     if (charmData && charmData.procedureText) {
       const torqueLines = (charmData.torqueSpecs || [])
         .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
         .join('\n');
+
+      // Build image list with indices for AI to reference
+      const imageList = charmData.images.map((url: string, idx: number) =>
+        `[Image ${idx}]: ${url}`
+      ).join('\n');
 
       charmSystemAddition = `\n\n## ${vehicle.make} Factory Service Manual — Official Procedure
 
@@ -269,12 +335,14 @@ The following is the exact factory procedure from the ${vehicle.make} service ma
 - Supplement with tips and common mistakes from your expertise
 
 FACTORY PROCEDURE:
-${charmData.procedureText.slice(0, 8000)}
+${charmData.procedureText.slice(0, 12000)}
 
 ${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ''}
 
-FACTORY PHOTOS AVAILABLE:
-${charmData.images.length} factory diagram(s) will be shown to the user alongside your steps. Reference them in your step descriptions where relevant (e.g. 'as shown in the factory diagram').`;
+FACTORY IMAGES AVAILABLE (${charmData.images.length} total):
+${imageList}
+
+IMPORTANT: For each step, set "factoryImageIndex" to the 0-based index of the most relevant factory image above. Match images to steps based on what the image shows (e.g. bolt removal diagram goes with the bolt removal step). Each image should only be assigned to ONE step. Set null if no image fits.`;
     }
 
     const userMessage = `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ""}
@@ -284,7 +352,6 @@ Job: ${jobDescription}
 
 Generate the complete project plan for this exact vehicle and job.`;
 
-    // Call AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -375,27 +442,38 @@ Generate the complete project plan for this exact vehicle and job.`;
       await supabase.from("project_tools").insert(tools);
     }
 
-    // Insert steps — distribute charm images across steps
+    // Insert steps — use AI's factoryImageIndex for smart image assignment
     if (plan.steps?.length) {
       const charmImages = charmData?.images || [];
       const charmUrl = charmData?.charmUrl || null;
       const hasCharm = !!charmData;
 
-      const steps = plan.steps.map((s: any, idx: number) => ({
-        project_id: project.id,
-        step_number: s.number,
-        title: s.title,
-        description: s.description,
-        torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
-        sub_steps: s.subSteps?.length ? s.subSteps : null,
-        tip: s.tip || null,
-        safety_note: s.safetyNote || null,
-        estimated_minutes: s.estimatedMinutes || null,
-        sort_order: s.number,
-        charm_image_url: charmImages[idx] || null,
-        charm_source_url: charmUrl,
-        is_factory_verified: hasCharm,
-      }));
+      const steps = plan.steps.map((s: any, idx: number) => {
+        // Use AI-assigned image index if available, otherwise fall back to sequential
+        let assignedImage: string | null = null;
+        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < charmImages.length) {
+          assignedImage = charmImages[s.factoryImageIndex];
+        } else if (charmImages[idx]) {
+          // Fallback: sequential assignment for steps without explicit assignment
+          assignedImage = charmImages[idx] || null;
+        }
+
+        return {
+          project_id: project.id,
+          step_number: s.number,
+          title: s.title,
+          description: s.description,
+          torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
+          sub_steps: s.subSteps?.length ? s.subSteps : null,
+          tip: s.tip || null,
+          safety_note: s.safetyNote || null,
+          estimated_minutes: s.estimatedMinutes || null,
+          sort_order: s.number,
+          charm_image_url: assignedImage,
+          charm_source_url: charmUrl,
+          is_factory_verified: hasCharm,
+        };
+      });
       await supabase.from("project_steps").insert(steps);
     }
 
@@ -411,7 +489,12 @@ Generate the complete project plan for this exact vehicle and job.`;
         parts: savedParts,
         tools: savedTools,
         steps: savedSteps,
-        charmData: charmData ? { charmUrl: charmData.charmUrl, imageCount: charmData.images.length, hasFactoryData: true } : null,
+        charmData: charmData ? {
+          charmUrl: charmData.charmUrl,
+          charmUrls: charmData.charmUrls,
+          imageCount: charmData.images.length,
+          hasFactoryData: true,
+        } : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
