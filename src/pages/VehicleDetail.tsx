@@ -157,6 +157,7 @@ export default function VehicleDetail() {
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
           <TabsTrigger value="docs"><BookOpen className="h-3.5 w-3.5 mr-1" />Docs</TabsTrigger>
+          <TabsTrigger value="chats"><MessageCircle className="h-3.5 w-3.5 mr-1" />Chats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
