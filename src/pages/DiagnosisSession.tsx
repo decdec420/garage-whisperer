@@ -464,7 +464,7 @@ export default function DiagnosisSession() {
         : '';
 
       const accessToken = await getAccessToken();
-      if (!accessToken) { toast.error('Please log in to chat'); setIsStreaming(false); return; }
+      if (!accessToken) { toast.error('Please log in to chat'); setIsChatStreaming(false); return; }
 
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
