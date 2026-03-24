@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccessToken } from '@/lib/auth-helpers';
 import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen, Paperclip, Camera, Image as ImageIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
@@ -174,18 +175,19 @@ function RatchetMarkdown({ content }: { content: string }) {
 async function extractMemories(
   userMessage: string,
   assistantMessage: string,
-  userId: string,
   vehicleId: string | null,
   sessionId: string | null,
 ) {
   try {
+    const token = await getAccessToken();
+    if (!token) return;
     await fetch(EXTRACT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ userMessage, assistantMessage, userId, vehicleId, sessionId }),
+      body: JSON.stringify({ userMessage, assistantMessage, vehicleId, sessionId }),
     });
   } catch { /* non-critical */ }
 }
@@ -448,16 +450,18 @@ function ChatContent() {
         return { role: m.role, content: m.content };
       });
 
+      const accessToken = await getAccessToken();
+      if (!accessToken) { toast.error('Please log in to chat'); setIsStreaming(false); return; }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           messages: allMessages,
           vehicleContext,
-          userId: user?.id,
           vehicleId: activeVehicle?.id || null,
         }),
       });
@@ -504,7 +508,7 @@ function ChatContent() {
       if (assistantContent) {
         await saveMessage(sessionId, 'assistant', assistantContent);
         if (user?.id) {
-          extractMemories(lastUserMsgRef.current, assistantContent, user.id, activeVehicle?.id || null, sessionId);
+          extractMemories(lastUserMsgRef.current, assistantContent, activeVehicle?.id || null, sessionId);
         }
       }
       await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);

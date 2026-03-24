@@ -65,8 +65,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) throw new Error("Missing authorization");
+    // --- JWT Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { vehicleId, symptom, diagnosisId } = await req.json();
     if (!vehicleId || !symptom) {
@@ -80,20 +85,24 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+    // Validate JWT
+    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
-    if (userError || !user) {
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = claimsData.claims.sub as string;
 
     const { data: vehicle, error: vErr } = await supabase
       .from("vehicles")
       .select("*")
       .eq("id", vehicleId)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (vErr || !vehicle) {
@@ -132,13 +141,8 @@ Generate a complete diagnostic procedure for this exact vehicle and symptom. Ord
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
+        return new Response(JSON.stringify({ error: "Rate limited" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Credits exhausted. Please add funds." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       throw new Error(`AI gateway error: ${status}`);
@@ -152,31 +156,28 @@ Generate a complete diagnostic procedure for this exact vehicle and symptom. Ord
     try {
       plan = JSON.parse(content);
     } catch {
-      console.error("First parse failed, retrying...");
+      // Retry
       const retryResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT + "\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY raw JSON. No markdown code fences. Start with { and end with }." },
+            { role: "system", content: SYSTEM_PROMPT + "\n\nCRITICAL: Return ONLY raw JSON. No markdown. Start with { end with }." },
             { role: "user", content: userMessage },
           ],
         }),
       });
       const retryData = await retryResp.json();
-      let retryContent = retryData.choices?.[0]?.message?.content || "";
-      retryContent = retryContent.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      plan = JSON.parse(retryContent);
+      let rc = retryData.choices?.[0]?.message?.content || "";
+      rc = rc.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      plan = JSON.parse(rc);
     }
 
-    // Create project as type "diagnosis"
+    // Save project
     const { data: project, error: projErr } = await supabase.from("projects").insert({
       vehicle_id: vehicleId,
-      user_id: user.id,
+      user_id: userId,
       title: plan.title || `Diagnose: ${symptom}`,
       description: `Diagnostic procedure for: ${symptom}`,
       difficulty: plan.difficulty,
@@ -200,65 +201,47 @@ Generate a complete diagnostic procedure for this exact vehicle and symptom. Ord
       await supabase.from("project_tools").insert(tools);
     }
 
-    // Insert steps with diagnosis-specific metadata in notes/tip fields
+    // Insert steps
     if (plan.steps?.length) {
       const steps = plan.steps.map((s: any) => ({
         project_id: project.id,
         step_number: s.number,
         title: s.title,
-        description: s.description
-          + (s.expectedResult ? `\n\n**If it's fine:** ${s.expectedResult}` : '')
-          + (s.failureIndicator ? `\n\n**If it's the problem:** ${s.failureIndicator}` : ''),
+        description: s.description + (s.expectedResult ? `\n\n✅ Expected (healthy): ${s.expectedResult}` : '') + (s.failureIndicator ? `\n\n❌ Failure indicator: ${s.failureIndicator}` : '') + (s.eliminates?.length ? `\n\n🔍 Rules out: ${s.eliminates.join(', ')}` : '') + (s.confirms?.length ? `\n\n🎯 Confirms: ${s.confirms.join(', ')}` : ''),
         torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
         sub_steps: s.subSteps?.length ? s.subSteps : null,
         tip: s.tip || null,
         safety_note: s.safetyNote || null,
         estimated_minutes: s.estimatedMinutes || null,
         sort_order: s.number,
-        // Store diagnostic metadata in notes as JSON
-        notes: JSON.stringify({
-          systemTesting: s.systemTesting || null,
-          expectedResult: s.expectedResult || null,
-          failureIndicator: s.failureIndicator || null,
-          eliminates: s.eliminates || [],
-          confirms: s.confirms || [],
-        }),
       }));
       await supabase.from("project_steps").insert(steps);
     }
 
-    // Link diagnosis session if provided
+    // Link to diagnosis session if provided
     if (diagnosisId) {
       await supabase.from("diagnosis_sessions").update({
         project_id: project.id,
-        tree_data: (plan.possibleCauses || []).map((c: string) => ({
-          name: c,
-          status: "untested",
-        })),
-        updated_at: new Date().toISOString(),
+        tree_data: plan.possibleCauses ? plan.possibleCauses.map((c: string) => ({ cause: c, status: 'untested' })) : [],
       }).eq("id", diagnosisId);
     }
 
-    // Return full project
+    // Return
     const { data: fullProject } = await supabase.from("projects").select("*").eq("id", project.id).single();
     const { data: savedTools } = await supabase.from("project_tools").select("*").eq("project_id", project.id).order("sort_order");
     const { data: savedSteps } = await supabase.from("project_steps").select("*").eq("project_id", project.id).order("step_number");
 
-    return new Response(
-      JSON.stringify({
-        project: fullProject,
-        projectId: project.id,
-        tools: savedTools,
-        steps: savedSteps,
-        possibleCauses: plan.possibleCauses || [],
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({
+      project: fullProject,
+      tools: savedTools,
+      steps: savedSteps,
+      possibleCauses: plan.possibleCauses || [],
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (e) {
     console.error("generate-diagnosis error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
