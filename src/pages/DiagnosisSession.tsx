@@ -157,6 +157,25 @@ function StepCard({
             <ReactMarkdown>{step.description}</ReactMarkdown>
           </div>
 
+          {/* Step diagram */}
+          {step.charm_image_url && (
+            <button
+              onClick={() => onImageClick?.(step.charm_image_url!)}
+              className="w-full rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
+            >
+              <img
+                src={step.charm_image_url}
+                alt={`Diagram: ${step.title}`}
+                className="w-full max-h-[200px] object-contain bg-white"
+                loading="lazy"
+              />
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 text-[10px] text-muted-foreground">
+                <BookOpen className="h-2.5 w-2.5" />
+                Factory Diagram · Tap to enlarge
+              </div>
+            </button>
+          )}
+
           {/* Sub-steps */}
           {step.sub_steps && step.sub_steps.length > 0 && (
             <div className="space-y-2">
