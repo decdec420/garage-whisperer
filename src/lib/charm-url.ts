@@ -64,14 +64,34 @@ const JOB_KEYWORD_MAP: Record<string, string | string[]> = {
   "engine mount": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
 };
 
+/** Standard engine displacements to round to */
+const STANDARD_DISPLACEMENTS = [1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 3.0, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8, 4.0, 4.2, 4.3, 4.6, 4.7, 5.0, 5.3, 5.4, 5.7, 6.0, 6.2, 6.4, 6.6, 6.7, 7.0, 7.3];
+
+function roundDisplacement(raw: number): string {
+  let closest = STANDARD_DISPLACEMENTS[0];
+  let minDiff = Math.abs(raw - closest);
+  for (const std of STANDARD_DISPLACEMENTS) {
+    const diff = Math.abs(raw - std);
+    if (diff < minDiff) { closest = std; minDiff = diff; }
+  }
+  return closest.toFixed(1);
+}
+
+/** Title-case a make: "HONDA" → "Honda", "BMW" stays "BMW" (3 chars or less) */
+export function titleCaseMake(make: string): string {
+  if (make.length <= 3) return make.toUpperCase(); // BMW, GMC
+  return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
+}
+
 /**
- * Parse engine string like "2.4L I4" into charm.li format "L4-2.4L"
+ * Parse engine string like "2.4L I4" or "2.359737216L 4cyl" into charm.li format "L4-2.4L"
  */
 function formatEngineForCharm(engine: string | null, model: string): string {
   if (!engine) return model;
   
-  const displacementMatch = engine.match(/(\d+\.\d+)\s*L/i);
-  const displacement = displacementMatch ? displacementMatch[1] : null;
+  const displacementMatch = engine.match(/(\d+\.?\d*)\s*L/i);
+  const rawDisplacement = displacementMatch ? parseFloat(displacementMatch[1]) : null;
+  const displacement = rawDisplacement ? roundDisplacement(rawDisplacement) : null;
   
   let cylConfig = '';
   if (/V\s*6/i.test(engine) || /V6/i.test(engine)) cylConfig = 'V6';
@@ -123,11 +143,12 @@ export function buildCharmUrls(
   const pathResult = matchJobKeyword(jobDescription);
   if (!pathResult) return [];
   
+  const charmMake = titleCaseMake(vehicle.make);
   const charmModel = formatEngineForCharm(vehicle.engine || null, vehicle.model);
   const encodedModel = encodeURIComponent(charmModel);
   
   const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-  return paths.map(path => `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`);
+  return paths.map(path => `https://charm.li/${charmMake}/${vehicle.year}/${encodedModel}/${path}/`);
 }
 
 /** @deprecated Use buildCharmUrls instead */
