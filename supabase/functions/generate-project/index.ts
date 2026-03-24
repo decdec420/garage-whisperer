@@ -391,7 +391,7 @@ The following is the exact factory procedure from the ${vehicle.make} service ma
 - Supplement with tips and common mistakes from your expertise
 
 FACTORY PROCEDURE:
-${charmData.procedureText.slice(0, 12000)}
+${mergedText.join('\n\n').slice(0, 16000)}
 
 ${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ''}
 
