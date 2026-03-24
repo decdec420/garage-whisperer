@@ -206,7 +206,7 @@ function ChatContent() {
   const { user } = useAuth();
   const {
     activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen,
-    setActiveVehicle, ratchetProjectContext,
+    setActiveVehicle, ratchetProjectContext, ratchetActiveSessionId,
   } = useAppStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
