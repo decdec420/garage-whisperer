@@ -47,19 +47,6 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
         counts[id] = count || 0;
       }
 
-      // Get project titles for project sessions
-      const projectIds = chatSessions.filter(s => s.project_id).map(s => s.project_id!);
-      let projectTitles: Record<string, string> = {};
-      if (projectIds.length) {
-        const { data: projects } = await supabase
-          .from('projects')
-          .select('id, title')
-          .in('id', projectIds);
-        if (projects) {
-          projectTitles = Object.fromEntries(projects.map(p => [p.id, p.title]));
-        }
-      }
-
       return chatSessions.map(s => ({
         ...s,
         message_count: counts[s.id] || 0,
