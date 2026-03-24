@@ -198,19 +198,17 @@ export default function RatchetFAB() {
     };
   }, [openRatchetPanel]);
 
-  const hasMoved = useRef(false);
-  const startPos = useRef({ x: 0, y: 0 });
-
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownTime.current = Date.now();
-    hasMoved.current = false;
-    startPos.current = { x: e.clientX, y: e.clientY };
+    pointerDown.current = true;
+    isDragging.current = false;
+    startPointer.current = { x: e.clientX, y: e.clientY };
+
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
       dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
-    isDragging.current = true;
-    setDragging(true);
+
     setTooltipOpen(false);
     if (showHint) {
       setShowHint(false);
@@ -218,29 +216,21 @@ export default function RatchetFAB() {
     }
   };
 
-  // Track if mouse actually moved a meaningful distance (drag vs tap)
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const dx = e.clientX - startPos.current.x;
-      const dy = e.clientY - startPos.current.y;
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved.current = true;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      if (!isDragging.current) return;
-      const t = e.touches[0];
-      const dx = t.clientX - startPos.current.x;
-      const dy = t.clientY - startPos.current.y;
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved.current = true;
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onTouchMove);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onTouchMove); };
-  }, []);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    pointerDown.current = true;
+    isDragging.current = false;
+    startPointer.current = { x: t.clientX, y: t.clientY };
 
-  const handleClick = () => {
-    if (!hasMoved.current) {
-      openRatchetPanel();
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      dragOffset.current = { x: t.clientX - rect.left, y: t.clientY - rect.top };
+    }
+
+    setTooltipOpen(false);
+    if (showHint) {
+      setShowHint(false);
+      localStorage.setItem(HINT_KEY, 'true');
     }
   };
 
