@@ -3,23 +3,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getAccessToken } from '@/lib/auth-helpers';
+import { streamChat, extractMemories } from '@/lib/ratchet-chat';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Send, Plus, Wrench, MessageCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import { cn } from '@/lib/utils';
-
-interface Message {
-  id?: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
-const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-memories`;
 
 const quickPrompts = [
   'Diagnose a symptom or noise',
