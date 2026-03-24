@@ -172,25 +172,7 @@ function RatchetMarkdown({ content }: { content: string }) {
   );
 }
 
-async function extractMemories(
-  userMessage: string,
-  assistantMessage: string,
-  vehicleId: string | null,
-  sessionId: string | null,
-) {
-  try {
-    const token = await getAccessToken();
-    if (!token) return;
-    await fetch(EXTRACT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ userMessage, assistantMessage, vehicleId, sessionId }),
-    });
-  } catch { /* non-critical */ }
-}
+// extractMemories is now imported from @/lib/ratchet-chat
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
