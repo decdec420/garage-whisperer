@@ -45,6 +45,15 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verify vehicleId belongs to authenticated user
+    const { data: vehicle } = await supabase
+      .from("vehicles").select("id").eq("id", vehicleId).eq("user_id", userId).single();
+    if (!vehicle) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const prompt = `For a ${year} ${make} ${model}${trim ? ` ${trim}` : ''}, provide the most useful online resources a DIY mechanic would need. Return a JSON array of objects with "title", "url", and "description" fields.
 
 Focus on:
