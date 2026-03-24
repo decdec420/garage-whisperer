@@ -33,6 +33,9 @@ interface AppState {
   closeRatchetPanel: () => void;
   setRatchetPanelMode: (mode: 'default' | 'fullscreen') => void;
   setRatchetProjectContext: (ctx: ProjectContext | null) => void;
+  // Open Ratchet with a specific session pre-loaded
+  ratchetActiveSessionId: string | null;
+  openRatchetWithSession: (sessionId: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -48,7 +51,9 @@ export const useAppStore = create<AppState>((set) => ({
   ratchetPrefilledMessage: null,
   ratchetProjectContext: null,
   openRatchetPanel: (prefilledMessage?: string) => set({ isRatchetOpen: true, ratchetPrefilledMessage: prefilledMessage ?? null }),
-  closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null }),
+  closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null, ratchetActiveSessionId: null }),
   setRatchetPanelMode: (mode) => set({ ratchetPanelMode: mode }),
   setRatchetProjectContext: (ctx) => set({ ratchetProjectContext: ctx }),
+  ratchetActiveSessionId: null,
+  openRatchetWithSession: (sessionId) => set({ isRatchetOpen: true, ratchetActiveSessionId: sessionId, ratchetPrefilledMessage: null }),
 }));

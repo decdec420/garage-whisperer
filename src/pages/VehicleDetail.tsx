@@ -14,6 +14,7 @@ import ProjectsTab from '@/components/vehicle/ProjectsTab';
 import BlueprintTab from '@/components/vehicle/BlueprintTab';
 import DiagnoseTab from '@/components/vehicle/DiagnoseTab';
 import DocsTab from '@/components/vehicle/DocsTab';
+import ChatsTab from '@/components/vehicle/ChatsTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
@@ -156,6 +157,7 @@ export default function VehicleDetail() {
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
           <TabsTrigger value="docs"><BookOpen className="h-3.5 w-3.5 mr-1" />Docs</TabsTrigger>
+          <TabsTrigger value="chats"><MessageCircle className="h-3.5 w-3.5 mr-1" />Chats</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -358,6 +360,10 @@ export default function VehicleDetail() {
 
         <TabsContent value="docs">
           <DocsTab vehicleId={vehicleId!} vehicle={vehicle} />
+        </TabsContent>
+
+        <TabsContent value="chats">
+          <ChatsTab vehicleId={vehicleId!} />
         </TabsContent>
       </Tabs>
     </div>

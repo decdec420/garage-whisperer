@@ -57,7 +57,7 @@ const App = () => (
             <Route path="/projects" element={<Navigate to="/active-work" replace />} />
             <Route path="/maintenance" element={<Navigate to="/garage" replace />} />
             <Route path="/repairs" element={<Navigate to="/garage" replace />} />
-            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+            <Route path="/chat" element={<Navigate to="/garage" replace />} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

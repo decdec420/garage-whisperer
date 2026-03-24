@@ -206,7 +206,7 @@ function ChatContent() {
   const { user } = useAuth();
   const {
     activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen,
-    setActiveVehicle, ratchetProjectContext,
+    setActiveVehicle, ratchetProjectContext, ratchetActiveSessionId,
   } = useAppStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -292,6 +292,15 @@ function ChatContent() {
     setActiveSessionId(null);
     setMessages([]);
   }, [activeVehicle?.id, ratchetProjectContext?.id]);
+
+  // Handle openRatchetWithSession — load a specific session from store
+  useEffect(() => {
+    if (ratchetActiveSessionId && isRatchetOpen) {
+      setActiveSessionId(ratchetActiveSessionId);
+      // Clear it from store so it doesn't re-trigger
+      useAppStore.setState({ ratchetActiveSessionId: null });
+    }
+  }, [ratchetActiveSessionId, isRatchetOpen]);
 
   useEffect(() => {
     if (sessions?.length && !activeSessionId && !messages.length) {
