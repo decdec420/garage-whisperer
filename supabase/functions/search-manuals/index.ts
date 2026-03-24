@@ -100,16 +100,25 @@ Return ONLY the JSON array, no other text. Limit to 5-8 most useful resources.`;
       resources = [];
     }
 
+    // Validate and insert resources
+    const ALLOWED_URL_PATTERN = /^https?:\/\//i;
     let count = 0;
     for (const r of resources) {
-      if (!r.title || !r.url) continue;
+      if (!r.title || !r.url || typeof r.url !== 'string') continue;
+      // Basic URL validation — must be a valid HTTP(S) URL
+      if (!ALLOWED_URL_PATTERN.test(r.url)) continue;
+      try { new URL(r.url); } catch { continue; }
+      // Sanitize string lengths
+      const title = String(r.title).slice(0, 500);
+      const description = r.description ? String(r.description).slice(0, 2000) : null;
+      const url = r.url.slice(0, 2000);
       const { error } = await supabase.from("vehicle_documents").insert({
         vehicle_id: vehicleId,
         user_id: userId,
-        title: r.title,
-        description: r.description || null,
+        title,
+        description,
         doc_type: "reference",
-        external_url: r.url,
+        external_url: url,
         source: "auto_search",
       });
       if (!error) count++;
