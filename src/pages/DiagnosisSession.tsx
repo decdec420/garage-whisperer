@@ -760,6 +760,7 @@ export default function DiagnosisSession() {
                     isActive={i === currentStepIndex}
                     isCompleted={step.status === 'healthy' || step.status === 'faulty'}
                     onMarkResult={markStepResult}
+                    onImageClick={openImageInLightbox}
                   />
                 ))}
               </div>
