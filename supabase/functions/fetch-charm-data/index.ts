@@ -83,10 +83,28 @@ function matchJobKeyword(jobDescription: string): string | string[] | null {
   return bestMatch;
 }
 
+const STANDARD_DISPLACEMENTS = [1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 3.0, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8, 4.0, 4.2, 4.3, 4.6, 4.7, 5.0, 5.3, 5.4, 5.7, 6.0, 6.2, 6.4, 6.6, 6.7, 7.0, 7.3];
+
+function roundDisplacement(raw: number): string {
+  let closest = STANDARD_DISPLACEMENTS[0];
+  let minDiff = Math.abs(raw - closest);
+  for (const std of STANDARD_DISPLACEMENTS) {
+    const diff = Math.abs(raw - std);
+    if (diff < minDiff) { closest = std; minDiff = diff; }
+  }
+  return closest.toFixed(1);
+}
+
+function titleCaseMake(make: string): string {
+  if (make.length <= 3) return make.toUpperCase();
+  return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
+}
+
 function formatEngineForCharm(engine: string | null, model: string): string {
   if (!engine) return model;
-  const dm = engine.match(/(\d+\.\d+)\s*L/i);
-  const d = dm ? dm[1] : null;
+  const dm = engine.match(/(\d+\.?\d*)\s*L/i);
+  const rawD = dm ? parseFloat(dm[1]) : null;
+  const d = rawD ? roundDisplacement(rawD) : null;
   let c = '';
   if (/V\s*6|V6/i.test(engine)) c = 'V6';
   else if (/V\s*8|V8/i.test(engine)) c = 'V8';
