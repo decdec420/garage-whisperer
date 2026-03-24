@@ -55,9 +55,6 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
     enabled: !!vehicleId,
   });
 
-  const projectSessions = sessions?.filter(s => s.project_id) || [];
-  const generalSessions = sessions?.filter(s => !s.project_id) || [];
-
   if (isLoading) {
     return (
       <div className="space-y-3 mt-4">
