@@ -451,16 +451,18 @@ function ChatContent() {
         return { role: m.role, content: m.content };
       });
 
+      const accessToken = await getAccessToken();
+      if (!accessToken) { toast.error('Please log in to chat'); setIsStreaming(false); return; }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           messages: allMessages,
           vehicleContext,
-          userId: user?.id,
           vehicleId: activeVehicle?.id || null,
         }),
       });

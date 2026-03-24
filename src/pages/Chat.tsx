@@ -221,17 +221,16 @@ export default function Chat() {
       if (assistantContent) {
         await saveMessage(sessionId, 'assistant', assistantContent);
         // Background memory extraction
-        if (user?.id) {
+        if (user?.id && accessToken) {
           fetch(EXTRACT_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              Authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               userMessage: lastUserMsgRef.current,
               assistantMessage: assistantContent,
-              userId: user.id,
               vehicleId: activeVehicle?.id || null,
               sessionId,
             }),

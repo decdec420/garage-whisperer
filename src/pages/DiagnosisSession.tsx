@@ -462,16 +462,18 @@ export default function DiagnosisSession() {
         ? `Active vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ` ${vehicle.trim}` : ''}${vehicle.engine ? ` · ${vehicle.engine}` : ''}${vehicle.mileage ? ` · ${vehicle.mileage.toLocaleString()} mi` : ''}\n\nDIAGNOSIS IN PROGRESS for symptom: "${diagSession?.symptom}". Systems tested so far: ${treeNodes.map(n => `${n.name} (${n.status})`).join(', ')}. Help the user with this specific diagnostic test.`
         : '';
 
+      const accessToken = await getAccessToken();
+      if (!accessToken) { toast.error('Please log in to chat'); setIsStreaming(false); return; }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           vehicleContext,
-          userId: user?.id,
           vehicleId: vehicleId || null,
         }),
       });
