@@ -500,18 +500,15 @@ Generate the complete project plan for this exact vehicle and job.`;
 
     // Insert steps — use AI's factoryImageIndex for smart image assignment
     if (plan.steps?.length) {
-      const charmImages = charmData?.images || [];
-      const charmUrl = charmData?.charmUrl || null;
-      const hasCharm = !!charmData;
+      const stepImages = mergedImages;
+      const sourceUrl = factorySourceUrl;
 
       const steps = plan.steps.map((s: any, idx: number) => {
-        // Use AI-assigned image index if available, otherwise fall back to sequential
         let assignedImage: string | null = null;
-        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < charmImages.length) {
-          assignedImage = charmImages[s.factoryImageIndex];
-        } else if (charmImages[idx]) {
-          // Fallback: sequential assignment for steps without explicit assignment
-          assignedImage = charmImages[idx] || null;
+        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
+          assignedImage = stepImages[s.factoryImageIndex];
+        } else if (stepImages[idx]) {
+          assignedImage = stepImages[idx] || null;
         }
 
         return {
@@ -526,8 +523,8 @@ Generate the complete project plan for this exact vehicle and job.`;
           estimated_minutes: s.estimatedMinutes || null,
           sort_order: s.number,
           charm_image_url: assignedImage,
-          charm_source_url: charmUrl,
-          is_factory_verified: hasCharm,
+          charm_source_url: sourceUrl,
+          is_factory_verified: hasFactoryData,
         };
       });
       await supabase.from("project_steps").insert(steps);
