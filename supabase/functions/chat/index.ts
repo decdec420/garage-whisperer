@@ -42,18 +42,39 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, vehicleContext, userId, vehicleId } = await req.json();
+    // --- JWT Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = claimsData.claims.sub as string;
+
+    const { messages, vehicleContext, vehicleId } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Fetch memories if userId is provided
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch memories using authenticated userId
     let memoryBlock = "";
     if (userId) {
       try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
         // User-level memories (vehicle_id IS NULL)
         const { data: userMemories } = await supabase
           .from("ratchet_memory")
@@ -104,7 +125,6 @@ serve(async (req) => {
     if (vehicleId) {
       try {
         const lastUserMsg = messages[messages.length - 1]?.content?.toLowerCase() || '';
-        // Quick keyword scan to see if we should look up charm data
         const charmKeywords = [
           'starter', 'alternator', 'catalytic', 'oxygen sensor', 'o2 sensor',
           'vtec', 'valve cover', 'timing chain', 'water pump', 'thermostat',
@@ -119,11 +139,9 @@ serve(async (req) => {
         const matchedKeyword = charmKeywords.find(kw => lastUserMsg.includes(kw));
 
         if (matchedKeyword && vehicleContext) {
-          // Extract year from vehicleContext
           const yearMatch = vehicleContext.match(/(\d{4})/);
           const year = yearMatch ? parseInt(yearMatch[1]) : 0;
           if (year >= 1982 && year <= 2013) {
-            // Try to fetch charm data via the edge function
             const charmResp = await fetch(`${supabaseUrl}/functions/v1/fetch-charm-data`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
@@ -158,7 +176,6 @@ serve(async (req) => {
 
     // Process messages: handle multimodal content (images)
     const processedMessages = messages.map((msg: any) => {
-      // If message has images array, construct multimodal content
       if (msg.images && msg.images.length > 0) {
         const contentParts: any[] = [];
         for (const img of msg.images) {
@@ -196,21 +213,18 @@ serve(async (req) => {
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Credits exhausted. Please add funds." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -220,8 +234,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

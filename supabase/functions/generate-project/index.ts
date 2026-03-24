@@ -199,8 +199,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) throw new Error("Missing authorization");
+    // --- JWT Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { vehicleId, jobDescription } = await req.json();
     if (!vehicleId || !jobDescription) {
@@ -214,19 +219,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from JWT
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+    // Validate JWT and get userId
+    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
-    if (userError || !user) {
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const userId = claimsData.claims.sub as string;
 
-    // Fetch vehicle
+    // Fetch vehicle — scoped to authenticated user
     const { data: vehicle, error: vErr } = await supabase
-      .from("vehicles").select("*").eq("id", vehicleId).eq("user_id", user.id).single();
+      .from("vehicles").select("*").eq("id", vehicleId).eq("user_id", userId).single();
 
     if (vErr || !vehicle) {
       return new Response(JSON.stringify({ error: "Vehicle not found" }), {
@@ -329,7 +337,7 @@ Generate the complete project plan for this exact vehicle and job.`;
     // Save to DB
     const { data: project, error: projErr } = await supabase.from("projects").insert({
       vehicle_id: vehicleId,
-      user_id: user.id,
+      user_id: userId,
       title: plan.title,
       description: jobDescription,
       difficulty: plan.difficulty,
@@ -377,7 +385,6 @@ Generate the complete project plan for this exact vehicle and job.`;
         safety_note: s.safetyNote || null,
         estimated_minutes: s.estimatedMinutes || null,
         sort_order: s.number,
-        // Charm.li fields
         charm_image_url: charmImages[idx] || null,
         charm_source_url: charmUrl,
         is_factory_verified: hasCharm,
