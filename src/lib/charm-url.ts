@@ -1,52 +1,67 @@
 // Utility to build charm.li URLs from vehicle + job keyword
+// All paths include "Repair%20and%20Diagnosis/" prefix as required by charm.li
 
-const JOB_KEYWORD_MAP: Record<string, string> = {
-  "starter": "Starting%20and%20Charging/Starter/Service%20and%20Repair",
-  "alternator": "Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair",
-  "battery": "Starting%20and%20Charging/Battery/Service%20and%20Repair",
-  "catalytic converter": "Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair",
-  "oxygen sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair",
-  "o2 sensor": "Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair",
-  "vtec solenoid": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Variable%20Valve%20Timing%20Solenoid/Service%20and%20Repair",
-  "valve cover gasket": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover/Service%20and%20Repair",
-  "timing chain": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Timing%20Components/Service%20and%20Repair",
-  "water pump": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Water%20Pump/Service%20and%20Repair",
-  "thermostat": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair",
-  "radiator": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair",
-  "brake pads": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pads/Service%20and%20Repair",
-  "brake rotors": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Rotor/Service%20and%20Repair",
-  "strut": "Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair",
-  "spark plugs": "Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair",
-  "transmission fluid": "Transmission%20and%20Drivetrain/Automatic%20Transmission%2FTransaxle/Fluid/Service%20and%20Repair",
-  "power steering": "Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair",
-  "ac compressor": "Heating%20and%20Air%20Conditioning/Compressor/Service%20and%20Repair",
-  "ac line": "Heating%20and%20Air%20Conditioning/Hose%2FLine%20HVAC/Service%20and%20Repair",
-  "wheel bearing": "Steering%20and%20Suspension/Front%20Suspension/Wheel%20Bearing/Service%20and%20Repair",
-  "cv axle": "Transmission%20and%20Drivetrain/Drive%20Axles/CV%20Axle/Service%20and%20Repair",
-  "tie rod": "Steering%20and%20Suspension/Steering/Tie%20Rod/Service%20and%20Repair",
-  "ball joint": "Steering%20and%20Suspension/Front%20Suspension/Ball%20Joint/Service%20and%20Repair",
-  "fuel pump": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Pump/Service%20and%20Repair",
-  "fuel injector": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Injector/Service%20and%20Repair",
-  "throttle body": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Throttle%20Body/Service%20and%20Repair",
-  "mass air flow": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair",
-  "maf sensor": "Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair",
-  "crankshaft sensor": "Powertrain%20Management/Ignition%20System/Crankshaft%20Position%20Sensor/Service%20and%20Repair",
-  "camshaft sensor": "Powertrain%20Management/Ignition%20System/Camshaft%20Position%20Sensor/Service%20and%20Repair",
-  "ignition coil": "Powertrain%20Management/Ignition%20System/Ignition%20Coil/Service%20and%20Repair",
-  "oil pan": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pan/Service%20and%20Repair",
-  "oil pump": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pump/Service%20and%20Repair",
-  "vtc actuator": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair",
-  "head gasket": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair",
-  "power steering rack": "Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair",
-  "sway bar": "Steering%20and%20Suspension/Front%20Suspension/Stabilizer%20Bar/Service%20and%20Repair",
-  "control arm": "Steering%20and%20Suspension/Front%20Suspension/Control%20Arm/Service%20and%20Repair",
-  "abs sensor": "Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes/Wheel%20Speed%20Sensor/Service%20and%20Repair",
-  "brake caliper": "Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Caliper/Service%20and%20Repair",
-  "brake master cylinder": "Brakes%20and%20Traction%20Control/Hydraulic%20System/Master%20Cylinder/Service%20and%20Repair",
-  "radiator hose": "Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator%20Hose/Service%20and%20Repair",
-  "serpentine belt": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts/Service%20and%20Repair",
-  "drive belt": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts/Service%20and%20Repair",
-  "engine mount": "Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair",
+const R = "Repair%20and%20Diagnosis/"; // prefix shorthand
+
+// Each entry can map to a single path or array of paths (for front/rear variants)
+const JOB_KEYWORD_MAP: Record<string, string | string[]> = {
+  "front brake pad": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  "rear brake pad": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  "brake pads": [
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  ],
+  "brake pad": [
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
+    `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
+  ],
+  "starter": `${R}Starting%20and%20Charging/Starter/Service%20and%20Repair`,
+  "alternator": `${R}Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair`,
+  "battery": `${R}Starting%20and%20Charging/Battery/Service%20and%20Repair`,
+  "catalytic converter": `${R}Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair`,
+  "oxygen sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
+  "o2 sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
+  "vtec solenoid": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Actuators%20and%20Solenoids%20-%20Engine/Variable%20Valve%20Timing%20Solenoid`,
+  "valve cover gasket": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Valve%20Cover/Service%20and%20Repair`,
+  "timing chain": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Timing%20Components/Service%20and%20Repair`,
+  "water pump": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Water%20Pump/Service%20and%20Repair`,
+  "thermostat": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair`,
+  "radiator": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair`,
+  "brake rotors": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc/Service%20and%20Repair`,
+  "brake rotor": `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Rotor%2FDisc/Service%20and%20Repair`,
+  "strut": `${R}Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair`,
+  "spark plugs": `${R}Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair`,
+  "spark plug": `${R}Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair`,
+  "transmission fluid": `${R}Transmission%20and%20Drivetrain/Automatic%20Transmission%2FTransaxle/Fluid/Service%20and%20Repair`,
+  "power steering": `${R}Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair`,
+  "ac compressor": `${R}Heating%20and%20Air%20Conditioning/Compressor/Service%20and%20Repair`,
+  "ac line": `${R}Heating%20and%20Air%20Conditioning/Hose%2FLine%20HVAC/Service%20and%20Repair`,
+  "wheel bearing": `${R}Steering%20and%20Suspension/Front%20Suspension/Wheel%20Bearing/Service%20and%20Repair`,
+  "cv axle": `${R}Transmission%20and%20Drivetrain/Drive%20Axles/CV%20Axle/Service%20and%20Repair`,
+  "tie rod": `${R}Steering%20and%20Suspension/Steering/Tie%20Rod/Service%20and%20Repair`,
+  "ball joint": `${R}Steering%20and%20Suspension/Front%20Suspension/Ball%20Joint/Service%20and%20Repair`,
+  "fuel pump": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Pump/Service%20and%20Repair`,
+  "fuel injector": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Fuel%20Injector/Service%20and%20Repair`,
+  "throttle body": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Throttle%20Body/Service%20and%20Repair`,
+  "mass air flow": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair`,
+  "maf sensor": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction/Air%20Flow%20Meter%2FSensor/Service%20and%20Repair`,
+  "crankshaft sensor": `${R}Powertrain%20Management/Ignition%20System/Crankshaft%20Position%20Sensor/Service%20and%20Repair`,
+  "camshaft sensor": `${R}Powertrain%20Management/Ignition%20System/Camshaft%20Position%20Sensor/Service%20and%20Repair`,
+  "ignition coil": `${R}Powertrain%20Management/Ignition%20System/Ignition%20Coil/Service%20and%20Repair`,
+  "oil pan": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pan/Service%20and%20Repair`,
+  "oil pump": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication/Oil%20Pump/Service%20and%20Repair`,
+  "vtc actuator": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Camshaft%2C%20Lifters%20and%20Push%20Rods/Variable%20Valve%20Timing%20Actuator`,
+  "head gasket": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Cylinder%20Head%20Assembly/Service%20and%20Repair`,
+  "power steering rack": `${R}Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair`,
+  "sway bar": `${R}Steering%20and%20Suspension/Front%20Suspension/Stabilizer%20Bar/Service%20and%20Repair`,
+  "control arm": `${R}Steering%20and%20Suspension/Front%20Suspension/Control%20Arm/Service%20and%20Repair`,
+  "abs sensor": `${R}Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes/Wheel%20Speed%20Sensor/Service%20and%20Repair`,
+  "brake caliper": `${R}Brakes%20and%20Traction%20Control/Hydraulic%20System/Brake%20Caliper/Service%20and%20Repair`,
+  "brake master cylinder": `${R}Brakes%20and%20Traction%20Control/Hydraulic%20System/Master%20Cylinder/Service%20and%20Repair`,
+  "radiator hose": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator%20Hose/Service%20and%20Repair`,
+  "serpentine belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
+  "drive belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
+  "engine mount": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
 };
 
 /**
@@ -58,7 +73,6 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   const displacementMatch = engine.match(/(\d+\.\d+)\s*L/i);
   const displacement = displacementMatch ? displacementMatch[1] : null;
   
-  // Detect cylinder config
   let cylConfig = '';
   if (/V\s*6/i.test(engine) || /V6/i.test(engine)) cylConfig = 'V6';
   else if (/V\s*8/i.test(engine) || /V8/i.test(engine)) cylConfig = 'V8';
@@ -77,12 +91,13 @@ function formatEngineForCharm(engine: string | null, model: string): string {
 }
 
 /**
- * Fuzzy-match a job description to a charm.li keyword path.
+ * Fuzzy-match a job description to charm.li keyword path(s).
  * Returns the most specific (longest keyword) match.
+ * Can return a single path string or array of paths.
  */
-export function matchJobKeyword(jobDescription: string): string | null {
+export function matchJobKeyword(jobDescription: string): string | string[] | null {
   const lower = jobDescription.toLowerCase();
-  let bestMatch: string | null = null;
+  let bestMatch: string | string[] | null = null;
   let bestLength = 0;
   
   for (const [keyword, path] of Object.entries(JOB_KEYWORD_MAP)) {
@@ -96,22 +111,32 @@ export function matchJobKeyword(jobDescription: string): string | null {
 }
 
 /**
- * Build a charm.li URL for a vehicle + job.
+ * Build charm.li URL(s) for a vehicle + job.
+ * Returns array of URLs (may be multiple for front/rear procedures).
  */
-export function buildCharmUrl(
+export function buildCharmUrls(
   vehicle: { make: string; year: number; model: string; engine?: string | null },
   jobDescription: string
-): string | null {
-  // Year coverage check
-  if (vehicle.year < 1982 || vehicle.year > 2013) return null;
+): string[] {
+  if (vehicle.year < 1982 || vehicle.year > 2013) return [];
   
-  const path = matchJobKeyword(jobDescription);
-  if (!path) return null;
+  const pathResult = matchJobKeyword(jobDescription);
+  if (!pathResult) return [];
   
   const charmModel = formatEngineForCharm(vehicle.engine || null, vehicle.model);
   const encodedModel = encodeURIComponent(charmModel);
   
-  return `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`;
+  const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
+  return paths.map(path => `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`);
+}
+
+/** @deprecated Use buildCharmUrls instead */
+export function buildCharmUrl(
+  vehicle: { make: string; year: number; model: string; engine?: string | null },
+  jobDescription: string
+): string | null {
+  const urls = buildCharmUrls(vehicle, jobDescription);
+  return urls.length > 0 ? urls[0] : null;
 }
 
 /**
@@ -120,7 +145,6 @@ export function buildCharmUrl(
 export function componentToJobKeyword(componentName: string): string {
   const lower = componentName.toLowerCase();
   
-  // Direct mappings from Blueprint component names
   if (lower.includes('vtc actuator')) return 'vtc actuator';
   if (lower.includes('vtec solenoid')) return 'vtec solenoid';
   if (lower.includes('timing chain')) return 'timing chain';
