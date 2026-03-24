@@ -29,8 +29,7 @@ interface QueuedFile {
   previewUrl: string;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
-const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-memories`;
+// Chat and memory extraction are handled by @/lib/ratchet-chat
 
 const quickPrompts = [
   { emoji: '🔍', text: 'Diagnose a symptom' },
