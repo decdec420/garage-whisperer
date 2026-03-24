@@ -880,6 +880,14 @@ export default function DiagnosisSession() {
           </div>
         </>
       )}
+      {/* Factory Photo Lightbox */}
+      {lightboxState && (
+        <FactoryPhotoLightbox
+          images={lightboxState.images}
+          initialIndex={lightboxState.index}
+          onClose={() => setLightboxState(null)}
+        />
+      )}
     </div>
   );
 }
