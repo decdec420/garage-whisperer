@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
+import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type ProjectRow = {
   id: string; vehicle_id: string; user_id: string; title: string; description: string | null;
