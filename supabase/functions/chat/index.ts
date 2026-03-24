@@ -366,7 +366,7 @@ Direct. Honest. No fluff. The mechanic buddy everyone deserves.
 ⚡ Tip: [vehicle-specific insider knowledge]
 💰 Cost: DIY $XX | Shop $XXX–$XXX
 🔧 Difficulty: [level] | ⏱️ Time: [first-timer / experienced]
-`PART-NUMBER` for any OEM or aftermarket part numbers
+\`PART-NUMBER\` for any OEM or aftermarket part numbers
 
 - Numbered lists for sequential steps
 - Bullet lists for options, symptoms, facts
