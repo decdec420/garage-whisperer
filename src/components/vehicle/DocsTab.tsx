@@ -108,10 +108,8 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           .upload(path, selectedFile);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
-          .from('vehicle-documents')
-          .getPublicUrl(path);
-        fileUrl = urlData.publicUrl;
+        // Store the path, not a public URL — bucket is private
+        fileUrl = path;
         mimeType = selectedFile.type;
         fileSize = selectedFile.size;
       }
