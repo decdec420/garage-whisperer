@@ -331,16 +331,54 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // --- Fetch charm.li factory data (now supports multiple URLs) ---
+    // --- Fetch factory manual data from Cloudflare-hosted manual + charm.li ---
     const charmData = await fetchCharmData(supabase, vehicle, jobDescription);
+
+    // Also fetch from the Cloudflare-hosted Honda manual (richer data with sub-pages)
+    let manualData: any = null;
+    try {
+      const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ jobKeyword: jobDescription, vehicleYear: vehicle.year }),
+      });
+      if (manualResp.ok) {
+        manualData = await manualResp.json();
+        if (!manualData?.found) manualData = null;
+      }
+    } catch (e) {
+      console.error("Manual data fetch failed (non-fatal):", e);
+    }
+
+    // Merge: prefer manual data (richer, multi-page) but combine images from both
+    const mergedImages: string[] = [];
+    const mergedText: string[] = [];
+    const mergedTorque: any[] = [];
+
+    if (manualData) {
+      mergedImages.push(...(manualData.images || []));
+      if (manualData.procedureText) mergedText.push(manualData.procedureText);
+      mergedTorque.push(...(manualData.torqueSpecs || []));
+    }
+    if (charmData) {
+      // Add charm.li images not already present
+      for (const img of charmData.images) {
+        if (!mergedImages.includes(img)) mergedImages.push(img);
+      }
+      if (charmData.procedureText && !manualData) mergedText.push(charmData.procedureText);
+      if (!manualData) mergedTorque.push(...(charmData.torqueSpecs || []));
+    }
+
+    const hasFactoryData = mergedText.length > 0 || mergedImages.length > 0;
+    const factorySourceUrl = manualData?.sourceUrl || charmData?.charmUrl || null;
+
     let charmSystemAddition = '';
-    if (charmData && charmData.procedureText) {
-      const torqueLines = (charmData.torqueSpecs || [])
+    if (hasFactoryData && mergedText.length > 0) {
+      const torqueLines = mergedTorque
         .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
         .join('\n');
 
-      // Build image list with indices for AI to reference
-      const imageList = charmData.images.map((url: string, idx: number) =>
+      const imageList = mergedImages.map((url: string, idx: number) =>
         `[Image ${idx}]: ${url}`
       ).join('\n');
 
@@ -353,11 +391,11 @@ The following is the exact factory procedure from the ${vehicle.make} service ma
 - Supplement with tips and common mistakes from your expertise
 
 FACTORY PROCEDURE:
-${charmData.procedureText.slice(0, 12000)}
+${mergedText.join('\n\n').slice(0, 16000)}
 
 ${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ''}
 
-FACTORY IMAGES AVAILABLE (${charmData.images.length} total):
+FACTORY IMAGES AVAILABLE (${mergedImages.length} total):
 ${imageList}
 
 IMPORTANT: For each step, set "factoryImageIndex" to the 0-based index of the most relevant factory image above. Match images to steps based on what the image shows (e.g. bolt removal diagram goes with the bolt removal step). Each image should only be assigned to ONE step. Set null if no image fits.`;
@@ -462,18 +500,15 @@ Generate the complete project plan for this exact vehicle and job.`;
 
     // Insert steps — use AI's factoryImageIndex for smart image assignment
     if (plan.steps?.length) {
-      const charmImages = charmData?.images || [];
-      const charmUrl = charmData?.charmUrl || null;
-      const hasCharm = !!charmData;
+      const stepImages = mergedImages;
+      const sourceUrl = factorySourceUrl;
 
       const steps = plan.steps.map((s: any, idx: number) => {
-        // Use AI-assigned image index if available, otherwise fall back to sequential
         let assignedImage: string | null = null;
-        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < charmImages.length) {
-          assignedImage = charmImages[s.factoryImageIndex];
-        } else if (charmImages[idx]) {
-          // Fallback: sequential assignment for steps without explicit assignment
-          assignedImage = charmImages[idx] || null;
+        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
+          assignedImage = stepImages[s.factoryImageIndex];
+        } else if (stepImages[idx]) {
+          assignedImage = stepImages[idx] || null;
         }
 
         return {
@@ -488,8 +523,8 @@ Generate the complete project plan for this exact vehicle and job.`;
           estimated_minutes: s.estimatedMinutes || null,
           sort_order: s.number,
           charm_image_url: assignedImage,
-          charm_source_url: charmUrl,
-          is_factory_verified: hasCharm,
+          charm_source_url: sourceUrl,
+          is_factory_verified: hasFactoryData,
         };
       });
       await supabase.from("project_steps").insert(steps);
@@ -507,11 +542,12 @@ Generate the complete project plan for this exact vehicle and job.`;
         parts: savedParts,
         tools: savedTools,
         steps: savedSteps,
-        charmData: charmData ? {
-          charmUrl: charmData.charmUrl,
-          charmUrls: charmData.charmUrls,
-          imageCount: charmData.images.length,
+        charmData: hasFactoryData ? {
+          charmUrl: factorySourceUrl,
+          charmUrls: charmData?.charmUrls || [],
+          imageCount: mergedImages.length,
           hasFactoryData: true,
+          manualPagesCrawled: manualData?.pagesCrawled || [],
         } : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
