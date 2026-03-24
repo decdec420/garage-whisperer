@@ -262,9 +262,12 @@ serve(async (req) => {
 
     const allUrls: { url: string; source: string; subPage: string }[] = [];
 
-    for (const sp of SUB_PAGES) {
-      allUrls.push({ url: `${cloudflareBase}/${sp}`, source: 'cloudflare', subPage: sp });
-      allUrls.push({ url: `${charmBase}/${sp}`, source: 'charm', subPage: sp });
+    for (const sp of SUB_PAGE_PATHS) {
+      const suffix = sp ? `/${sp}` : '';
+      // Cloudflare uses /index.html
+      allUrls.push({ url: `${cloudflareBase}${suffix}/index.html`, source: 'cloudflare', subPage: sp || 'Overview' });
+      // charm.li uses trailing slash (no index.html)
+      allUrls.push({ url: `${charmBase}${suffix}/`, source: 'charm', subPage: sp || 'Overview' });
     }
 
     console.log(`Crawling ${allUrls.length} URLs (${SUB_PAGES.length} sub-pages × 2 sources) for: ${basePath}`);
