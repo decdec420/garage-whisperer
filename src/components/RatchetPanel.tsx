@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getAccessToken } from '@/lib/auth-helpers';
+import { streamChat, extractMemories } from '@/lib/ratchet-chat';
 import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen, Paperclip, Camera, Image as ImageIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
