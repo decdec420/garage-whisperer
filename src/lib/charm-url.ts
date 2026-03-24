@@ -16,7 +16,7 @@ const JOB_KEYWORD_MAP: Record<string, string | string[]> = {
     `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
   ],
   "starter": `${R}Starting%20and%20Charging/Starter/Service%20and%20Repair`,
-  "alternator": `${R}Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair`,
+  "alternator": `${R}Starting%20and%20Charging/Charging%20System/Alternator/Service%20and%20Repair`,
   "battery": `${R}Starting%20and%20Charging/Battery/Service%20and%20Repair`,
   "catalytic converter": `${R}Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair`,
   "oxygen sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
