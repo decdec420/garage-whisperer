@@ -395,7 +395,7 @@ ${mergedText.join('\n\n').slice(0, 16000)}
 
 ${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ''}
 
-FACTORY IMAGES AVAILABLE (${charmData.images.length} total):
+FACTORY IMAGES AVAILABLE (${mergedImages.length} total):
 ${imageList}
 
 IMPORTANT: For each step, set "factoryImageIndex" to the 0-based index of the most relevant factory image above. Match images to steps based on what the image shows (e.g. bolt removal diagram goes with the bolt removal step). Each image should only be assigned to ONE step. Set null if no image fits.`;

@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.fetch-charm-data]
 verify_jwt = false
+
+[functions.fetch-manual-data]
+verify_jwt = false
