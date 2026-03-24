@@ -690,19 +690,6 @@ export default function ProjectDetail() {
                         <p className="text-sm text-foreground mt-1">{step.safety_note}</p>
                       </div>
                     )}
-
-                    {/* Factory source attribution */}
-                    {step.is_factory_verified && step.charm_source_url && !step.charm_image_url && (
-                      <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
-                        <BookOpen className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
-                        <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
-                          className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
-                          View <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-
                     {/* Ask Ratchet */}
                     <Button variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10"
                       onClick={() => openRatchetPanel(
