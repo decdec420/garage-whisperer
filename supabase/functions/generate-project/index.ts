@@ -331,10 +331,49 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // --- Fetch charm.li factory data (now supports multiple URLs) ---
+    // --- Fetch factory manual data from Cloudflare-hosted manual + charm.li ---
     const charmData = await fetchCharmData(supabase, vehicle, jobDescription);
+
+    // Also fetch from the Cloudflare-hosted Honda manual (richer data with sub-pages)
+    let manualData: any = null;
+    try {
+      const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ jobKeyword: jobDescription, vehicleYear: vehicle.year }),
+      });
+      if (manualResp.ok) {
+        manualData = await manualResp.json();
+        if (!manualData?.found) manualData = null;
+      }
+    } catch (e) {
+      console.error("Manual data fetch failed (non-fatal):", e);
+    }
+
+    // Merge: prefer manual data (richer, multi-page) but combine images from both
+    const mergedImages: string[] = [];
+    const mergedText: string[] = [];
+    const mergedTorque: any[] = [];
+
+    if (manualData) {
+      mergedImages.push(...(manualData.images || []));
+      if (manualData.procedureText) mergedText.push(manualData.procedureText);
+      mergedTorque.push(...(manualData.torqueSpecs || []));
+    }
+    if (charmData) {
+      // Add charm.li images not already present
+      for (const img of charmData.images) {
+        if (!mergedImages.includes(img)) mergedImages.push(img);
+      }
+      if (charmData.procedureText && !manualData) mergedText.push(charmData.procedureText);
+      if (!manualData) mergedTorque.push(...(charmData.torqueSpecs || []));
+    }
+
+    const hasFactoryData = mergedText.length > 0 || mergedImages.length > 0;
+    const factorySourceUrl = manualData?.sourceUrl || charmData?.charmUrl || null;
+
     let charmSystemAddition = '';
-    if (charmData && charmData.procedureText) {
+    if (hasFactoryData && mergedText.length > 0) {
       const torqueLines = (charmData.torqueSpecs || [])
         .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
         .join('\n');
