@@ -9,7 +9,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   ArrowLeft, Search, Send, CheckCircle2, AlertCircle, Clock, Wrench,
   ChevronRight, ChevronDown, Zap, AlertTriangle, ShieldAlert, Package,
-  MessageCircle, X,
+  MessageCircle, X, BookOpen, Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
