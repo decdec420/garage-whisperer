@@ -143,11 +143,12 @@ export function buildCharmUrls(
   const pathResult = matchJobKeyword(jobDescription);
   if (!pathResult) return [];
   
+  const charmMake = titleCaseMake(vehicle.make);
   const charmModel = formatEngineForCharm(vehicle.engine || null, vehicle.model);
   const encodedModel = encodeURIComponent(charmModel);
   
   const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-  return paths.map(path => `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`);
+  return paths.map(path => `https://charm.li/${charmMake}/${vehicle.year}/${encodedModel}/${path}/`);
 }
 
 /** @deprecated Use buildCharmUrls instead */
