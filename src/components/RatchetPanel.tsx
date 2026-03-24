@@ -175,7 +175,6 @@ function RatchetMarkdown({ content }: { content: string }) {
 async function extractMemories(
   userMessage: string,
   assistantMessage: string,
-  userId: string,
   vehicleId: string | null,
   sessionId: string | null,
 ) {
