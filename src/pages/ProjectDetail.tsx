@@ -441,6 +441,29 @@ export default function ProjectDetail() {
       </div>
 
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+        {/* Factory Photo Gallery */}
+        {factoryImages.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Factory Diagrams</span>
+              <span className="text-xs text-muted-foreground">({factoryImages.length})</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+              {factoryImages.map((img, i) => (
+                <button key={i} className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors"
+                  style={{ width: 140, height: 110, background: '#0f0f0f' }}
+                  onClick={() => setLightboxState({ images: factoryImages, index: i })}>
+                  <img src={img.url} alt={img.title || `Diagram ${i + 1}`}
+                    className="w-full h-full object-contain p-1.5" loading="lazy" />
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[11px] text-muted-foreground">Honda FSM · charm.li</span>
+            </div>
+          </div>
+        )}
         {/* Safety Warnings */}
         {project.safety_warnings && (project.safety_warnings as string[]).length > 0 && (
           <Collapsible open={!safetyCollapsed} onOpenChange={(o) => setSafetyCollapsed(!o)}>
