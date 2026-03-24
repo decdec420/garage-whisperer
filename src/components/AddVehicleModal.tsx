@@ -61,7 +61,15 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
         make: get('Make'),
         model: get('Model'),
         trim: get('Trim'),
-        engine: `${get('Displacement (L)')}L ${get('Engine Number of Cylinders')}cyl`,
+        engine: (() => {
+          const rawDisp = get('Displacement (L)');
+          const cylCount = get('Engine Number of Cylinders');
+          if (!rawDisp) return '';
+          const STANDARD = [1.0,1.2,1.3,1.4,1.5,1.6,1.7,1.8,2.0,2.2,2.3,2.4,2.5,2.7,2.8,3.0,3.2,3.3,3.5,3.6,3.7,3.8,4.0,4.2,4.3,4.6,4.7,5.0,5.3,5.4,5.7,6.0,6.2,6.4,6.6,6.7,7.0,7.3];
+          const parsed = parseFloat(rawDisp);
+          const rounded = STANDARD.reduce((prev, cur) => Math.abs(cur - parsed) < Math.abs(prev - parsed) ? cur : prev);
+          return `${rounded.toFixed(1)}L ${cylCount}cyl`;
+        })(),
         transmission: get('Transmission Style'),
         drivetrain: get('Drive Type'),
         body_style: get('Body Class'),
