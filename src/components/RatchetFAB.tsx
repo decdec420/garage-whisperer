@@ -106,8 +106,22 @@ export default function RatchetFAB() {
   }, []);
 
   useEffect(() => {
+    const startDragging = () => {
+      if (isDragging.current) return;
+      isDragging.current = true;
+      setDragging(true);
+    };
+
     const handleMouseMove = (e: MouseEvent) => {
+      if (!pointerDown.current) return;
+
+      const dx = e.clientX - startPointer.current.x;
+      const dy = e.clientY - startPointer.current.y;
+      if (!isDragging.current && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+        startDragging();
+      }
       if (!isDragging.current) return;
+
       e.preventDefault();
       const newX = Math.max(0, Math.min(e.clientX - dragOffset.current.x, window.innerWidth - BUTTON_SIZE));
       const newY = Math.max(CLAMP_TOP, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
@@ -115,11 +129,17 @@ export default function RatchetFAB() {
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (!isDragging.current) return;
+      if (!pointerDown.current) return;
+      pointerDown.current = false;
+
+      if (!isDragging.current) {
+        openRatchetPanel();
+        return;
+      }
+
       isDragging.current = false;
       setDragging(false);
-      const centerX = e.clientX;
-      const edge: 'left' | 'right' = centerX < window.innerWidth / 2 ? 'left' : 'right';
+      const edge: 'left' | 'right' = e.clientX < window.innerWidth / 2 ? 'left' : 'right';
       const clampedY = Math.max(CLAMP_TOP, Math.min(e.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       const verticalPercent = clampedY / window.innerHeight;
       const newDocked: DockedPosition = { edge, verticalPercent };
@@ -128,19 +148,32 @@ export default function RatchetFAB() {
       setPos(getPixelPosition(newDocked));
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging.current) return;
-      e.preventDefault();
+      if (!pointerDown.current) return;
+
       const t = e.touches[0];
+      const dx = t.clientX - startPointer.current.x;
+      const dy = t.clientY - startPointer.current.y;
+      if (!isDragging.current && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+        startDragging();
+      }
+      if (!isDragging.current) return;
+
+      e.preventDefault();
       const newX = Math.max(0, Math.min(t.clientX - dragOffset.current.x, window.innerWidth - BUTTON_SIZE));
       const newY = Math.max(CLAMP_TOP, Math.min(t.clientY - dragOffset.current.y, window.innerHeight - CLAMP_BOTTOM - BUTTON_SIZE));
       setPos({ x: newX, y: newY });
     };
+
     const handleTouchEnd = (e: TouchEvent) => {
-      if (!isDragging.current) return;
+      if (!pointerDown.current) return;
+      pointerDown.current = false;
+
+      if (!isDragging.current) {
+        openRatchetPanel();
+        return;
+      }
+
       isDragging.current = false;
       setDragging(false);
       const t = e.changedTouches[0];
@@ -151,6 +184,9 @@ export default function RatchetFAB() {
       savePosition(newDocked);
       setPos(getPixelPosition(newDocked));
     };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
 
@@ -160,7 +196,7 @@ export default function RatchetFAB() {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
+  }, [openRatchetPanel]);
 
   const hasMoved = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
