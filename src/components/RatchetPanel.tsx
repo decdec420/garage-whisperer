@@ -432,68 +432,30 @@ function ChatContent() {
         return { role: m.role, content: m.content };
       });
 
-      const accessToken = await getAccessToken();
-      if (!accessToken) { toast.error('Please log in to chat'); setIsStreaming(false); return; }
-
-      const resp = await fetch(CHAT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          messages: allMessages,
-          vehicleContext,
-          vehicleId: activeVehicle?.id || null,
-        }),
-      });
-
-      if (resp.status === 429) { toast.error('Rate limited. Wait a moment.'); setIsStreaming(false); return; }
-      if (resp.status === 402) { toast.error('Credits exhausted.'); setIsStreaming(false); return; }
-      if (!resp.ok || !resp.body) throw new Error('Stream failed');
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let assistantContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              assistantContent += content;
-              setMessages(prev => {
-                const last = prev[prev.length - 1];
-                if (last?.role === 'assistant') {
-                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-                }
-                return [...prev, { role: 'assistant', content: assistantContent }];
-              });
+      await streamChat({
+        messages: allMessages,
+        vehicleContext,
+        vehicleId: activeVehicle?.id || null,
+        onToken: (content) => {
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant') {
+              return prev.map((m, i) => i === prev.length - 1 ? { ...m, content } : m);
             }
-          } catch { /* partial */ }
-        }
-      }
-
-      if (assistantContent) {
-        await saveMessage(sessionId, 'assistant', assistantContent);
-        if (user?.id) {
-          extractMemories(lastUserMsgRef.current, assistantContent, activeVehicle?.id || null, sessionId);
-        }
-      }
-      await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId);
+            return [...prev, { role: 'assistant', content }];
+          });
+        },
+        onDone: async (assistantContent) => {
+          if (assistantContent) {
+            await saveMessage(sessionId!, 'assistant', assistantContent);
+            if (user?.id) {
+              extractMemories(lastUserMsgRef.current, assistantContent, activeVehicle?.id || null, sessionId!);
+            }
+          }
+          await supabase.from('chat_sessions').update({ updated_at: new Date().toISOString() }).eq('id', sessionId!);
+        },
+        onError: () => {},
+      });
     } catch (e: any) {
       setMessages(prev => [...prev, {
         role: 'assistant',
