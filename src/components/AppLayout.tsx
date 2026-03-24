@@ -43,10 +43,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  if (vehicles?.length && !activeVehicle) {
-    const v = vehicles[0];
-    setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
-  }
+  useEffect(() => {
+    if (vehicles?.length && !activeVehicle) {
+      const v = vehicles[0];
+      setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
+    }
+  }, [vehicles, activeVehicle, setActiveVehicle]);
 
   useEffect(() => {
     if (user && vehicles !== undefined && vehicles.length === 0) {
