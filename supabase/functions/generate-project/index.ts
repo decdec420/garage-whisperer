@@ -374,12 +374,11 @@ serve(async (req) => {
 
     let charmSystemAddition = '';
     if (hasFactoryData && mergedText.length > 0) {
-      const torqueLines = (charmData.torqueSpecs || [])
+      const torqueLines = mergedTorque
         .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
         .join('\n');
 
-      // Build image list with indices for AI to reference
-      const imageList = charmData.images.map((url: string, idx: number) =>
+      const imageList = mergedImages.map((url: string, idx: number) =>
         `[Image ${idx}]: ${url}`
       ).join('\n');
 
