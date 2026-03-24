@@ -242,7 +242,7 @@ export default function RatchetFAB() {
     <button
       ref={buttonRef}
       onMouseDown={handleMouseDown}
-      onClick={handleClick}
+      onTouchStart={handleTouchStart}
       className={cn(
         'group fixed z-[9999] flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg select-none',
         dragging
