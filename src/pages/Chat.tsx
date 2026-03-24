@@ -107,7 +107,7 @@ export default function Chat() {
   const { data: sessions } = useQuery({
     queryKey: ['chat-sessions', activeVehicle?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*').order('updated_at', { ascending: false });
+      const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at').order('updated_at', { ascending: false });
       if (activeVehicle) q.eq('vehicle_id', activeVehicle.id);
       const { data, error } = await q;
       if (error) throw error;
