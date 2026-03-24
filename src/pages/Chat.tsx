@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccessToken } from '@/lib/auth-helpers';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Send, Plus, Wrench, MessageCircle, Loader2 } from 'lucide-react';
