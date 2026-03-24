@@ -287,7 +287,7 @@ function ChatContent() {
   const { data: generalSessions } = useQuery({
     queryKey: ['ratchet-general-sessions', activeVehicle?.id],
     queryFn: async () => {
-      const q = supabase.from('chat_sessions').select('*')
+      const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
         .is('project_id', null)
         .order('updated_at', { ascending: false })
         .limit(10);
