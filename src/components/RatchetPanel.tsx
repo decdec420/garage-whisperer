@@ -271,7 +271,7 @@ function ChatContent() {
         if (error) throw error;
         return data;
       } else {
-        const q = supabase.from('chat_sessions').select('*')
+        const q = supabase.from('chat_sessions').select('id, title, vehicle_id, project_id, updated_at')
           .is('project_id', null)
           .order('updated_at', { ascending: false })
           .limit(20);
