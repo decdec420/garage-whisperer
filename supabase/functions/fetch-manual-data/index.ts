@@ -283,7 +283,7 @@ serve(async (req) => {
       if (!html) return;
 
       const { source, subPage } = allUrls[idx];
-      const pageName = subPage.replace('/index.html', '').replace('index.html', 'Overview')
+      const pageName = (subPage || 'Overview')
         .replace(/%20/g, ' ').replace(/%2C/g, ',').replace(/%2F/g, '/');
 
       const pageLabel = `${pageName} (${source})`;
