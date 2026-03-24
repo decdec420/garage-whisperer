@@ -270,7 +270,7 @@ serve(async (req) => {
       allUrls.push({ url: `${charmBase}${suffix}/`, source: 'charm', subPage: sp || 'Overview' });
     }
 
-    console.log(`Crawling ${allUrls.length} URLs (${SUB_PAGES.length} sub-pages × 2 sources) for: ${basePath}`);
+    console.log(`Crawling ${allUrls.length} URLs (${SUB_PAGE_PATHS.length} sub-pages × 2 sources) for: ${basePath}`);
 
     const results = await Promise.all(allUrls.map(({ url }) => fetchPage(url)));
 
