@@ -105,6 +105,7 @@ export default function ProjectDetail() {
   const [noteText, setNoteText] = useState('');
   const [showCompletion, setShowCompletion] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
   const stepRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Queries
