@@ -542,11 +542,12 @@ Generate the complete project plan for this exact vehicle and job.`;
         parts: savedParts,
         tools: savedTools,
         steps: savedSteps,
-        charmData: charmData ? {
-          charmUrl: charmData.charmUrl,
-          charmUrls: charmData.charmUrls,
-          imageCount: charmData.images.length,
+        charmData: hasFactoryData ? {
+          charmUrl: factorySourceUrl,
+          charmUrls: charmData?.charmUrls || [],
+          imageCount: mergedImages.length,
           hasFactoryData: true,
+          manualPagesCrawled: manualData?.pagesCrawled || [],
         } : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
