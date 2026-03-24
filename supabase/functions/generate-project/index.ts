@@ -217,7 +217,7 @@ async function fetchCharmData(supabase: any, vehicle: any, jobDescription: strin
   const fetchedUrls: string[] = [];
 
   for (const path of paths) {
-    const charmUrl = `https://charm.li/${vehicle.make}/${vehicle.year}/${encodedModel}/${path}/`;
+    const charmUrl = `https://charm.li/${titleCaseMake(vehicle.make)}/${vehicle.year}/${encodedModel}/${path}/`;
 
     // Check cache
     const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
