@@ -801,7 +801,14 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Sticky nav removed — scroll handles navigation */}
+      {/* Lightbox */}
+      {lightboxState && (
+        <FactoryPhotoLightbox
+          images={lightboxState.images}
+          initialIndex={lightboxState.index}
+          onClose={() => setLightboxState(null)}
+        />
+      )}
     </div>
   );
 }
