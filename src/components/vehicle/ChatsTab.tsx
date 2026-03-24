@@ -26,11 +26,12 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['vehicle-chat-sessions', vehicleId],
     queryFn: async () => {
-      // Get all chat sessions for this vehicle
+      // Get only general chat sessions (no project_id) for this vehicle
       const { data: chatSessions, error } = await supabase
         .from('chat_sessions')
         .select('id, title, project_id, updated_at, created_at, vehicle_id')
         .eq('vehicle_id', vehicleId)
+        .is('project_id', null)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       if (!chatSessions?.length) return [];
