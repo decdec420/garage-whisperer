@@ -86,11 +86,7 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
     >
       <CardContent className="p-4 flex items-center gap-3">
         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          {session.project_id ? (
-            <FolderOpen className="h-4 w-4 text-primary" />
-          ) : (
-            <MessageCircle className="h-4 w-4 text-primary" />
-          )}
+          <MessageCircle className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">
@@ -106,11 +102,6 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
             </span>
           </div>
         </div>
-        {session.project_title && (
-          <Badge variant="secondary" className="text-[10px] shrink-0">
-            {session.project_title}
-          </Badge>
-        )}
       </CardContent>
     </Card>
   );
