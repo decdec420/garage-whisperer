@@ -86,11 +86,13 @@ function StepCard({
   isActive,
   isCompleted,
   onMarkResult,
+  onImageClick,
 }: {
   step: StepRow;
   isActive: boolean;
   isCompleted: boolean;
   onMarkResult: (stepId: string, result: 'healthy' | 'faulty') => void;
+  onImageClick?: (url: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(isActive);
   const torqueSpecs = step.torque_specs as any[] | null;
