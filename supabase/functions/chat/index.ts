@@ -71,6 +71,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verify vehicleId belongs to authenticated user
+    if (vehicleId) {
+      const { data: vehicle } = await supabase
+        .from("vehicles").select("id").eq("id", vehicleId).eq("user_id", userId).single();
+      if (!vehicle) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Fetch memories using authenticated userId
     let memoryBlock = "";
     if (userId) {

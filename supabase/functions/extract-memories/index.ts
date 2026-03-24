@@ -56,6 +56,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verify vehicleId belongs to authenticated user
+    if (vehicleId) {
+      const { data: vehicle } = await supabase
+        .from("vehicles").select("id").eq("id", vehicleId).eq("user_id", userId).single();
+      if (!vehicle) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const conversationText = `User: ${userMessage}\nAssistant: ${assistantMessage}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
