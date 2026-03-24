@@ -79,6 +79,12 @@ const markdownComponents: Components = {
   strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
 };
 
+interface Message {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { activeVehicle } = useAppStore();
