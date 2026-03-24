@@ -10,6 +10,7 @@ const EDGE_MARGIN = 24;
 const CLAMP_TOP = 80;
 const CLAMP_BOTTOM = 80;
 const BUTTON_SIZE = 64;
+const DRAG_THRESHOLD = 8;
 
 interface DockedPosition {
   edge: 'left' | 'right';
