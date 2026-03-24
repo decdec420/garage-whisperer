@@ -312,7 +312,7 @@ function ChatContent() {
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
-    supabase.from('chat_messages').select('id, role, content, image_urls').eq('session_id', activeSessionId)
+    supabase.from('chat_messages').select('id, role, content, image_urls, created_at').eq('session_id', activeSessionId)
       .order('created_at').limit(50)
       .then(({ data }) => {
         if (data) setMessages(data.map(m => ({

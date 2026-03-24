@@ -42,7 +42,7 @@ export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, difficulty, vehicle_id, estimated_minutes, created_at, updated_at, ai_generated')
+        .select('id, title, description, status, difficulty, vehicle_id, estimated_minutes, created_at, updated_at, ai_generated, safety_warnings')
         .eq('vehicle_id', vehicleId)
         .order('created_at', { ascending: false });
       if (error) throw error;
