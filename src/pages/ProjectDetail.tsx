@@ -393,7 +393,21 @@ export default function ProjectDetail() {
                 </Badge>
               </button>
               {project.difficulty && <Badge className={DIFF_COLORS[project.difficulty] || ''}>{project.difficulty}</Badge>}
-            </div>
+              {hasFactoryData && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button>
+                      <Badge className="bg-primary/20 text-primary border border-primary/40 gap-1 cursor-pointer">
+                        <BookOpen className="h-3 w-3" /> Factory Verified
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 text-sm">
+                    <p className="font-semibold text-foreground mb-1">📖 Factory Service Manual</p>
+                    <p className="text-muted-foreground text-xs">Steps, torque specs, and procedures verified against the official {vehicle?.make} factory service manual via Operation CHARM (charm.li).</p>
+                  </PopoverContent>
+                </Popover>
+              )}
           </div>
           <div className="flex flex-col items-center gap-1 shrink-0">
             <ProgressRing completed={completedSteps} total={steps.length} />
