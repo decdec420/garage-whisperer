@@ -34,8 +34,26 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const { vehicleId, year, make, model, trim } = await req.json();
-    if (!vehicleId || !year || !make || !model) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+
+    // --- Input validation ---
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!vehicleId || !UUID_RE.test(vehicleId)) {
+      return new Response(JSON.stringify({ error: "Invalid or missing vehicleId" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!year || typeof year !== 'number' || year < 1900 || year > 2030) {
+      return new Response(JSON.stringify({ error: "year must be 1900-2030" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!make || typeof make !== 'string' || make.length > 50) {
+      return new Response(JSON.stringify({ error: "Invalid make" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!model || typeof model !== 'string' || model.length > 50) {
+      return new Response(JSON.stringify({ error: "Invalid model" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

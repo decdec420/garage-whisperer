@@ -50,6 +50,29 @@ serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     const { userMessage, assistantMessage, vehicleId, sessionId } = await req.json();
+
+    // --- Input validation ---
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (vehicleId && !UUID_RE.test(vehicleId)) {
+      return new Response(JSON.stringify({ error: "Invalid vehicleId format" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (sessionId && !UUID_RE.test(sessionId)) {
+      return new Response(JSON.stringify({ error: "Invalid sessionId format" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof userMessage !== 'string' || userMessage.length > 5000) {
+      return new Response(JSON.stringify({ error: "userMessage must be a string under 5000 chars" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (typeof assistantMessage !== 'string' || assistantMessage.length > 10000) {
+      return new Response(JSON.stringify({ error: "assistantMessage must be a string under 10000 chars" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
