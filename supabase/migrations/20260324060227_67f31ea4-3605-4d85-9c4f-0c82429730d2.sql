@@ -1,0 +1,1 @@
+DELETE FROM charm_cache WHERE charm_url LIKE '%Generator%' OR (charm_url LIKE '%Alternator%' AND (all_images IS NULL OR all_images = '[]'::jsonb));
