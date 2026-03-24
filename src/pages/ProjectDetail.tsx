@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
+import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 type ProjectRow = {
   id: string; vehicle_id: string; user_id: string; title: string; description: string | null;
@@ -103,6 +105,7 @@ export default function ProjectDetail() {
   const [noteText, setNoteText] = useState('');
   const [showCompletion, setShowCompletion] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
   const stepRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Queries
@@ -307,6 +310,12 @@ export default function ProjectDetail() {
   const remainingMin = project?.estimated_minutes ? Math.max(0, project.estimated_minutes - Math.floor(elapsedSeconds / 60)) : null;
   const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
 
+  // Collect all factory images from steps
+  const factoryImages = steps
+    .filter(s => s.charm_image_url)
+    .map(s => ({ url: s.charm_image_url!, title: s.title, sourceUrl: s.charm_source_url || undefined }));
+  const hasFactoryData = steps.some(s => s.is_factory_verified);
+
   if (!project || !vehicle) {
     return <div className="p-6 flex items-center justify-center min-h-[60vh]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
   }
@@ -384,6 +393,21 @@ export default function ProjectDetail() {
                 </Badge>
               </button>
               {project.difficulty && <Badge className={DIFF_COLORS[project.difficulty] || ''}>{project.difficulty}</Badge>}
+              {hasFactoryData && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button>
+                      <Badge className="bg-primary/20 text-primary border border-primary/40 gap-1 cursor-pointer">
+                        <BookOpen className="h-3 w-3" /> Factory Verified
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 text-sm">
+                    <p className="font-semibold text-foreground mb-1">📖 Factory Service Manual</p>
+                    <p className="text-muted-foreground text-xs">Steps, torque specs, and procedures verified against the official {vehicle?.make} factory service manual via Operation CHARM (charm.li).</p>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-center gap-1 shrink-0">
@@ -417,6 +441,29 @@ export default function ProjectDetail() {
       </div>
 
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+        {/* Factory Photo Gallery */}
+        {factoryImages.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Factory Diagrams</span>
+              <span className="text-xs text-muted-foreground">({factoryImages.length})</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+              {factoryImages.map((img, i) => (
+                <button key={i} className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors"
+                  style={{ width: 140, height: 110, background: '#0f0f0f' }}
+                  onClick={() => setLightboxState({ images: factoryImages, index: i })}>
+                  <img src={img.url} alt={img.title || `Diagram ${i + 1}`}
+                    className="w-full h-full object-contain p-1.5" loading="lazy" />
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[11px] text-muted-foreground">Honda FSM · charm.li</span>
+            </div>
+          </div>
+        )}
         {/* Safety Warnings */}
         {project.safety_warnings && (project.safety_warnings as string[]).length > 0 && (
           <Collapsible open={!safetyCollapsed} onOpenChange={(o) => setSafetyCollapsed(!o)}>
@@ -627,7 +674,22 @@ export default function ProjectDetail() {
                       </div>
                     )}
 
-                    {/* Description */}
+                    {/* Factory photo inline */}
+                    {step.charm_image_url && (
+                      <button className="w-full rounded-xl overflow-hidden border border-border hover:border-primary/40 transition-colors"
+                        style={{ background: '#0f0f0f' }}
+                        onClick={() => {
+                          const stepIdx = factoryImages.findIndex(fi => fi.url === step.charm_image_url);
+                          setLightboxState({ images: stepIdx >= 0 ? factoryImages : [{ url: step.charm_image_url!, title: step.title, sourceUrl: step.charm_source_url || undefined }], index: Math.max(0, stepIdx) });
+                        }}>
+                        <img src={step.charm_image_url} alt={`Factory diagram — ${step.title}`}
+                          className="w-full block" style={{ maxHeight: 280, objectFit: 'contain', padding: 12, background: '#0f0f0f' }} loading="lazy" />
+                        <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#0a0a0a', borderTop: '1px solid hsl(var(--border))' }}>
+                          <BookOpen className="h-3 w-3 text-primary" />
+                          <span className="text-[11px] text-muted-foreground">Honda FSM · charm.li</span>
+                        </div>
+                      </button>
+                    )}
                     <div className="text-[15px] md:text-base leading-relaxed text-foreground/90 prose prose-invert prose-sm max-w-none">
                       <ReactMarkdown>{step.description}</ReactMarkdown>
                     </div>
@@ -739,7 +801,14 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {/* Sticky nav removed — scroll handles navigation */}
+      {/* Lightbox */}
+      {lightboxState && (
+        <FactoryPhotoLightbox
+          images={lightboxState.images}
+          initialIndex={lightboxState.index}
+          onClose={() => setLightboxState(null)}
+        />
+      )}
     </div>
   );
 }

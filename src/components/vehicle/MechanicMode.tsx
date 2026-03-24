@@ -210,7 +210,7 @@ export default function MechanicMode({
               src={(step as any).charm_image_url}
               alt={`Factory diagram — ${step!.title}`}
               className="w-full block"
-              style={{ maxHeight: 240, objectFit: 'contain', padding: 12, background: '#0f0f0f' }}
+              style={{ maxHeight: 220, objectFit: 'contain', padding: 12, background: '#0f0f0f' }}
               loading="lazy"
             />
             <div className="flex items-center gap-1.5 px-3 py-1.5" style={{ background: '#0a0a0a', borderTop: '1px solid #1a1a1a' }}>

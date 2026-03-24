@@ -32,10 +32,17 @@ const markdownComponents: Components = {
     const text = typeof children === 'string' ? children :
       Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
     if (text.startsWith('🔩')) {
+      const hasFsm = text.includes('FSM') || text.includes('factory') || text.includes('📖');
       return (
-        <div className="my-1.5 px-3 py-2 rounded-lg border font-mono text-sm"
+        <div className="my-1.5 px-3 py-2 rounded-lg border font-mono text-sm flex items-center gap-2"
           style={{ background: 'rgba(249,115,22,0.1)', borderColor: 'rgba(249,115,22,0.3)', color: '#f97316' }}>
-          {children}
+          <span className="flex-1">{children}</span>
+          {hasFsm && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-sans font-semibold"
+              style={{ background: 'rgba(249,115,22,0.2)', border: '1px solid rgba(249,115,22,0.4)' }}>
+              📖 FSM
+            </span>
+          )}
         </div>
       );
     }
