@@ -1,72 +1,47 @@
 
 
-# GarageOS — AI-Powered Virtual Mechanic Platform
+## Recommended: Chat History on Vehicle Detail Page
 
-## Overview
-A dark-themed, mobile-first web app where users add vehicles by VIN, get AI-powered diagnostics and repair guidance, and track maintenance/repair history with DIY savings tracking.
+### Why This Structure
 
-## Phase 1: Foundation
+You think in terms of vehicles, not chat sessions. "What did Ratchet say about my Accord's starter?" — you'd go to your Accord, not to a generic chat page. So chat history should live on the Vehicle Detail page as a tab.
 
-### Design System & App Shell
-- Dark-only theme (#0a0a0a bg, #f97316 orange accent, Inter font)
-- Sidebar navigation (desktop) + bottom tab bar (mobile)
-- Vehicle switcher dropdown in sidebar/header
-- Auth pages (login/signup) with Supabase email + Google OAuth
+### What Changes
 
-### Database Setup
-- All tables as specified: profiles, vehicles, maintenance_logs, repair_logs, chat_sessions, chat_messages, dtc_records
-- RLS policies scoped to authenticated user's own data
-- Storage bucket for repair photos
+**1. New "Chats" tab on Vehicle Detail page** (`src/pages/VehicleDetail.tsx`)
+- Add tab after "Docs" in the tab bar
+- Icon: MessageCircle
+- Shows all `chat_sessions` where `vehicle_id` matches
 
-## Phase 2: Vehicle Management
+**2. New ChatsTab component** (`src/components/vehicle/ChatsTab.tsx`)
+- Two sections: **Project Conversations** and **General Conversations**
+- Project conversations show project title badge, link to project
+- Each row: title, date, message count preview
+- Tap a conversation → opens it in the Ratchet panel (reuses existing infrastructure)
+- Empty state: "No conversations yet — tap the Ratchet button to start chatting"
 
-### Garage Page
-- Vehicle card grid with status indicators (recalls, maintenance due, active DTCs)
-- Add Vehicle modal with two tabs: VIN Lookup (NHTSA API decode + cache) and Manual Entry
-- All forms validated with React Hook Form + Zod
+**3. Keep Ratchet panel session drawer as-is**
+- It's the quick switcher for recent threads while chatting
+- No changes needed
 
-### Vehicle Detail Page
-- Overview tab: specs grid, recall alerts (NHTSA API), known issues section
-- Maintenance tab: service timeline, upcoming alerts with color coding, add service modal with auto-suggested next-due dates
-- Repairs tab: repair cards with cost breakdown, DIY savings tracking, photo uploads, parts list
-- Stats rows on each tab
+**4. Remove /chat route** (optional, could keep as redirect)
+- It's redundant once history lives on the vehicle page
+- Redirect `/chat` → `/garage`
 
-## Phase 3: AI Mechanic Chat (Core Feature)
+### Technical Details
 
-### Chat Infrastructure
-- Supabase Edge Function calling Lovable AI gateway (since LOVABLE_API_KEY is available)
-- Dynamic system prompt injected per vehicle (year/make/model/engine/mileage + recent services + active DTCs)
-- Streaming SSE responses with token-by-token rendering
-- Chat sessions persisted to Supabase, auto-titled from first message
+- Query: `chat_sessions` joined with message count, filtered by `vehicle_id`, ordered by `updated_at`
+- Tapping a session: calls `openRatchetPanel()` and sets `activeSessionId` via a new store action
+- Project conversations: filter where `project_id IS NOT NULL`, show project title
+- General conversations: filter where `project_id IS NULL`
 
-### Chat UI
-- Full-height chat with session history sidebar (desktop)
-- Markdown rendering in AI responses (code blocks for part numbers/torque specs, numbered lists for steps)
-- Quick-start prompt chips for new conversations
-- Parts recommendation cards parsed from AI output (with RockAuto/Amazon affiliate links)
+### Files to Create/Edit
 
-## Phase 4: Dashboard & Polish
-
-### Dashboard
-- Greeting + active vehicle pill
-- Alert strips for recalls and overdue maintenance
-- Stats cards (vehicles, repairs, DIY savings, next maintenance)
-- Recent activity feed + quick action buttons
-
-### Empty States & Loading
-- Designed empty states with SVG illustrations and CTAs for each section
-- Skeleton loaders for all async content
-- Toast notifications (success/error/info)
-- Error states with retry buttons
-
-### Phase 2 Placeholders
-- OBD2 Scanner, Audio Diagnosis, Pre-Purchase Mode, Community — UI shells with "Coming Soon" modals
-
-### Settings Page
-- Profile management, notification preferences, data export, account deletion
-
-## State Management
-- Zustand for UI state (active vehicle, open modals)
-- React Query for server state with 5-minute stale time
-- Chat message pagination (50 per load)
+| File | Action |
+|------|--------|
+| `src/components/vehicle/ChatsTab.tsx` | Create — chat history list component |
+| `src/pages/VehicleDetail.tsx` | Edit — add "Chats" tab |
+| `src/stores/app-store.ts` | Edit — add `openRatchetWithSession(sessionId)` action |
+| `src/components/RatchetPanel.tsx` | Edit — respect pre-set session ID from store |
+| `src/App.tsx` | Edit — redirect `/chat` to `/garage` (optional) |
 
