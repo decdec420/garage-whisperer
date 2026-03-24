@@ -16,30 +16,39 @@ export type Database = {
     Tables: {
       charm_cache: {
         Row: {
+          all_images: Json | null
+          base_url: string | null
           charm_url: string
           created_at: string | null
           fetched_at: string | null
           id: string
           images: string[] | null
           procedure_text: string | null
+          sub_pages_crawled: string[] | null
           torque_specs: Json | null
         }
         Insert: {
+          all_images?: Json | null
+          base_url?: string | null
           charm_url: string
           created_at?: string | null
           fetched_at?: string | null
           id?: string
           images?: string[] | null
           procedure_text?: string | null
+          sub_pages_crawled?: string[] | null
           torque_specs?: Json | null
         }
         Update: {
+          all_images?: Json | null
+          base_url?: string | null
           charm_url?: string
           created_at?: string | null
           fetched_at?: string | null
           id?: string
           images?: string[] | null
           procedure_text?: string | null
+          sub_pages_crawled?: string[] | null
           torque_specs?: Json | null
         }
         Relationships: []
