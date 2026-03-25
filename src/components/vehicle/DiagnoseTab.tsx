@@ -84,7 +84,9 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
   // Build full symptom from chips + text
   const buildFullSymptom = useCallback(() => {
-    let s = symptom.trim();
+    const chipText = selectedChips.join(', ');
+    let s = symptom.trim() ? symptom.trim() : chipText;
+    if (symptom.trim() && selectedChips.length > 0) s = `${chipText}. ${symptom.trim()}`;
     if (whenChip) s = `[When ${whenChip.toLowerCase()}] ${s}`;
     if (whereChip) s = `${s} [from ${whereChip.toLowerCase()}]`;
     if (soundChip) s = `${s} — sounds like ${soundChip.toLowerCase()}`;
