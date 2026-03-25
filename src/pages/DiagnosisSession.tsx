@@ -866,9 +866,16 @@ export default function DiagnosisSession() {
                       <><Wrench className="h-4 w-4 mr-2" /> Create Repair Project</>
                     )}
                   </Button>
-                  {!hasFault && (
-                    <Button variant="ghost" className="text-sm text-muted-foreground">Continue Testing</Button>
-                  )}
+                  <Button variant="ghost" className="text-sm text-muted-foreground"
+                    onClick={() => {
+                      // Scroll to next untested step
+                      const nextStep = steps?.find(s => s.status !== 'healthy' && s.status !== 'faulty');
+                      if (nextStep && stepRefs.current[nextStep.id]) {
+                        stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}>
+                    Continue Testing
+                  </Button>
                 </div>
               </CardContent>
             </Card>
