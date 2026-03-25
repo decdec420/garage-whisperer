@@ -331,9 +331,9 @@ export default function DiagnosisSession() {
   useEffect(() => {
     if (!diagSession) return;
     if (diagSession.tree_data && Array.isArray(diagSession.tree_data)) {
-      // Handle both old format {cause: c} and new format {name: c}
+      // Standardized field: "cause". Support legacy "name" for old sessions.
       setTreeNodes((diagSession.tree_data as any[]).map((n: any) => ({
-        name: n.name || n.cause || 'Unknown',
+        cause: n.cause || n.name || 'Unknown',
         status: n.status || 'untested',
       })));
     }
