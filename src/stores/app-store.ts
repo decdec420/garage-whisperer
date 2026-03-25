@@ -17,6 +17,17 @@ interface ProjectContext {
   vehicleId: string;
 }
 
+interface DiagnosisContext {
+  sessionId: string;
+  symptom: string;
+  currentStepTitle?: string;
+  currentStepNumber?: number;
+  totalSteps?: number;
+  treeNodes?: { cause: string; status: string; probability?: number }[];
+  confidenceScore?: number;
+  leadingCause?: string;
+}
+
 interface AppState {
   activeVehicleId: string | null;
   activeVehicle: Vehicle | null;
