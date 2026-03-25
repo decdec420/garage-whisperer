@@ -448,7 +448,7 @@ export default function DiagnosisSession() {
       }
       if (result === 'faulty') {
         if (diagMeta?.confirms?.some((c: string) =>
-          n.name.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'faulty' as const };
         }
