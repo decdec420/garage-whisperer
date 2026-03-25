@@ -540,7 +540,7 @@ export default function DiagnosisSession() {
     setIsCreatingRepair(true);
 
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
-    const conclusion = diagSession.conclusion || faultyNode?.name || diagSession.symptom;
+    const conclusion = diagSession.conclusion || faultyNode?.cause || diagSession.symptom;
 
     try {
       const jobDescription = `Replace/repair ${conclusion} on ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.engine ? ` ${vehicle.engine}` : ''}. Diagnosed from symptom: "${diagSession.symptom}". Diagnostic testing confirmed ${conclusion} as the root cause.`;
