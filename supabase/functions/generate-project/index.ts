@@ -289,7 +289,7 @@ serve(async (req) => {
       });
     }
 
-    const { vehicleId, jobDescription } = await req.json();
+    const { vehicleId, jobDescription: rawJobDescription, diagnosisContext, diagnosisId } = await req.json();
 
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
@@ -297,11 +297,11 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length === 0 || jobDescription.length > 500) {
-      return new Response(JSON.stringify({ error: "jobDescription must be 1-500 characters" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+
+    // Auto-build jobDescription from diagnosis context if not provided
+    let jobDescription = rawJobDescription;
+    // We'll finalize jobDescription after fetching vehicle if needed
+    const needsAutoJob = !jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length === 0;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
