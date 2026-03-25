@@ -867,11 +867,23 @@ export default function DiagnosisSession() {
                     )}
                   </Button>
                   <Button variant="ghost" className="text-sm text-muted-foreground"
-                    onClick={() => {
-                      // Scroll to next untested step
-                      const nextStep = steps?.find(s => s.status !== 'healthy' && s.status !== 'faulty');
-                      if (nextStep && stepRefs.current[nextStep.id]) {
-                        stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    onClick={async () => {
+                      // Revert session status so next steps are active
+                      await supabase.from('diagnosis_sessions').update({
+                        status: 'active',
+                      } as any).eq('id', diagnosisId!);
+                      queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+                      
+                      // Find and activate next untested step
+                      const nextIdx = steps?.findIndex(s => s.status !== 'healthy' && s.status !== 'faulty') ?? -1;
+                      if (nextIdx >= 0) {
+                        setCurrentStepIndex(nextIdx);
+                        setTimeout(() => {
+                          const nextStep = steps?.[nextIdx];
+                          if (nextStep && stepRefs.current[nextStep.id]) {
+                            stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }
+                        }, 100);
                       }
                     }}>
                     Continue Testing
