@@ -435,7 +435,7 @@ export default function DiagnosisSession() {
     const updatedTree = treeNodes.map(n => {
       if (result === 'healthy') {
         if (diagMeta?.eliminates?.some((e: string) =>
-          n.name.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'healthy' as const };
         }
