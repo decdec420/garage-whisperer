@@ -804,12 +804,33 @@ export default function DiagnosisSession() {
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
     const conclusion = diagSession.conclusion || faultyNode?.cause || diagSession.symptom;
     try {
+      // Build full diagnosis context for generate-project
+      const testsSummary = Array.isArray(diagSession.tests_summary) ? diagSession.tests_summary : [];
+      const testsPerformed = testsSummary.map((t: any) =>
+        `${t.step_title} ${t.result === 'healthy' ? 'passed' : 'failed'}${t.eliminated?.length ? ` (ruled out: ${t.eliminated.join(', ')})` : ''}`
+      );
+      const testsRuledOut = treeNodes.filter(n => n.status === 'healthy').map(n => n.cause);
+      const accessPaths = Array.isArray(diagSession.access_paths_used) ? diagSession.access_paths_used : [];
+      const hwNotes = Array.isArray(diagSession.hardware_notes) ? diagSession.hardware_notes : [];
+
+      const diagnosisContext = {
+        symptom: diagSession.symptom,
+        confirmedCause: conclusion,
+        testsPerformed,
+        accessPathDiscovered: accessPaths,
+        componentHardware: hwNotes.length > 0 ? hwNotes[0] : undefined,
+        accessHardware: hwNotes.slice(1),
+        mediaAttached: Array.isArray(diagSession.media_urls) && diagSession.media_urls.length > 0,
+        testsRuledOut,
+      };
+
       const jobDescription = `Replace/repair ${conclusion} on ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.engine ? ` ${vehicle.engine}` : ''}. Diagnosed from symptom: "${diagSession.symptom}". Diagnostic testing confirmed ${conclusion} as the root cause.`;
-      const { data, error } = await supabase.functions.invoke('generate-project', { body: { vehicleId, jobDescription, userId: user.id } });
+      const { data, error } = await supabase.functions.invoke('generate-project', {
+        body: { vehicleId, jobDescription, diagnosisContext, diagnosisId: diagnosisId },
+      });
       if (error) throw error;
       const projectId = data?.project?.id || data?.projectId;
       if (!projectId) throw new Error('No project ID returned');
-      await supabase.from('diagnosis_sessions').update({ diagnosis_summary: `Repair project created: ${projectId}`, status: 'resolved', updated_at: new Date().toISOString() } as any).eq('id', diagnosisId!);
       toast.success(`Repair project created for ${conclusion}`);
       navigate(`/garage/${vehicleId}/projects/${projectId}`);
     } catch (e) { console.error(e); toast.error('Failed to create repair project'); }
