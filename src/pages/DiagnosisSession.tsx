@@ -357,6 +357,67 @@ export default function DiagnosisSession() {
     setCurrentStepIndex(firstIncomplete >= 0 ? firstIncomplete : steps.length);
   }, [steps]);
 
+  // Confidence score calculation
+  const calculateConfidence = (
+    possibleCauses: string[],
+    completedSteps: { result: 'healthy' | 'faulty'; eliminates?: string[]; confirms?: string[] }[]
+  ) => {
+    if (completedSteps.length < 2) return { score: null, confirmedCause: null };
+
+    // Initialize probabilities based on position
+    const probs: Record<string, number> = {};
+    const remaining = 100;
+    possibleCauses.forEach((cause, i) => {
+      if (i === 0) probs[cause] = 50;
+      else if (i === 1) probs[cause] = 25;
+      else if (i === 2) probs[cause] = 15;
+      else {
+        const extraCount = possibleCauses.length - 3;
+        probs[cause] = extraCount > 0 ? 10 / extraCount : 10;
+      }
+    });
+
+    let confirmedCause: string | null = null;
+
+    for (const step of completedSteps) {
+      if (step.result === 'healthy' && step.eliminates) {
+        for (const elim of step.eliminates) {
+          const match = possibleCauses.find(c =>
+            c.toLowerCase().includes(elim.toLowerCase()) || elim.toLowerCase().includes(c.toLowerCase())
+          );
+          if (match && probs[match] > 0) {
+            const freed = probs[match];
+            probs[match] = 0;
+            const activeOthers = Object.entries(probs).filter(([k, v]) => v > 0);
+            const totalActive = activeOthers.reduce((s, [, v]) => s + v, 0);
+            if (totalActive > 0) {
+              for (const [k, v] of activeOthers) {
+                probs[k] = v + (freed * (v / totalActive));
+              }
+            }
+          }
+        }
+      }
+      if (step.result === 'faulty' && step.confirms) {
+        for (const conf of step.confirms) {
+          const match = possibleCauses.find(c =>
+            c.toLowerCase().includes(conf.toLowerCase()) || conf.toLowerCase().includes(c.toLowerCase())
+          );
+          if (match) {
+            confirmedCause = match;
+            for (const k of Object.keys(probs)) probs[k] = 0;
+            probs[match] = 95;
+            const others = possibleCauses.filter(c => c !== match);
+            others.forEach(c => probs[c] = 5 / others.length);
+          }
+        }
+      }
+    }
+
+    const highest = Math.round(Math.max(...Object.values(probs)));
+    return { score: confirmedCause ? 95 : highest, confirmedCause };
+  };
+
   const markStepResult = async (stepId: string, result: 'healthy' | 'faulty') => {
     const step = steps?.find(s => s.id === stepId);
     if (!step) return;
@@ -373,7 +434,6 @@ export default function DiagnosisSession() {
 
     const updatedTree = treeNodes.map(n => {
       if (result === 'healthy') {
-        // If this step eliminates certain causes, mark them healthy
         if (diagMeta?.eliminates?.some((e: string) =>
           n.name.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.name.toLowerCase())
         )) {
@@ -411,13 +471,53 @@ export default function DiagnosisSession() {
 
     setTreeNodes(updatedTree);
 
-    // Save tree to diagnosis session
+    // Build tests_summary from all completed steps
+    const allSteps = steps || [];
+    const completedForConfidence: { result: 'healthy' | 'faulty'; eliminates?: string[]; confirms?: string[] }[] = [];
+    const testsSummary: any[] = [];
+
+    for (const s of allSteps) {
+      const stepResult = s.id === stepId ? result : s.status;
+      if (stepResult === 'healthy' || stepResult === 'faulty') {
+        let meta: any = null;
+        try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+        completedForConfidence.push({
+          result: stepResult as 'healthy' | 'faulty',
+          eliminates: meta?.eliminates,
+          confirms: meta?.confirms,
+        });
+        testsSummary.push({
+          step_number: s.step_number,
+          step_title: s.title,
+          result: stepResult,
+          eliminated: stepResult === 'healthy' ? (meta?.eliminates || []) : [],
+          confirmed: stepResult === 'faulty' ? (meta?.confirms || []) : [],
+        });
+      }
+    }
+
+    // Calculate confidence
+    const possibleCauses = updatedTree.map(n => n.name);
+    const { score: confidenceScore, confirmedCause } = calculateConfidence(possibleCauses, completedForConfidence);
+
+    // Collect access paths and hardware notes from this step
+    const accessPaths: string[] = diagMeta?.accessPath?.steps || [];
+    const hwNotes: string[] = [];
+    if (diagMeta?.componentHardware?.note) hwNotes.push(diagMeta.componentHardware.note);
+    if (diagMeta?.accessHardware?.note) hwNotes.push(diagMeta.accessHardware.note);
+
+    // Save to diagnosis session
     await supabase.from('diagnosis_sessions').update({
       tree_data: updatedTree,
       updated_at: new Date().toISOString(),
+      confidence_score: confidenceScore,
+      confirmed_cause: confirmedCause || (result === 'faulty' ? (diagMeta?.systemTesting || step.title) : null),
+      tests_summary: testsSummary,
+      access_paths_used: accessPaths,
+      hardware_notes: hwNotes,
       ...(result === 'faulty' ? {
         conclusion: diagMeta?.systemTesting || step.title,
-        conclusion_confidence: 90,
+        conclusion_confidence: confidenceScore || 90,
         status: 'resolved',
       } : {}),
     } as any).eq('id', diagnosisId!);
