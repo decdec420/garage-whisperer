@@ -470,7 +470,7 @@ Generate the complete project plan for this exact vehicle and job.`;
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + charmSystemAddition },
+          { role: "system", content: SYSTEM_PROMPT + diagnosisSystemBlock + charmSystemAddition },
           { role: "user", content: userMessage },
         ],
       }),
