@@ -441,6 +441,11 @@ export default function ProjectDetail() {
       </div>
 
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+        {/* How we found this — diagnosis link */}
+        {linkedDiagnosis && (
+          <DiagnosisLinkCard diagnosis={linkedDiagnosis} vehicleId={vehicleId!} />
+        )}
+
         {/* Factory Photo Gallery */}
         {factoryImages.length > 0 && (
           <div>
