@@ -659,7 +659,7 @@ export default function DiagnosisSession() {
   const totalSteps = steps?.length || 0;
   const progressPct = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
   const hasFault = treeNodes.some(n => n.status === 'faulty');
-  const faultName = treeNodes.find(n => n.status === 'faulty')?.name || diagSession.conclusion;
+  const faultName = treeNodes.find(n => n.status === 'faulty')?.cause || diagSession.conclusion;
 
   // Collect factory images from steps for diagrams gallery
   const factoryImages = (steps || [])
