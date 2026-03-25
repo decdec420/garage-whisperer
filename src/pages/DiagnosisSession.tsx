@@ -64,7 +64,7 @@ function DiagnosisTree({ nodes, onNodeClick }: { nodes: TreeNode[]; onNodeClick?
         return (
           <button
             key={i}
-            onClick={() => onNodeClick?.(node.name)}
+            onClick={() => onNodeClick?.(node.cause)}
             className="flex items-center gap-2.5 px-3 py-2 w-full text-left rounded-lg hover:bg-muted/50 transition-colors"
           >
             <div className={cn("h-3 w-3 rounded-full shrink-0", style.dot)} />
