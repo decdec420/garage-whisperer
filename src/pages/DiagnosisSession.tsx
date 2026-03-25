@@ -497,7 +497,7 @@ export default function DiagnosisSession() {
     }
 
     // Calculate confidence
-    const possibleCauses = updatedTree.map(n => n.name);
+    const possibleCauses = updatedTree.map(n => n.cause);
     const { score: confidenceScore, confirmedCause } = calculateConfidence(possibleCauses, completedForConfidence);
 
     // Collect access paths and hardware notes from this step
