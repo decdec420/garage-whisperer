@@ -587,7 +587,7 @@ export default function DiagnosisSession() {
   const { vehicleId, diagnosisId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setRatchetDiagnosisContext } = useAppStore();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
