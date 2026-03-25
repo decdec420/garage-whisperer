@@ -98,9 +98,9 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
   // Placeholder
   const getPlaceholder = () => {
-    if (soundChip) return `When exactly does the ${soundChip.toLowerCase()} happen?`;
-    if (whereChip) return `What does it feel like from ${whereChip.toLowerCase()}?`;
-    if (whenChip) return `What specifically happens ${whenChip.toLowerCase()}?`;
+    if (soundChips.length) return `When exactly does the ${soundChips.join('/').toLowerCase()} happen?`;
+    if (whereChips.length) return `What does it feel like from ${whereChips.join(', ').toLowerCase()}?`;
+    if (whenChips.length) return `What specifically happens ${whenChips.join(', ').toLowerCase()}?`;
     return "Describe what's happening...";
   };
 
