@@ -207,6 +207,7 @@ function ChatContent() {
   const {
     activeVehicle, ratchetPrefilledMessage, closeRatchetPanel, isRatchetOpen,
     setActiveVehicle, ratchetProjectContext, ratchetActiveSessionId,
+    ratchetDiagnosisContext,
   } = useAppStore();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
