@@ -583,6 +583,15 @@ Generate the complete project plan for this exact vehicle and job.`;
       await supabase.from("project_steps").insert(steps);
     }
 
+    // Link back to diagnosis session if diagnosisId provided
+    if (diagnosisId && UUID_RE.test(diagnosisId)) {
+      await supabase.from("diagnosis_sessions").update({
+        project_id: project.id,
+        status: 'resolved',
+        updated_at: new Date().toISOString(),
+      }).eq("id", diagnosisId);
+    }
+
     // Return full project
     const { data: fullProject } = await supabase.from("projects").select("*").eq("id", project.id).single();
     const { data: savedParts } = await supabase.from("project_parts").select("*").eq("project_id", project.id).order("sort_order");
