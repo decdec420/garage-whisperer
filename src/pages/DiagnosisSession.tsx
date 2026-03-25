@@ -453,8 +453,8 @@ export default function DiagnosisSession() {
           return { ...n, status: 'faulty' as const };
         }
         if (diagMeta?.systemTesting && (
-          n.name.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
-          diagMeta.systemTesting.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
+          diagMeta.systemTesting.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'faulty' as const };
         }
