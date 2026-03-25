@@ -440,6 +440,28 @@ function ChatContent() {
         vehicleContext += `\n\nProject context: "${ratchetProjectContext!.title}" — The user is currently working on this specific project. Provide advice specific to this repair job.`;
       }
 
+      // Inject diagnosis context if active
+      if (ratchetDiagnosisContext) {
+        const dc = ratchetDiagnosisContext;
+        const causesStr = dc.treeNodes?.map(n => `${n.cause} (${n.status}${n.probability ? `, ${Math.round(n.probability)}%` : ''})`).join(', ') || 'Unknown';
+        vehicleContext += `\n\n## Active Diagnosis Session
+The user is currently diagnosing their vehicle, not asking a general question.
+Symptom: ${dc.symptom}
+${dc.currentStepTitle ? `Current step: Step ${dc.currentStepNumber} — ${dc.currentStepTitle}` : ''}
+${dc.totalSteps ? `Steps completed: ${dc.currentStepNumber ? dc.currentStepNumber - 1 : 0} of ${dc.totalSteps}` : ''}
+Possible causes: ${causesStr}
+${dc.confidenceScore ? `Current confidence: ${dc.confidenceScore}% → ${dc.leadingCause || 'Testing...'}` : ''}
+
+How to help:
+- Interpret test results against the expected/failure criteria for the current step
+- Answer "is this good or bad" questions with specific reference to the thresholds
+- Answer hardware questions with component-specific counts (not generic)
+- When answering hardware questions, ALWAYS separate component mounting hardware from access path hardware. Never give a combined bolt count.
+- Suggest whether to continue testing or whether current evidence is sufficient
+- If they found something: help them understand what it means for the diagnosis
+- Never suggest they restart from scratch if they're mid-diagnosis`;
+      }
+
       // Build messages for API — include base64 images for the current message
       const allMessages = [...messages, userMsg].map((m, idx) => {
         const isLast = idx === messages.length; // the userMsg we just added
