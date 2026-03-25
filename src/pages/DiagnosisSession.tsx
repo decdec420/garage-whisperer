@@ -684,6 +684,25 @@ export default function DiagnosisSession() {
     setCurrentStepIndex(firstIncomplete >= 0 ? firstIncomplete : steps.length);
   }, [steps]);
 
+  // Set diagnosis context for Ratchet panel awareness
+  useEffect(() => {
+    if (!diagSession || !steps) return;
+    const currentStep = steps[currentStepIndex];
+    let diagMeta: any = null;
+    try { if (currentStep?.notes) diagMeta = JSON.parse(currentStep.notes); } catch {}
+    setRatchetDiagnosisContext({
+      sessionId: diagSession.id,
+      symptom: diagSession.symptom,
+      currentStepTitle: currentStep?.title,
+      currentStepNumber: currentStep?.step_number,
+      totalSteps: steps.length,
+      treeNodes: treeNodes.map(n => ({ cause: n.cause, status: n.status, probability: n.probability })),
+      confidenceScore: diagSession.confidence_score || undefined,
+      leadingCause: diagSession.confirmed_cause || treeNodes.reduce((best, n) => (n.probability || 0) > (best.probability || 0) ? n : best, treeNodes[0])?.cause,
+    });
+    return () => { setRatchetDiagnosisContext(null); };
+  }, [diagSession, steps, currentStepIndex, treeNodes, setRatchetDiagnosisContext]);
+
   // Confidence calculation
   const calculateConfidence = (possibleCauses: string[], completedSteps: { result: 'healthy' | 'faulty'; eliminates?: string[]; confirms?: string[] }[]) => {
     if (completedSteps.length < 2) return { score: null, confirmedCause: null };
