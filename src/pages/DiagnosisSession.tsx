@@ -4,18 +4,21 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getAccessToken } from '@/lib/auth-helpers';
+import { getSignedUrl } from '@/lib/storage-helpers';
 import { useAppStore } from '@/stores/app-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   ArrowLeft, Search, Send, CheckCircle2, AlertCircle, Clock, Wrench,
   ChevronRight, ChevronDown, Zap, AlertTriangle, ShieldAlert, Package,
   MessageCircle, X, BookOpen, Image as ImageIcon, Camera, Plus,
+  FileText, Video, Link as LinkIcon, Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -84,7 +87,6 @@ function DiagStepCard({
   const [hasMarkedResult, setHasMarkedResult] = useState(false);
   const torqueSpecs = step.torque_specs as any[] | null;
 
-  // Parse diagnostic metadata
   let diagMeta: any = null;
   try { if (step.notes) diagMeta = JSON.parse(step.notes); } catch {}
 
@@ -97,17 +99,12 @@ function DiagStepCard({
   const eliminates = diagMeta?.eliminates || [];
   const confirms = diagMeta?.confirms || [];
 
-  // Auto-expand active step
   useEffect(() => { if (isActive) setIsOpen(true); }, [isActive]);
 
   const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
-
-  // After marking faulty, still show as active (allow continuing)
   const effectivelyCompleted = isCompleted;
-  const showAsActive = isActive || (isCompleted && step.status === 'faulty' && !hasMarkedResult);
 
   if (effectivelyCompleted && !isOpen) {
-    // Collapsed completed step
     const resultLabel = step.status === 'faulty'
       ? `❌ ${step.title} — problem found`
       : `✅ ${step.title} — healthy`;
@@ -139,7 +136,6 @@ function DiagStepCard({
   }
 
   if (!isActive && !isCompleted && !isOpen) {
-    // Collapsed upcoming step
     return (
       <button onClick={() => setIsOpen(true)}
         className="w-full text-left rounded-xl border border-border border-l-4 border-l-muted-foreground/20 p-4 bg-card hover:border-primary/30 transition-all">
@@ -164,7 +160,6 @@ function DiagStepCard({
     );
   }
 
-  // Expanded step (active, completed expanded, or upcoming expanded)
   const borderColor = isCompleted
     ? (step.status === 'faulty' ? 'border-l-destructive' : 'border-l-green-500')
     : isActive ? 'border-l-primary' : 'border-l-muted-foreground/20';
@@ -176,7 +171,6 @@ function DiagStepCard({
     <div className={cn("rounded-xl border border-border border-l-4 overflow-hidden transition-all", borderColor,
       isActive && !isCompleted && 'shadow-[0_0_15px_-3px_hsl(var(--primary)/0.15)]'
     )}>
-      {/* Header — always clickable to collapse */}
       <button onClick={() => setIsOpen(!isOpen)} className={cn("w-full text-left p-4", bgColor)}>
         <div className="flex items-center gap-3">
           <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
@@ -404,6 +398,190 @@ function DiagStepCard({
   );
 }
 
+// ─── Docs Tab ───
+function DiagDocsTab({ diagSession, vehicleId }: { diagSession: any; vehicleId: string }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  const mediaItems: { type: string; url: string; name: string; duration?: number }[] =
+    Array.isArray(diagSession?.media_urls) ? diagSession.media_urls : [];
+
+  // Sign storage URLs for display
+  useEffect(() => {
+    const signAll = async () => {
+      const urls: Record<string, string> = {};
+      for (const item of mediaItems) {
+        if (item.type !== 'link' && item.url && !item.url.startsWith('http')) {
+          const signed = await getSignedUrl('vehicle-documents', item.url);
+          if (signed) urls[item.url] = signed;
+        }
+      }
+      setSignedUrls(urls);
+    };
+    if (mediaItems.length) signAll();
+  }, [JSON.stringify(mediaItems)]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !user || !diagSession) return;
+    setIsUploading(true);
+    const newMedia = [...mediaItems];
+    for (const file of files) {
+      try {
+        const ext = file.name.split('.').pop() || 'bin';
+        const path = `${user.id}/diagnosis/${diagSession.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage.from('vehicle-documents').upload(path, file, { contentType: file.type });
+        if (!error) {
+          const type = file.type.startsWith('image/') ? 'photo' : file.type.startsWith('video/') ? 'video' : 'doc';
+          newMedia.push({ type, url: path, name: file.name });
+        }
+      } catch {}
+    }
+    await supabase.from('diagnosis_sessions').update({ media_urls: newMedia, updated_at: new Date().toISOString() } as any).eq('id', diagSession.id);
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+    setIsUploading(false);
+    toast.success('Files uploaded');
+    e.target.value = '';
+  };
+
+  if (!mediaItems.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+          <FileText className="h-7 w-7 text-primary" />
+        </div>
+        <h3 className="text-lg font-semibold mb-1">No docs or media yet</h3>
+        <p className="text-sm text-muted-foreground max-w-xs mb-4">
+          Add photos, videos, or documents for reference during this diagnosis.
+        </p>
+        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+          <Upload className="h-4 w-4 mr-2" /> {isUploading ? 'Uploading...' : 'Add Files'}
+        </Button>
+        <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf,.txt" className="hidden" onChange={handleUpload} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Diagnosis Media & Docs
+          <Badge variant="outline" className="text-[10px]">{mediaItems.length}</Badge>
+        </h3>
+        <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add
+        </Button>
+        <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf,.txt" className="hidden" onChange={handleUpload} />
+      </div>
+
+      {/* Submitted with diagnosis label */}
+      <p className="text-xs text-muted-foreground">📎 Attached to this diagnosis</p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {mediaItems.map((item, i) => {
+          const displayUrl = item.type === 'link' ? item.url : signedUrls[item.url];
+          return (
+            <div key={i} className="rounded-xl border border-border overflow-hidden bg-card">
+              {item.type === 'photo' && displayUrl && (
+                <img src={displayUrl} alt={item.name} className="w-full h-32 object-cover" />
+              )}
+              {item.type === 'video' && (
+                <div className="w-full h-32 bg-muted flex items-center justify-center relative">
+                  {displayUrl ? (
+                    <video src={displayUrl} className="w-full h-full object-cover" controls />
+                  ) : (
+                    <Video className="h-8 w-8 text-muted-foreground" />
+                  )}
+                  {item.duration && (
+                    <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+                      {item.duration}s
+                    </span>
+                  )}
+                </div>
+              )}
+              {item.type === 'doc' && (
+                <div className="w-full h-32 bg-muted flex flex-col items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground mb-1" />
+                  {displayUrl && (
+                    <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                      Open
+                    </a>
+                  )}
+                </div>
+              )}
+              {item.type === 'link' && (
+                <a href={item.url} target="_blank" rel="noopener noreferrer"
+                  className="w-full h-32 bg-muted flex flex-col items-center justify-center hover:bg-muted/80 transition-colors">
+                  <LinkIcon className="h-8 w-8 text-muted-foreground mb-1" />
+                  <span className="text-xs text-primary">{item.name}</span>
+                </a>
+              )}
+              <div className="px-2 py-1.5">
+                <p className="text-xs text-muted-foreground truncate">{item.name}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Chat Tab (inline) ───
+function DiagChatTab({
+  chatMessages, chatInput, setChatInput, isChatStreaming, sendChatMessage,
+}: {
+  chatMessages: Message[]; chatInput: string; setChatInput: (v: string) => void;
+  isChatStreaming: boolean; sendChatMessage: (text: string) => void;
+}) {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
+
+  return (
+    <div className="flex flex-col mt-2" style={{ height: 'calc(100dvh - 260px)', minHeight: 300 }}>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {chatMessages.length === 0 && (
+          <div className="text-center text-xs text-muted-foreground py-8">
+            <Wrench className="h-6 w-6 mx-auto mb-2 text-primary" />
+            Ask Ratchet about your diagnosis — this chat is scoped to this diagnostic session.
+          </div>
+        )}
+        {chatMessages.map((m, i) => (
+          <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div className={cn('px-3 py-2 text-sm rounded-xl max-w-[85%]',
+              m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
+              {m.role === 'assistant' ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
+            </div>
+          </div>
+        ))}
+        {isChatStreaming && chatMessages[chatMessages.length - 1]?.role !== 'assistant' && (
+          <div className="flex gap-1.5 px-3 py-2">
+            {[0,1,2].map(i => <span key={i} className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i*150}ms` }} />)}
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+      <div className="p-3 border-t border-border shrink-0">
+        <div className="flex gap-2">
+          <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') sendChatMessage(chatInput); }}
+            placeholder="Ask Ratchet about this diagnosis..."
+            className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
+          <button onClick={() => sendChatMessage(chatInput)} disabled={!chatInput.trim() || isChatStreaming}
+            className={cn('h-9 w-9 rounded-lg flex items-center justify-center',
+              chatInput.trim() && !isChatStreaming ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───
 export default function DiagnosisSession() {
   const { vehicleId, diagnosisId } = useParams();
@@ -416,17 +594,14 @@ export default function DiagnosisSession() {
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const [activeTab, setActiveTab] = useState('steps');
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatStreaming, setIsChatStreaming] = useState(false);
   const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [captureStepId, setCaptureStepId] = useState<string | null>(null);
-
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   const { data: vehicle } = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -480,12 +655,11 @@ export default function DiagnosisSession() {
   useEffect(() => {
     if (!diagSession) return;
     if (diagSession.tree_data && Array.isArray(diagSession.tree_data)) {
-      const nodes = (diagSession.tree_data as any[]).map((n: any, i: number) => ({
+      const nodes = (diagSession.tree_data as any[]).map((n: any) => ({
         cause: n.cause || n.name || 'Unknown',
         status: n.status || 'untested',
         probability: n.probability,
       }));
-      // Calculate initial probabilities if not set
       if (!nodes.some(n => n.probability !== undefined)) {
         nodes.forEach((n, i) => {
           if (i === 0) n.probability = 50;
@@ -579,7 +753,6 @@ export default function DiagnosisSession() {
       if (firstUntested >= 0) updatedTree[firstUntested].status = 'testing';
     }
 
-    // Recalculate probabilities
     const allSteps = steps || [];
     const completedForConfidence: any[] = [];
     const testsSummary: any[] = [];
@@ -596,7 +769,6 @@ export default function DiagnosisSession() {
     const possibleCauses = updatedTree.map(n => n.cause);
     const { score: confidenceScore, confirmedCause, probs } = calculateConfidence(possibleCauses, completedForConfidence) as any;
 
-    // Update probabilities on tree nodes
     if (probs) {
       updatedTree.forEach(n => { if (probs[n.cause] !== undefined) n.probability = probs[n.cause]; });
     }
@@ -699,7 +871,7 @@ export default function DiagnosisSession() {
 
   const openAskRatchet = (prefill: string) => {
     setChatInput(prefill);
-    setShowChat(true);
+    setActiveTab('chat');
   };
 
   const handleCapturePhoto = (stepId: string) => {
@@ -712,14 +884,13 @@ export default function DiagnosisSession() {
     if (!file || !captureStepId) return;
     const step = steps?.find(s => s.id === captureStepId);
     if (!step) return;
-    // Convert to base64 and send to chat
     const reader = new FileReader();
     reader.onload = () => {
       const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'my vehicle';
       const diagMeta = (() => { try { return step.notes ? JSON.parse(step.notes) : null; } catch { return null; } })();
       const prefill = `I'm on Step ${step.step_number} diagnosing "${diagSession?.symptom}" on my ${vehicleName}.\nTesting: ${step.title}. Expected: ${diagMeta?.expectedResult || 'N/A'}.\nHere's what I see. Is this healthy or the problem?`;
       setChatInput(prefill);
-      setShowChat(true);
+      setActiveTab('chat');
     };
     reader.readAsDataURL(file);
     setCaptureStepId(null);
@@ -743,18 +914,22 @@ export default function DiagnosisSession() {
   };
 
   const scrollToCause = (causeName: string) => {
-    // Find step that tests this cause
     if (!steps) return;
-    for (const step of steps) {
-      let meta: any = null;
-      try { if (step.notes) meta = JSON.parse(step.notes); } catch {}
-      const related = [...(meta?.eliminates || []), ...(meta?.confirms || [])];
-      if (related.some((r: string) => r.toLowerCase().includes(causeName.toLowerCase()) || causeName.toLowerCase().includes(r.toLowerCase()))) {
-        stepRefs.current[step.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+    setActiveTab('steps');
+    setTimeout(() => {
+      for (const step of steps) {
+        let meta: any = null;
+        try { if (step.notes) meta = JSON.parse(step.notes); } catch {}
+        const related = [...(meta?.eliminates || []), ...(meta?.confirms || [])];
+        if (related.some((r: string) => r.toLowerCase().includes(causeName.toLowerCase()) || causeName.toLowerCase().includes(r.toLowerCase()))) {
+          stepRefs.current[step.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
       }
-    }
+    }, 100);
   };
+
+  const mediaCount = Array.isArray(diagSession.media_urls) ? diagSession.media_urls.length : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -763,14 +938,12 @@ export default function DiagnosisSession() {
 
       {/* Header */}
       <div className="sticky top-0 z-20" style={{ background: '#111111' }}>
-        {/* Progress bar */}
         <div className="h-[3px]" style={{ background: '#27272a' }}>
           <div className="h-full transition-all duration-500" style={{ width: `${progressPct}%`, background: hasFault ? '#ef4444' : '#f97316' }} />
         </div>
 
         <div className="px-4 md:px-6 py-3">
           <div className="flex items-start gap-3">
-            {/* Left column */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <button onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose`)} className="text-muted-foreground hover:text-foreground shrink-0">
@@ -795,9 +968,7 @@ export default function DiagnosisSession() {
               </div>
             </div>
 
-            {/* Right column — progress ring + confidence */}
             <div className="flex flex-col items-center shrink-0">
-              {/* Simple progress ring */}
               <div className="relative h-12 w-12">
                 <svg className="h-12 w-12 -rotate-90" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="20" fill="none" stroke="#27272a" strokeWidth="3" />
@@ -831,254 +1002,220 @@ export default function DiagnosisSession() {
         </div>
       )}
 
-      <div className="flex">
-        {/* Main content */}
-        <div className={cn("flex-1 p-4 md:p-6 space-y-4 min-w-0", showChat && !isMobile && "mr-[380px]")}>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="px-4 border-b border-border bg-card/30">
+          <TabsList className="bg-transparent h-10 w-full justify-start gap-0 p-0">
+            <TabsTrigger value="steps" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              Steps
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              Tools {tools && tools.length > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{tools.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="docs" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              Docs {mediaCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{mediaCount}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-sm">
+              Chat
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-          {/* Conclusion card */}
-          {(hasFault || diagSession.status === 'resolved' || (confidenceScore && confidenceScore >= 90)) && (
-            <Card className="border-2 border-primary/50 overflow-hidden" style={{ borderLeft: '6px solid hsl(var(--primary))' }}>
-              <CardContent className="p-5">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">
-                  🔍 {hasFault || diagSession.confirmed_cause ? 'Diagnosis Complete' : 'Likely Diagnosis'}
-                </p>
-                <p className="text-xl font-bold text-primary">{faultName || leadingCause}</p>
-                {confidenceScore && <p className="text-sm text-muted-foreground mt-1">Confidence: {confidenceScore}%</p>}
-
-                {/* Evidence chain */}
-                {diagSession.tests_summary && Array.isArray(diagSession.tests_summary) && (
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    {(diagSession.tests_summary as any[]).filter((t: any) => t.result === 'healthy').map((t: any) => `${t.step_title} passed`).join(', ')}
-                    {(diagSession.tests_summary as any[]).some((t: any) => t.result === 'faulty') && (
-                      <> — <span className="text-destructive font-semibold">{(diagSession.tests_summary as any[]).filter((t: any) => t.result === 'faulty').map((t: any) => `${t.step_title} failed`).join(', ')}</span></>
-                    )}
+        {/* ─── Steps Tab ─── */}
+        <TabsContent value="steps" className="mt-0">
+          <div className="p-4 md:p-6 space-y-4">
+            {/* Conclusion card */}
+            {(hasFault || diagSession.status === 'resolved' || (confidenceScore && confidenceScore >= 90)) && (
+              <Card className="border-2 border-primary/50 overflow-hidden" style={{ borderLeft: '6px solid hsl(var(--primary))' }}>
+                <CardContent className="p-5">
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">
+                    🔍 {hasFault || diagSession.confirmed_cause ? 'Diagnosis Complete' : 'Likely Diagnosis'}
                   </p>
-                )}
+                  <p className="text-xl font-bold text-primary">{faultName || leadingCause}</p>
+                  {confidenceScore && <p className="text-sm text-muted-foreground mt-1">Confidence: {confidenceScore}%</p>}
 
-                <div className="flex flex-col gap-2 mt-4">
-                  <Button onClick={createRepairProject} disabled={isCreatingRepair} className="w-full h-12 text-base font-semibold">
-                    {isCreatingRepair ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                        Building repair plan...
-                      </div>
-                    ) : (
-                      <><Wrench className="h-4 w-4 mr-2" /> Create Repair Project</>
-                    )}
-                  </Button>
-                  <Button variant="ghost" className="text-sm text-muted-foreground"
-                    onClick={async () => {
-                      // Revert session status so next steps are active
-                      await supabase.from('diagnosis_sessions').update({
-                        status: 'active',
-                      } as any).eq('id', diagnosisId!);
-                      queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
-                      
-                      // Find and activate next untested step
-                      const nextIdx = steps?.findIndex(s => s.status !== 'healthy' && s.status !== 'faulty') ?? -1;
-                      if (nextIdx >= 0) {
-                        setCurrentStepIndex(nextIdx);
-                        setTimeout(() => {
-                          const nextStep = steps?.[nextIdx];
-                          if (nextStep && stepRefs.current[nextStep.id]) {
-                            stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }
-                        }, 100);
-                      }
-                    }}>
-                    Continue Testing
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  {diagSession.tests_summary && Array.isArray(diagSession.tests_summary) && (
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      {(diagSession.tests_summary as any[]).filter((t: any) => t.result === 'healthy').map((t: any) => `${t.step_title} passed`).join(', ')}
+                      {(diagSession.tests_summary as any[]).some((t: any) => t.result === 'faulty') && (
+                        <> — <span className="text-destructive font-semibold">{(diagSession.tests_summary as any[]).filter((t: any) => t.result === 'faulty').map((t: any) => `${t.step_title} failed`).join(', ')}</span></>
+                      )}
+                    </p>
+                  )}
 
-          {/* Factory Diagrams Gallery */}
-          {factoryImages.length > 0 && (
-            <Card className="border-border">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-bold text-foreground">Factory Diagrams</h3>
-                  <Badge variant="outline" className="text-[10px] ml-auto">{factoryImages.length}</Badge>
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                  {factoryImages.map((img, i) => (
-                    <button key={i} onClick={() => setLightboxState({ images: factoryImages, index: i })}
-                      className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
-                      style={{ width: 140, height: 110 }}>
-                      <img src={img.url} alt={img.title || `Diagram ${i + 1}`} className="w-full h-full object-contain bg-white" loading="lazy" />
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Safety warnings */}
-          {project?.safety_warnings && (project.safety_warnings as string[]).length > 0 && (
-            <div className="space-y-2">
-              {(project.safety_warnings as string[]).map((w, i) => (
-                <div key={i} className="rounded-xl p-3 border-l-4" style={{ background: 'hsl(0 84% 60% / 0.06)', borderColor: '#ef4444' }}>
-                  <div className="flex items-start gap-2">
-                    <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
-                    <p className="text-sm text-foreground">{w}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tools needed */}
-          {tools && tools.length > 0 && (
-            <Collapsible>
-              <Card className="border-border">
-                <CardContent className="p-4">
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
-                    <Package className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-bold text-foreground">Tools Needed</h3>
-                    <span className="text-xs text-muted-foreground ml-auto">{tools.length} tools</span>
-                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      {tools.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30">
-                          <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="text-foreground">{t.name}</span>
-                          {t.spec && <span className="text-xs text-muted-foreground">({t.spec})</span>}
+                  <div className="flex flex-col gap-2 mt-4">
+                    <Button onClick={createRepairProject} disabled={isCreatingRepair} className="w-full h-12 text-base font-semibold">
+                      {isCreatingRepair ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                          Building repair plan...
                         </div>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
+                      ) : (
+                        <><Wrench className="h-4 w-4 mr-2" /> Create Repair Project</>
+                      )}
+                    </Button>
+                    <Button variant="ghost" className="text-sm text-muted-foreground"
+                      onClick={async () => {
+                        await supabase.from('diagnosis_sessions').update({ status: 'active' } as any).eq('id', diagnosisId!);
+                        queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+                        const nextIdx = steps?.findIndex(s => s.status !== 'healthy' && s.status !== 'faulty') ?? -1;
+                        if (nextIdx >= 0) {
+                          setCurrentStepIndex(nextIdx);
+                          setTimeout(() => {
+                            const nextStep = steps?.[nextIdx];
+                            if (nextStep && stepRefs.current[nextStep.id]) {
+                              stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }, 100);
+                        }
+                      }}>
+                      Continue Testing
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            </Collapsible>
-          )}
+            )}
 
-          {/* Diagnostic Steps */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Search className="h-4 w-4 text-primary" /> Diagnostic Procedure
-              </h3>
-              <Button variant="outline" size="sm" onClick={() => setShowChat(!showChat)} className="text-xs">
-                <MessageCircle className="h-3.5 w-3.5 mr-1" /> Ask Ratchet
-              </Button>
-            </div>
+            {/* Factory Diagrams Gallery */}
+            {factoryImages.length > 0 && (
+              <Card className="border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-bold text-foreground">Factory Diagrams</h3>
+                    <Badge variant="outline" className="text-[10px] ml-auto">{factoryImages.length}</Badge>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                    {factoryImages.map((img, i) => (
+                      <button key={i} onClick={() => setLightboxState({ images: factoryImages, index: i })}
+                        className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors"
+                        style={{ width: 140, height: 110 }}>
+                        <img src={img.url} alt={img.title || `Diagram ${i + 1}`} className="w-full h-full object-contain bg-white" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-            {stepsLoading ? (
-              <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-            ) : (
-              <div className="space-y-3">
-                {steps?.map((step, i) => (
-                  <div key={step.id} ref={el => { stepRefs.current[step.id] = el; }}>
-                    <DiagStepCard
-                      step={step}
-                      isActive={i === currentStepIndex}
-                      isCompleted={step.status === 'healthy' || step.status === 'faulty'}
-                      stepTools={tools?.filter(t => {
-                        // Match tools to step via notes metadata
-                        let meta: any = null;
-                        try { if (step.notes) meta = JSON.parse(step.notes); } catch {}
-                        return false; // Tools are shown in collapsed upcoming only as list
-                      })}
-                      vehicle={vehicle}
-                      diagSession={diagSession}
-                      treeNodes={treeNodes}
-                      onMarkResult={markStepResult}
-                      onImageClick={openImageInLightbox}
-                      onAskRatchet={openAskRatchet}
-                      onCapturePhoto={handleCapturePhoto}
-                    />
+            {/* Safety warnings */}
+            {project?.safety_warnings && (project.safety_warnings as string[]).length > 0 && (
+              <div className="space-y-2">
+                {(project.safety_warnings as string[]).map((w, i) => (
+                  <div key={i} className="rounded-xl p-3 border-l-4" style={{ background: 'hsl(0 84% 60% / 0.06)', borderColor: '#ef4444' }}>
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" style={{ color: '#ef4444' }} />
+                      <p className="text-sm text-foreground">{w}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Chat panel (desktop) */}
-        {showChat && !isMobile && (
-          <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-card border-l border-border z-30 flex flex-col">
-            <div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
-              <div className="flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-primary" />
-                <span className="text-sm font-bold">Ratchet · Diagnosis Help</span>
+            {/* Diagnostic Steps */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Search className="h-4 w-4 text-primary" /> Diagnostic Procedure
+                </h3>
               </div>
-              <button onClick={() => setShowChat(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {chatMessages.length === 0 && (
-                <div className="text-center text-xs text-muted-foreground py-8">
-                  <Wrench className="h-6 w-6 mx-auto mb-2 text-primary" />Ask Ratchet about this diagnostic step
+
+              {stepsLoading ? (
+                <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+              ) : (
+                <div className="space-y-3">
+                  {steps?.map((step, i) => (
+                    <div key={step.id} ref={el => { stepRefs.current[step.id] = el; }}>
+                      <DiagStepCard
+                        step={step}
+                        isActive={i === currentStepIndex}
+                        isCompleted={step.status === 'healthy' || step.status === 'faulty'}
+                        stepTools={tools?.filter(t => {
+                          let meta: any = null;
+                          try { if (step.notes) meta = JSON.parse(step.notes); } catch {}
+                          return false;
+                        })}
+                        vehicle={vehicle}
+                        diagSession={diagSession}
+                        treeNodes={treeNodes}
+                        onMarkResult={markStepResult}
+                        onImageClick={openImageInLightbox}
+                        onAskRatchet={openAskRatchet}
+                        onCapturePhoto={handleCapturePhoto}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
-              {chatMessages.map((m, i) => (
-                <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  <div className={cn('px-3 py-2 text-sm rounded-xl max-w-[85%]', m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
-                    {m.role === 'assistant' ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
-                  </div>
-                </div>
-              ))}
-              {isChatStreaming && chatMessages[chatMessages.length - 1]?.role !== 'assistant' && (
-                <div className="flex gap-1.5 px-3 py-2">
-                  {[0,1,2].map(i => <span key={i} className="h-2 w-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i*150}ms` }} />)}
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="p-3 border-t border-border shrink-0">
-              <div className="flex gap-2">
-                <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') sendChatMessage(chatInput); }}
-                  placeholder="Ask about this test..."
-                  className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-                <button onClick={() => sendChatMessage(chatInput)} disabled={!chatInput.trim() || isChatStreaming}
-                  className={cn('h-9 w-9 rounded-lg flex items-center justify-center', chatInput.trim() && !isChatStreaming ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-                  <Send className="h-4 w-4" />
-                </button>
-              </div>
             </div>
           </div>
-        )}
-      </div>
+        </TabsContent>
 
-      {/* Mobile chat sheet */}
-      {showChat && isMobile && (
-        <>
-          <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setShowChat(false)} />
-          <div className="fixed inset-x-0 bottom-0 z-50 h-[70dvh] bg-card rounded-t-2xl flex flex-col">
-            <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-muted-foreground/30" /></div>
-            <div className="flex items-center justify-between px-4 h-10 border-b border-border">
-              <span className="text-sm font-bold">Ratchet</span>
-              <button onClick={() => setShowChat(false)} className="p-1"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {chatMessages.map((m, i) => (
-                <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  <div className={cn('px-3 py-2 text-sm rounded-xl max-w-[85%]', m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground')}>
-                    {m.role === 'assistant' ? <ReactMarkdown>{m.content}</ReactMarkdown> : m.content}
-                  </div>
+        {/* ─── Tools Tab ─── */}
+        <TabsContent value="tools" className="mt-0">
+          <div className="p-4 md:p-6">
+            {!tools || tools.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Wrench className="h-7 w-7 text-primary" />
                 </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="p-3 border-t border-border">
-              <div className="flex gap-2">
-                <input value={chatInput} onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') sendChatMessage(chatInput); }}
-                  placeholder="Ask about this test..."
-                  className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-                <button onClick={() => sendChatMessage(chatInput)} disabled={!chatInput.trim() || isChatStreaming}
-                  className={cn('h-9 w-9 rounded-lg flex items-center justify-center', chatInput.trim() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-                  <Send className="h-4 w-4" />
-                </button>
+                <h3 className="text-lg font-semibold mb-1">No tools listed</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  The diagnostic plan will list required tools once generated.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">Tools Needed</h3>
+                  <Badge variant="outline" className="text-[10px] ml-auto">{tools.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {tools.map(t => (
+                    <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
+                      <Checkbox
+                        checked={t.have_it || false}
+                        onCheckedChange={async (checked) => {
+                          await supabase.from('project_tools').update({ have_it: !!checked }).eq('id', t.id);
+                          queryClient.invalidateQueries({ queryKey: ['diagnosis-tools'] });
+                        }}
+                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium", t.have_it && "text-muted-foreground line-through")}>{t.name}</p>
+                        {t.spec && <p className="text-xs text-muted-foreground">{t.spec}</p>}
+                      </div>
+                      {t.required && <Badge className="text-[10px] h-4 bg-primary/10 text-primary">Required</Badge>}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  ✓ {tools.filter(t => t.have_it).length}/{tools.length} tools ready
+                </p>
+              </div>
+            )}
           </div>
-        </>
-      )}
+        </TabsContent>
+
+        {/* ─── Docs Tab ─── */}
+        <TabsContent value="docs" className="mt-0">
+          <div className="p-4 md:p-6">
+            <DiagDocsTab diagSession={diagSession} vehicleId={vehicleId!} />
+          </div>
+        </TabsContent>
+
+        {/* ─── Chat Tab ─── */}
+        <TabsContent value="chat" className="mt-0">
+          <DiagChatTab
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isChatStreaming={isChatStreaming}
+            sendChatMessage={sendChatMessage}
+          />
+        </TabsContent>
+      </Tabs>
 
       {lightboxState && (
         <FactoryPhotoLightbox images={lightboxState.images} initialIndex={lightboxState.index} onClose={() => setLightboxState(null)} />

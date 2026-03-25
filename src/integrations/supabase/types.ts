@@ -145,6 +145,7 @@ export type Database = {
           diagnosis_summary: string | null
           hardware_notes: string[] | null
           id: string
+          media_urls: Json | null
           project_id: string | null
           status: string
           symptom: string
@@ -165,6 +166,7 @@ export type Database = {
           diagnosis_summary?: string | null
           hardware_notes?: string[] | null
           id?: string
+          media_urls?: Json | null
           project_id?: string | null
           status?: string
           symptom: string
@@ -185,6 +187,7 @@ export type Database = {
           diagnosis_summary?: string | null
           hardware_notes?: string[] | null
           id?: string
+          media_urls?: Json | null
           project_id?: string | null
           status?: string
           symptom?: string

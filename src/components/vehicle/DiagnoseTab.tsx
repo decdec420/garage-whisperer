@@ -273,10 +273,33 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         return;
       }
 
+      // Upload media files to storage and collect URLs
+      const mediaUrls: { type: string; url: string; name: string; duration?: number }[] = [];
+      for (const att of attachments) {
+        if ((att.type === 'photo' || att.type === 'video' || att.type === 'doc') && att.file) {
+          try {
+            const ext = att.file.name.split('.').pop() || 'jpg';
+            const path = `${user.id}/diagnosis/${(diagSession as any).id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+            const { error: uploadErr } = await supabase.storage.from('vehicle-documents').upload(path, att.file, { contentType: att.file.type });
+            if (!uploadErr) {
+              mediaUrls.push({ type: att.type, url: path, name: att.name, ...(att.duration ? { duration: att.duration } : {}) });
+            }
+          } catch {}
+        } else if (att.type === 'link' && att.url) {
+          mediaUrls.push({ type: 'link', url: att.url, name: att.name });
+        }
+      }
+
       if (genData?.projectId) {
         await supabase.from('diagnosis_sessions').update({
           project_id: genData.projectId,
           tree_data: (genData.possibleCauses || []).map((c: string) => ({ cause: c, status: 'untested' })),
+          media_urls: mediaUrls,
+          updated_at: new Date().toISOString(),
+        } as any).eq('id', (diagSession as any).id);
+      } else if (mediaUrls.length > 0) {
+        await supabase.from('diagnosis_sessions').update({
+          media_urls: mediaUrls,
           updated_at: new Date().toISOString(),
         } as any).eq('id', (diagSession as any).id);
       }
@@ -501,7 +524,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             </div>
           )}
 
-          <Button onClick={startDiagnosis} disabled={!symptom.trim() || isCreating} className="w-full h-12 text-base font-semibold">
+          <Button onClick={startDiagnosis} disabled={(!symptom.trim() && selectedChips.length === 0) || isCreating} className="w-full h-12 text-base font-semibold">
             {isCreating ? (
               <div className="flex items-center gap-3">
                 <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
