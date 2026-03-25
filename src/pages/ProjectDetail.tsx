@@ -159,6 +159,7 @@ function DiagnosisLinkCard({ diagnosis, vehicleId }: { diagnosis: any; vehicleId
       </div>
     </Collapsible>
   );
+}
 
 export default function ProjectDetail() {
   const { vehicleId, projectId } = useParams();
