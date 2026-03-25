@@ -524,7 +524,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             </div>
           )}
 
-          <Button onClick={startDiagnosis} disabled={!symptom.trim() || isCreating} className="w-full h-12 text-base font-semibold">
+          <Button onClick={startDiagnosis} disabled={(!symptom.trim() && selectedChips.length === 0) || isCreating} className="w-full h-12 text-base font-semibold">
             {isCreating ? (
               <div className="flex items-center gap-3">
                 <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
