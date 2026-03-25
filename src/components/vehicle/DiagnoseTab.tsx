@@ -67,9 +67,9 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const navigate = useNavigate();
   const [symptom, setSymptom] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
-  const [whenChip, setWhenChip] = useState<string | null>(null);
-  const [whereChip, setWhereChip] = useState<string | null>(null);
-  const [soundChip, setSoundChip] = useState<string | null>(null);
+  const [whenChips, setWhenChips] = useState<string[]>([]);
+  const [whereChips, setWhereChips] = useState<string[]>([]);
+  const [soundChips, setSoundChips] = useState<string[]>([]);
   const [showSoundRow, setShowSoundRow] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isCreating, setIsCreating] = useState(false);
