@@ -30,7 +30,7 @@ interface Message {
 }
 
 interface TreeNode {
-  name: string;
+  cause: string;
   status: 'testing' | 'healthy' | 'faulty' | 'untested';
 }
 
