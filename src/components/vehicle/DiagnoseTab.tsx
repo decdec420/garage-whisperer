@@ -392,10 +392,12 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
                 <CollapsibleContent>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {cat.chips.map(chip => (
-                      <button key={chip} onClick={() => setSymptom(prev => prev === chip ? '' : chip)}
+                      <button key={chip} onClick={() => setSelectedChips(prev =>
+                        prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]
+                      )}
                         className={cn(
                           "px-3 py-1.5 rounded-full text-xs border transition-colors",
-                          symptom === chip
+                          selectedChips.includes(chip)
                             ? "bg-primary/10 border-primary/40 text-primary"
                             : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                         )}>
