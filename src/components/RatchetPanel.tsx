@@ -560,6 +560,7 @@ How to help:
               </span>
             )}
           </div>
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           {!isProjectMode && (
             <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
