@@ -81,6 +81,7 @@ function DiagStepCard({
   const [isOpen, setIsOpen] = useState(isActive);
   const [resultNote, setResultNote] = useState('');
   const [checkedSubs, setCheckedSubs] = useState<Set<number>>(new Set());
+  const [hasMarkedResult, setHasMarkedResult] = useState(false);
   const torqueSpecs = step.torque_specs as any[] | null;
 
   // Parse diagnostic metadata
