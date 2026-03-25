@@ -135,45 +135,60 @@ export type Database = {
       }
       diagnosis_sessions: {
         Row: {
+          access_paths_used: string[] | null
           chat_session_id: string | null
           conclusion: string | null
           conclusion_confidence: number | null
+          confidence_score: number | null
+          confirmed_cause: string | null
           created_at: string
           diagnosis_summary: string | null
+          hardware_notes: string[] | null
           id: string
           project_id: string | null
           status: string
           symptom: string
+          tests_summary: Json | null
           tree_data: Json | null
           updated_at: string
           user_id: string
           vehicle_id: string
         }
         Insert: {
+          access_paths_used?: string[] | null
           chat_session_id?: string | null
           conclusion?: string | null
           conclusion_confidence?: number | null
+          confidence_score?: number | null
+          confirmed_cause?: string | null
           created_at?: string
           diagnosis_summary?: string | null
+          hardware_notes?: string[] | null
           id?: string
           project_id?: string | null
           status?: string
           symptom: string
+          tests_summary?: Json | null
           tree_data?: Json | null
           updated_at?: string
           user_id: string
           vehicle_id: string
         }
         Update: {
+          access_paths_used?: string[] | null
           chat_session_id?: string | null
           conclusion?: string | null
           conclusion_confidence?: number | null
+          confidence_score?: number | null
+          confirmed_cause?: string | null
           created_at?: string
           diagnosis_summary?: string | null
+          hardware_notes?: string[] | null
           id?: string
           project_id?: string | null
           status?: string
           symptom?: string
+          tests_summary?: Json | null
           tree_data?: Json | null
           updated_at?: string
           user_id?: string
