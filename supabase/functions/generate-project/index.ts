@@ -328,10 +328,63 @@ serve(async (req) => {
       });
     }
 
+    // Auto-build jobDescription from diagnosis if not provided
+    if (needsAutoJob) {
+      if (diagnosisContext?.confirmedCause) {
+        jobDescription = `Replace/repair ${diagnosisContext.confirmedCause} on ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine || ''}`.trim();
+      } else {
+        return new Response(JSON.stringify({ error: "jobDescription must be 1-500 characters" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    if (typeof jobDescription !== 'string' || jobDescription.trim().length === 0 || jobDescription.length > 1000) {
+      return new Response(JSON.stringify({ error: "jobDescription must be 1-1000 characters" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // --- Fetch factory manual data from Cloudflare-hosted manual + charm.li ---
+    // Build diagnosis context injection for system prompt
+    let diagnosisSystemBlock = '';
+    if (diagnosisContext) {
+      const testsPerformed = diagnosisContext.testsPerformed?.map((t: string) => `- ${t}`).join('\n') || 'None recorded';
+      const testsRuledOut = diagnosisContext.testsRuledOut?.map((t: string) => `- ${t}`).join('\n') || 'None';
+      const accessPath = diagnosisContext.accessPathDiscovered?.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') || 'Not recorded';
+      const accessHW = diagnosisContext.accessHardware?.map((h: string) => `- ${h}`).join('\n') || 'Not recorded';
+
+      diagnosisSystemBlock = `\n\n## Diagnosis Context — Read Before Generating
+
+This repair project was created from a completed diagnosis session.
+Do NOT re-diagnose. Jump straight to the repair.
+
+Confirmed cause: ${diagnosisContext.confirmedCause || 'Unknown'}
+Original symptom: ${diagnosisContext.symptom || 'Not specified'}
+
+Tests already performed (do not repeat these as project steps):
+${testsPerformed}
+
+Causes already ruled out:
+${testsRuledOut}
+
+Access path already discovered during diagnosis:
+${accessPath}
+
+Build on this access path — the user already knows these steps.
+
+Hardware confirmed during diagnosis:
+Component mounting: ${diagnosisContext.componentHardware || 'Not recorded'}
+Access path hardware:
+${accessHW}
+
+Use this information to:
+- Start the project at the repair, not the diagnosis
+- Reference the confirmed access path in the relevant steps
+- Use the confirmed hardware counts — these are verified for this vehicle
+- Note what the user already found and what condition things were in`;
+    }
     const charmData = await fetchCharmData(supabase, vehicle, jobDescription);
 
     // Also fetch from the Cloudflare-hosted Honda manual (richer data with sub-pages)
