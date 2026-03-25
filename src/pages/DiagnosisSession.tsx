@@ -365,16 +365,25 @@ function DiagStepCard({
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
 
               {/* Result buttons */}
-              <div className="flex flex-col gap-2 pt-1">
-                <Button onClick={() => onMarkResult(step.id, 'healthy', resultNote)}
-                  className="w-full h-14 text-base font-semibold bg-green-600 hover:bg-green-700 text-white">
-                  <CheckCircle2 className="h-5 w-5 mr-2" /> Looks good — Test passed
-                </Button>
-                <Button onClick={() => onMarkResult(step.id, 'faulty', resultNote)}
-                  variant="destructive" className="w-full h-14 text-base font-semibold">
-                  <AlertCircle className="h-5 w-5 mr-2" /> Found the problem
-                </Button>
-              </div>
+              {!hasMarkedResult && (
+                <div className="flex flex-col gap-2 pt-1">
+                  <Button onClick={() => { onMarkResult(step.id, 'healthy', resultNote); setHasMarkedResult(true); setIsOpen(false); }}
+                    className="w-full h-14 text-base font-semibold bg-green-600 hover:bg-green-700 text-white">
+                    <CheckCircle2 className="h-5 w-5 mr-2" /> Looks good — Test passed
+                  </Button>
+                  <Button onClick={() => { onMarkResult(step.id, 'faulty', resultNote); setHasMarkedResult(true); }}
+                    variant="destructive" className="w-full h-14 text-base font-semibold">
+                    <AlertCircle className="h-5 w-5 mr-2" /> Found the problem
+                  </Button>
+                </div>
+              )}
+              {hasMarkedResult && isCompleted && (
+                <div className="rounded-xl p-3 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {step.status === 'faulty' ? '🎯 Marked as the problem' : '✅ Marked as healthy'}
+                  </p>
+                </div>
+              )}
 
               <button onClick={() => {
                 const prefill = `I'm on Step ${step.step_number} of my "${diagSession?.symptom}" diagnosis on my ${vehicleName}.\nTesting: ${step.title}.${expectedResult ? ` Expected: ${expectedResult}.` : ''}${resultNote ? ` ${resultNote}.` : ''} Help me understand what I'm seeing.`;
