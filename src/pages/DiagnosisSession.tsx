@@ -587,7 +587,7 @@ export default function DiagnosisSession() {
   const { vehicleId, diagnosisId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setRatchetDiagnosisContext } = useAppStore();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
 
@@ -683,6 +683,25 @@ export default function DiagnosisSession() {
     const firstIncomplete = steps.findIndex(s => s.status !== 'healthy' && s.status !== 'faulty');
     setCurrentStepIndex(firstIncomplete >= 0 ? firstIncomplete : steps.length);
   }, [steps]);
+
+  // Set diagnosis context for Ratchet panel awareness
+  useEffect(() => {
+    if (!diagSession || !steps) return;
+    const currentStep = steps[currentStepIndex];
+    let diagMeta: any = null;
+    try { if (currentStep?.notes) diagMeta = JSON.parse(currentStep.notes); } catch {}
+    setRatchetDiagnosisContext({
+      sessionId: diagSession.id,
+      symptom: diagSession.symptom,
+      currentStepTitle: currentStep?.title,
+      currentStepNumber: currentStep?.step_number,
+      totalSteps: steps.length,
+      treeNodes: treeNodes.map(n => ({ cause: n.cause, status: n.status, probability: n.probability })),
+      confidenceScore: diagSession.confidence_score || undefined,
+      leadingCause: diagSession.confirmed_cause || treeNodes.reduce((best, n) => (n.probability || 0) > (best.probability || 0) ? n : best, treeNodes[0])?.cause,
+    });
+    return () => { setRatchetDiagnosisContext(null); };
+  }, [diagSession, steps, currentStepIndex, treeNodes, setRatchetDiagnosisContext]);
 
   // Confidence calculation
   const calculateConfidence = (possibleCauses: string[], completedSteps: { result: 'healthy' | 'faulty'; eliminates?: string[]; confirms?: string[] }[]) => {
@@ -804,12 +823,33 @@ export default function DiagnosisSession() {
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
     const conclusion = diagSession.conclusion || faultyNode?.cause || diagSession.symptom;
     try {
+      // Build full diagnosis context for generate-project
+      const testsSummary = Array.isArray(diagSession.tests_summary) ? diagSession.tests_summary : [];
+      const testsPerformed = testsSummary.map((t: any) =>
+        `${t.step_title} ${t.result === 'healthy' ? 'passed' : 'failed'}${t.eliminated?.length ? ` (ruled out: ${t.eliminated.join(', ')})` : ''}`
+      );
+      const testsRuledOut = treeNodes.filter(n => n.status === 'healthy').map(n => n.cause);
+      const accessPaths = Array.isArray(diagSession.access_paths_used) ? diagSession.access_paths_used : [];
+      const hwNotes = Array.isArray(diagSession.hardware_notes) ? diagSession.hardware_notes : [];
+
+      const diagnosisContext = {
+        symptom: diagSession.symptom,
+        confirmedCause: conclusion,
+        testsPerformed,
+        accessPathDiscovered: accessPaths,
+        componentHardware: hwNotes.length > 0 ? hwNotes[0] : undefined,
+        accessHardware: hwNotes.slice(1),
+        mediaAttached: Array.isArray(diagSession.media_urls) && diagSession.media_urls.length > 0,
+        testsRuledOut,
+      };
+
       const jobDescription = `Replace/repair ${conclusion} on ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.engine ? ` ${vehicle.engine}` : ''}. Diagnosed from symptom: "${diagSession.symptom}". Diagnostic testing confirmed ${conclusion} as the root cause.`;
-      const { data, error } = await supabase.functions.invoke('generate-project', { body: { vehicleId, jobDescription, userId: user.id } });
+      const { data, error } = await supabase.functions.invoke('generate-project', {
+        body: { vehicleId, jobDescription, diagnosisContext, diagnosisId: diagnosisId },
+      });
       if (error) throw error;
       const projectId = data?.project?.id || data?.projectId;
       if (!projectId) throw new Error('No project ID returned');
-      await supabase.from('diagnosis_sessions').update({ diagnosis_summary: `Repair project created: ${projectId}`, status: 'resolved', updated_at: new Date().toISOString() } as any).eq('id', diagnosisId!);
       toast.success(`Repair project created for ${conclusion}`);
       navigate(`/garage/${vehicleId}/projects/${projectId}`);
     } catch (e) { console.error(e); toast.error('Failed to create repair project'); }

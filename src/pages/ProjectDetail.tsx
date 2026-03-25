@@ -15,7 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
-  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen
+  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
@@ -87,6 +87,77 @@ function ProgressRing({ completed, total, size = 64 }: { completed: number; tota
         <span className="text-sm font-bold text-foreground">{completed}/{total}</span>
       </div>
     </div>
+  );
+}
+
+function DiagnosisLinkCard({ diagnosis, vehicleId }: { diagnosis: any; vehicleId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const diagDate = diagnosis.created_at ? new Date(diagnosis.created_at) : null;
+  const relativeTime = diagDate ? (() => {
+    const diff = Date.now() - diagDate.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  })() : '';
+
+  const testsSummary = Array.isArray(diagnosis.tests_summary) ? diagnosis.tests_summary : [];
+  const ruledOut = testsSummary.filter((t: any) => t.result === 'healthy').map((t: any) => t.step_title);
+  const failed = testsSummary.filter((t: any) => t.result === 'faulty').map((t: any) => t.step_title);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-lg border overflow-hidden" style={{ background: '#111111', borderColor: 'rgba(249,115,22,0.3)', borderLeftWidth: 4, borderLeftColor: '#f97316' }}>
+        <CollapsibleTrigger className="w-full flex items-center justify-between p-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Search className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-semibold text-foreground truncate">
+              🔍 Diagnosed {relativeTime}
+            </span>
+            {diagnosis.confirmed_cause && (
+              <span className="text-xs text-primary font-medium truncate">· Confirmed: {diagnosis.confirmed_cause}</span>
+            )}
+          </div>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Symptom</p>
+              <p className="text-sm text-foreground">{diagnosis.symptom}</p>
+            </div>
+            {testsSummary.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Steps performed</p>
+                <div className="space-y-0.5">
+                  {testsSummary.map((t: any, i: number) => (
+                    <p key={i} className={`text-xs ${t.result === 'faulty' ? 'text-destructive' : 'text-green-500'}`}>
+                      {t.result === 'faulty' ? '❌' : '✅'} {t.step_title}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+            {ruledOut.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">Ruled out</p>
+                <p className="text-xs text-muted-foreground/70">{ruledOut.join(', ')}</p>
+              </div>
+            )}
+            {diagnosis.confirmed_cause && (
+              <p className="text-base font-bold text-primary">{diagnosis.confirmed_cause}</p>
+            )}
+            <button onClick={() => navigate(`/garage/${vehicleId}/diagnose/${diagnosis.id}`)}
+              className="text-xs text-primary hover:underline">
+              View full diagnosis →
+            </button>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
 
@@ -169,6 +240,17 @@ export default function ProjectDetail() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as NoteRow[];
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: linkedDiagnosis } = useQuery({
+    queryKey: ['linked-diagnosis', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('diagnosis_sessions').select('*')
+        .eq('project_id', projectId!).limit(1).single();
+      if (error) return null;
+      return data as any;
     },
     enabled: !!projectId,
   });
@@ -441,6 +523,11 @@ export default function ProjectDetail() {
       </div>
 
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+        {/* How we found this — diagnosis link */}
+        {linkedDiagnosis && (
+          <DiagnosisLinkCard diagnosis={linkedDiagnosis} vehicleId={vehicleId!} />
+        )}
+
         {/* Factory Photo Gallery */}
         {factoryImages.length > 0 && (
           <div>

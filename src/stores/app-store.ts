@@ -17,6 +17,17 @@ interface ProjectContext {
   vehicleId: string;
 }
 
+interface DiagnosisContext {
+  sessionId: string;
+  symptom: string;
+  currentStepTitle?: string;
+  currentStepNumber?: number;
+  totalSteps?: number;
+  treeNodes?: { cause: string; status: string; probability?: number }[];
+  confidenceScore?: number;
+  leadingCause?: string;
+}
+
 interface AppState {
   activeVehicleId: string | null;
   activeVehicle: Vehicle | null;
@@ -33,6 +44,9 @@ interface AppState {
   closeRatchetPanel: () => void;
   setRatchetPanelMode: (mode: 'default' | 'fullscreen') => void;
   setRatchetProjectContext: (ctx: ProjectContext | null) => void;
+  // Diagnosis context for Ratchet awareness
+  ratchetDiagnosisContext: DiagnosisContext | null;
+  setRatchetDiagnosisContext: (ctx: DiagnosisContext | null) => void;
   // Open Ratchet with a specific session pre-loaded
   ratchetActiveSessionId: string | null;
   openRatchetWithSession: (sessionId: string) => void;
@@ -50,10 +64,12 @@ export const useAppStore = create<AppState>((set) => ({
   ratchetPanelMode: 'default',
   ratchetPrefilledMessage: null,
   ratchetProjectContext: null,
+  ratchetDiagnosisContext: null,
   openRatchetPanel: (prefilledMessage?: string) => set({ isRatchetOpen: true, ratchetPrefilledMessage: prefilledMessage ?? null }),
   closeRatchetPanel: () => set({ isRatchetOpen: false, ratchetPrefilledMessage: null, ratchetActiveSessionId: null }),
   setRatchetPanelMode: (mode) => set({ ratchetPanelMode: mode }),
   setRatchetProjectContext: (ctx) => set({ ratchetProjectContext: ctx }),
+  setRatchetDiagnosisContext: (ctx) => set({ ratchetDiagnosisContext: ctx }),
   ratchetActiveSessionId: null,
   openRatchetWithSession: (sessionId) => set({ isRatchetOpen: true, ratchetActiveSessionId: sessionId, ratchetPrefilledMessage: null }),
 }));
