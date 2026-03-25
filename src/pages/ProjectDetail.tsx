@@ -15,7 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
-  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen
+  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
