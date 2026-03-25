@@ -356,7 +356,7 @@ function DiagStepCard({
           )}
 
           {/* Media capture + Ask Ratchet (active only) */}
-          {isActive && !isCompleted && (
+          {(isActive || (isCompleted && !hasMarkedResult)) && (
             <>
               <button onClick={() => onCapturePhoto(step.id)}
                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2">
