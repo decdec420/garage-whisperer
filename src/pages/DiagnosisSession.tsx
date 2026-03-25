@@ -102,7 +102,11 @@ function DiagStepCard({
 
   const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
 
-  if (isCompleted && !isOpen) {
+  // After marking faulty, still show as active (allow continuing)
+  const effectivelyCompleted = isCompleted;
+  const showAsActive = isActive || (isCompleted && step.status === 'faulty' && !hasMarkedResult);
+
+  if (effectivelyCompleted && !isOpen) {
     // Collapsed completed step
     const resultLabel = step.status === 'faulty'
       ? `❌ ${step.title} — problem found`
