@@ -540,9 +540,11 @@ How to help:
     ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}`
     : 'No vehicle selected';
 
-  const headerTitle = isProjectMode
-    ? `Ratchet · ${ratchetProjectContext!.title}`
-    : 'Ratchet';
+    const headerTitle = ratchetDiagnosisContext
+      ? `Ratchet · Diagnosing ${ratchetDiagnosisContext.symptom}`
+      : isProjectMode
+        ? `Ratchet · ${ratchetProjectContext!.title}`
+        : 'Ratchet';
 
   return (
     <div className="flex flex-col h-full bg-background">
