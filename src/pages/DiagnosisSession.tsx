@@ -30,7 +30,7 @@ interface Message {
 }
 
 interface TreeNode {
-  name: string;
+  cause: string;
   status: 'testing' | 'healthy' | 'faulty' | 'untested';
 }
 
@@ -64,12 +64,12 @@ function DiagnosisTree({ nodes, onNodeClick }: { nodes: TreeNode[]; onNodeClick?
         return (
           <button
             key={i}
-            onClick={() => onNodeClick?.(node.name)}
+            onClick={() => onNodeClick?.(node.cause)}
             className="flex items-center gap-2.5 px-3 py-2 w-full text-left rounded-lg hover:bg-muted/50 transition-colors"
           >
             <div className={cn("h-3 w-3 rounded-full shrink-0", style.dot)} />
             <span className={cn("text-sm flex-1", style.text, node.status === 'faulty' && 'font-semibold')}>
-              {node.name}
+              {node.cause}
             </span>
             {node.status === 'testing' && <Clock className="h-3 w-3 text-yellow-500" />}
             {node.status === 'healthy' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
@@ -331,9 +331,9 @@ export default function DiagnosisSession() {
   useEffect(() => {
     if (!diagSession) return;
     if (diagSession.tree_data && Array.isArray(diagSession.tree_data)) {
-      // Handle both old format {cause: c} and new format {name: c}
+      // Standardized field: "cause". Support legacy "name" for old sessions.
       setTreeNodes((diagSession.tree_data as any[]).map((n: any) => ({
-        name: n.name || n.cause || 'Unknown',
+        cause: n.cause || n.name || 'Unknown',
         status: n.status || 'untested',
       })));
     }
@@ -435,26 +435,26 @@ export default function DiagnosisSession() {
     const updatedTree = treeNodes.map(n => {
       if (result === 'healthy') {
         if (diagMeta?.eliminates?.some((e: string) =>
-          n.name.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'healthy' as const };
         }
         if (diagMeta?.systemTesting && (
-          n.name.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
-          diagMeta.systemTesting.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
+          diagMeta.systemTesting.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'healthy' as const };
         }
       }
       if (result === 'faulty') {
         if (diagMeta?.confirms?.some((c: string) =>
-          n.name.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'faulty' as const };
         }
         if (diagMeta?.systemTesting && (
-          n.name.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
-          diagMeta.systemTesting.toLowerCase().includes(n.name.toLowerCase())
+          n.cause.toLowerCase().includes(diagMeta.systemTesting.toLowerCase()) ||
+          diagMeta.systemTesting.toLowerCase().includes(n.cause.toLowerCase())
         )) {
           return { ...n, status: 'faulty' as const };
         }
@@ -497,7 +497,7 @@ export default function DiagnosisSession() {
     }
 
     // Calculate confidence
-    const possibleCauses = updatedTree.map(n => n.name);
+    const possibleCauses = updatedTree.map(n => n.cause);
     const { score: confidenceScore, confirmedCause } = calculateConfidence(possibleCauses, completedForConfidence);
 
     // Collect access paths and hardware notes from this step
@@ -540,7 +540,7 @@ export default function DiagnosisSession() {
     setIsCreatingRepair(true);
 
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
-    const conclusion = diagSession.conclusion || faultyNode?.name || diagSession.symptom;
+    const conclusion = diagSession.conclusion || faultyNode?.cause || diagSession.symptom;
 
     try {
       const jobDescription = `Replace/repair ${conclusion} on ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.engine ? ` ${vehicle.engine}` : ''}. Diagnosed from symptom: "${diagSession.symptom}". Diagnostic testing confirmed ${conclusion} as the root cause.`;
@@ -588,7 +588,7 @@ export default function DiagnosisSession() {
       }
 
       const vehicleContext = vehicle
-        ? `Active vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ` ${vehicle.trim}` : ''}${vehicle.engine ? ` · ${vehicle.engine}` : ''}${vehicle.mileage ? ` · ${vehicle.mileage.toLocaleString()} mi` : ''}\n\nDIAGNOSIS IN PROGRESS for symptom: "${diagSession?.symptom}". Systems tested so far: ${treeNodes.map(n => `${n.name} (${n.status})`).join(', ')}. Help the user with this specific diagnostic test.`
+        ? `Active vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.trim ? ` ${vehicle.trim}` : ''}${vehicle.engine ? ` · ${vehicle.engine}` : ''}${vehicle.mileage ? ` · ${vehicle.mileage.toLocaleString()} mi` : ''}\n\nDIAGNOSIS IN PROGRESS for symptom: "${diagSession?.symptom}". Systems tested so far: ${treeNodes.map(n => `${n.cause} (${n.status})`).join(', ')}. Help the user with this specific diagnostic test.`
         : '';
 
       const accessToken = await getAccessToken();
@@ -659,7 +659,7 @@ export default function DiagnosisSession() {
   const totalSteps = steps?.length || 0;
   const progressPct = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
   const hasFault = treeNodes.some(n => n.status === 'faulty');
-  const faultName = treeNodes.find(n => n.status === 'faulty')?.name || diagSession.conclusion;
+  const faultName = treeNodes.find(n => n.status === 'faulty')?.cause || diagSession.conclusion;
 
   // Collect factory images from steps for diagrams gallery
   const factoryImages = (steps || [])

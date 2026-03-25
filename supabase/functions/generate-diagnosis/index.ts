@@ -134,6 +134,18 @@ Reorder possible causes based on WHEN the symptom occurs:
 - Highway speed → wheel balance, tire, driveshaft, wheel bearing
 - Idling → vacuum leaks, idle air control, fuel pressure, injectors
 
+CRITICAL ORDERING RULE — no-start with click symptoms:
+For any 'won't start' symptom where the description includes 'click',
+'clicks', 'single click', or 'click click click':
+  Step 1 MUST be: Test battery voltage (most common cause, fastest test)
+  Step 2: Check battery terminals and cables for corrosion
+  Step 3: Test neutral safety switch / clutch switch
+  Step 4: Test starter motor
+
+Never put starter motor before battery in a click-based no-start diagnosis.
+A single loud click = possible starter solenoid, but battery failure produces
+the exact same symptom and is 3x more common. Test battery first, always.
+
 SYSTEM INTERDEPENDENCY — flag in tip field:
 - A/C compressor seizure causes belt slip that looks like alternator failure
 - Misfires cause catalytic damage — don't drive on confirmed misfires
@@ -631,7 +643,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
         .update({
           project_id: project.id,
           tree_data: plan.possibleCauses
-            ? plan.possibleCauses.map((c: string) => ({ name: c, status: "untested" }))
+            ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
             : [],
         })
         .eq("id", diagnosisId);
