@@ -354,10 +354,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
               <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
                 {SOUND_CHIPS.map(chip => (
                   <button key={chip.label}
-                    onClick={() => setSoundChip(soundChip === chip.label ? null : chip.label)}
+                    onClick={() => setSoundChips(prev => prev.includes(chip.label) ? prev.filter(c => c !== chip.label) : [...prev, chip.label])}
                     className={cn(
                       "shrink-0 px-3 py-1.5 rounded-lg text-xs border transition-colors whitespace-nowrap",
-                      soundChip === chip.label
+                      soundChips.includes(chip.label)
                         ? "bg-primary/10 border-primary/40 text-primary"
                         : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     )}>
