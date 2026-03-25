@@ -89,7 +89,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     if (whereChip) s = `${s} [from ${whereChip.toLowerCase()}]`;
     if (soundChip) s = `${s} — sounds like ${soundChip.toLowerCase()}`;
     return s;
-  }, [symptom, whenChip, whereChip, soundChip]);
+  }, [symptom, selectedChips, whenChip, whereChip, soundChip]);
 
   // Should sound row show?
   const soundVisible = showSoundRow || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
