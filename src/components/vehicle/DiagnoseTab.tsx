@@ -87,11 +87,11 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     const chipText = selectedChips.join(', ');
     let s = symptom.trim() ? symptom.trim() : chipText;
     if (symptom.trim() && selectedChips.length > 0) s = `${chipText}. ${symptom.trim()}`;
-    if (whenChip) s = `[When ${whenChip.toLowerCase()}] ${s}`;
-    if (whereChip) s = `${s} [from ${whereChip.toLowerCase()}]`;
-    if (soundChip) s = `${s} — sounds like ${soundChip.toLowerCase()}`;
+    if (whenChips.length) s = `[When ${whenChips.join(', ').toLowerCase()}] ${s}`;
+    if (whereChips.length) s = `${s} [from ${whereChips.join(', ').toLowerCase()}]`;
+    if (soundChips.length) s = `${s} — sounds like ${soundChips.join(', ').toLowerCase()}`;
     return s;
-  }, [symptom, selectedChips, whenChip, whereChip, soundChip]);
+  }, [symptom, selectedChips, whenChips, whereChips, soundChips]);
 
   // Should sound row show?
   const soundVisible = showSoundRow || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
