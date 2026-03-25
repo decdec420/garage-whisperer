@@ -66,6 +66,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [symptom, setSymptom] = useState('');
+  const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [whenChip, setWhenChip] = useState<string | null>(null);
   const [whereChip, setWhereChip] = useState<string | null>(null);
   const [soundChip, setSoundChip] = useState<string | null>(null);
@@ -83,12 +84,14 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
   // Build full symptom from chips + text
   const buildFullSymptom = useCallback(() => {
-    let s = symptom.trim();
+    const chipText = selectedChips.join(', ');
+    let s = symptom.trim() ? symptom.trim() : chipText;
+    if (symptom.trim() && selectedChips.length > 0) s = `${chipText}. ${symptom.trim()}`;
     if (whenChip) s = `[When ${whenChip.toLowerCase()}] ${s}`;
     if (whereChip) s = `${s} [from ${whereChip.toLowerCase()}]`;
     if (soundChip) s = `${s} — sounds like ${soundChip.toLowerCase()}`;
     return s;
-  }, [symptom, whenChip, whereChip, soundChip]);
+  }, [symptom, selectedChips, whenChip, whereChip, soundChip]);
 
   // Should sound row show?
   const soundVisible = showSoundRow || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
@@ -391,10 +394,12 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
                 <CollapsibleContent>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                     {cat.chips.map(chip => (
-                      <button key={chip} onClick={() => setSymptom(prev => prev === chip ? '' : chip)}
+                      <button key={chip} onClick={() => setSelectedChips(prev =>
+                        prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]
+                      )}
                         className={cn(
                           "px-3 py-1.5 rounded-full text-xs border transition-colors",
-                          symptom === chip
+                          selectedChips.includes(chip)
                             ? "bg-primary/10 border-primary/40 text-primary"
                             : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                         )}>
