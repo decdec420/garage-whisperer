@@ -552,8 +552,14 @@ How to help:
       <div className="flex items-center justify-between px-4 h-14 bg-card border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Wrench className="h-5 w-5 text-primary shrink-0" />
-          <span className="text-sm font-bold text-foreground truncate">{headerTitle}</span>
-        </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-sm font-bold text-foreground truncate block">{headerTitle}</span>
+            {ratchetDiagnosisContext && ratchetDiagnosisContext.currentStepNumber && (
+              <span className="text-[10px] text-muted-foreground">
+                Step {ratchetDiagnosisContext.currentStepNumber}/{ratchetDiagnosisContext.totalSteps || '?'} in progress
+              </span>
+            )}
+          </div>
         <div className="flex items-center gap-1 shrink-0">
           {!isProjectMode && (
             <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
