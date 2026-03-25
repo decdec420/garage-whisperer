@@ -69,7 +69,7 @@ function DiagnosisTree({ nodes, onNodeClick }: { nodes: TreeNode[]; onNodeClick?
           >
             <div className={cn("h-3 w-3 rounded-full shrink-0", style.dot)} />
             <span className={cn("text-sm flex-1", style.text, node.status === 'faulty' && 'font-semibold')}>
-              {node.name}
+              {node.cause}
             </span>
             {node.status === 'testing' && <Clock className="h-3 w-3 text-yellow-500" />}
             {node.status === 'healthy' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
