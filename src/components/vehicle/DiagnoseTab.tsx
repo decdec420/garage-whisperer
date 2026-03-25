@@ -334,10 +334,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Where</p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
               {WHERE_CHIPS.map(chip => (
-                <button key={chip} onClick={() => setWhereChip(whereChip === chip ? null : chip)}
+                <button key={chip} onClick={() => setWhereChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
                   className={cn(
                     "shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
-                    whereChip === chip
+                    whereChips.includes(chip)
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}>
