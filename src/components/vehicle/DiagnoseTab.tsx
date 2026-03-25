@@ -67,9 +67,9 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const navigate = useNavigate();
   const [symptom, setSymptom] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
-  const [whenChip, setWhenChip] = useState<string | null>(null);
-  const [whereChip, setWhereChip] = useState<string | null>(null);
-  const [soundChip, setSoundChip] = useState<string | null>(null);
+  const [whenChips, setWhenChips] = useState<string[]>([]);
+  const [whereChips, setWhereChips] = useState<string[]>([]);
+  const [soundChips, setSoundChips] = useState<string[]>([]);
   const [showSoundRow, setShowSoundRow] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -87,20 +87,20 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     const chipText = selectedChips.join(', ');
     let s = symptom.trim() ? symptom.trim() : chipText;
     if (symptom.trim() && selectedChips.length > 0) s = `${chipText}. ${symptom.trim()}`;
-    if (whenChip) s = `[When ${whenChip.toLowerCase()}] ${s}`;
-    if (whereChip) s = `${s} [from ${whereChip.toLowerCase()}]`;
-    if (soundChip) s = `${s} — sounds like ${soundChip.toLowerCase()}`;
+    if (whenChips.length) s = `[When ${whenChips.join(', ').toLowerCase()}] ${s}`;
+    if (whereChips.length) s = `${s} [from ${whereChips.join(', ').toLowerCase()}]`;
+    if (soundChips.length) s = `${s} — sounds like ${soundChips.join(', ').toLowerCase()}`;
     return s;
-  }, [symptom, selectedChips, whenChip, whereChip, soundChip]);
+  }, [symptom, selectedChips, whenChips, whereChips, soundChips]);
 
   // Should sound row show?
   const soundVisible = showSoundRow || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
 
   // Placeholder
   const getPlaceholder = () => {
-    if (soundChip) return `When exactly does the ${soundChip.toLowerCase()} happen?`;
-    if (whereChip) return `What does it feel like from ${whereChip.toLowerCase()}?`;
-    if (whenChip) return `What specifically happens ${whenChip.toLowerCase()}?`;
+    if (soundChips.length) return `When exactly does the ${soundChips.join('/').toLowerCase()} happen?`;
+    if (whereChips.length) return `What does it feel like from ${whereChips.join(', ').toLowerCase()}?`;
+    if (whenChips.length) return `What specifically happens ${whenChips.join(', ').toLowerCase()}?`;
     return "Describe what's happening...";
   };
 
@@ -316,10 +316,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">When</p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
               {WHEN_CHIPS.map(chip => (
-                <button key={chip} onClick={() => setWhenChip(whenChip === chip ? null : chip)}
+                <button key={chip} onClick={() => setWhenChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
                   className={cn(
                     "shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
-                    whenChip === chip
+                    whenChips.includes(chip)
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}>
@@ -334,10 +334,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Where</p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
               {WHERE_CHIPS.map(chip => (
-                <button key={chip} onClick={() => setWhereChip(whereChip === chip ? null : chip)}
+                <button key={chip} onClick={() => setWhereChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
                   className={cn(
                     "shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
-                    whereChip === chip
+                    whereChips.includes(chip)
                       ? "bg-primary/10 border-primary/40 text-primary"
                       : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   )}>
@@ -354,10 +354,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
               <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
                 {SOUND_CHIPS.map(chip => (
                   <button key={chip.label}
-                    onClick={() => setSoundChip(soundChip === chip.label ? null : chip.label)}
+                    onClick={() => setSoundChips(prev => prev.includes(chip.label) ? prev.filter(c => c !== chip.label) : [...prev, chip.label])}
                     className={cn(
                       "shrink-0 px-3 py-1.5 rounded-lg text-xs border transition-colors whitespace-nowrap",
-                      soundChip === chip.label
+                      soundChips.includes(chip.label)
                         ? "bg-primary/10 border-primary/40 text-primary"
                         : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     )}>
