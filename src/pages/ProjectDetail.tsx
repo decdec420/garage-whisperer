@@ -173,6 +173,17 @@ export default function ProjectDetail() {
     enabled: !!projectId,
   });
 
+  const { data: linkedDiagnosis } = useQuery({
+    queryKey: ['linked-diagnosis', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('diagnosis_sessions').select('*')
+        .eq('project_id', projectId!).limit(1).single();
+      if (error) return null;
+      return data as any;
+    },
+    enabled: !!projectId,
+  });
+
   // Timer
   useEffect(() => {
     if (!project) return;
