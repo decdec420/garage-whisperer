@@ -134,18 +134,6 @@ Reorder possible causes based on WHEN the symptom occurs:
 - Highway speed → wheel balance, tire, driveshaft, wheel bearing
 - Idling → vacuum leaks, idle air control, fuel pressure, injectors
 
-CRITICAL ORDERING RULE — no-start with click symptoms:
-For any 'won't start' symptom where the description includes 'click',
-'clicks', 'single click', or 'click click click':
-  Step 1 MUST be: Test battery voltage (most common cause, fastest test)
-  Step 2: Check battery terminals and cables for corrosion
-  Step 3: Test neutral safety switch / clutch switch
-  Step 4: Test starter motor
-
-Never put starter motor before battery in a click-based no-start diagnosis.
-A single loud click = possible starter solenoid, but battery failure produces
-the exact same symptom and is 3x more common. Test battery first, always.
-
 SYSTEM INTERDEPENDENCY — flag in tip field:
 - A/C compressor seizure causes belt slip that looks like alternator failure
 - Misfires cause catalytic damage — don't drive on confirmed misfires
@@ -165,46 +153,46 @@ const JOB_KEYWORD_MAP: Record<string, string | string[]> = {
     `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Front%20Brake%20Pad%20Inspection%20And%20Replacement`,
     `${R}Brakes%20and%20Traction%20Control/Disc%20Brake%20System/Brake%20Pad/Service%20and%20Repair/Rear%20Brake%20Pad%20Inspection%20And%20Replacement`,
   ],
-  "brake": `${R}Brakes%20and%20Traction%20Control`,
-  "starter": `${R}Starting%20and%20Charging/Starter/Service%20and%20Repair`,
-  "alternator": `${R}Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair`,
-  "battery": `${R}Starting%20and%20Charging/Battery/Service%20and%20Repair`,
+  brake: `${R}Brakes%20and%20Traction%20Control`,
+  starter: `${R}Starting%20and%20Charging/Starter/Service%20and%20Repair`,
+  alternator: `${R}Starting%20and%20Charging/Generator/Alternator/Service%20and%20Repair`,
+  battery: `${R}Starting%20and%20Charging/Battery/Service%20and%20Repair`,
   "won't start": `${R}Starting%20and%20Charging`,
   "no start": `${R}Starting%20and%20Charging`,
-  "crank": `${R}Starting%20and%20Charging`,
-  "click": `${R}Starting%20and%20Charging`,
+  crank: `${R}Starting%20and%20Charging`,
+  click: `${R}Starting%20and%20Charging`,
   "catalytic converter": `${R}Powertrain%20Management/Emission%20Control%20Systems/Catalytic%20Converter/Service%20and%20Repair`,
   "oxygen sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
   "o2 sensor": `${R}Powertrain%20Management/Computers%20and%20Control%20Systems/Oxygen%20Sensor/Service%20and%20Repair`,
   "check engine": `${R}Powertrain%20Management`,
-  "misfire": `${R}Powertrain%20Management/Ignition%20System`,
+  misfire: `${R}Powertrain%20Management/Ignition%20System`,
   "rough idle": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
-  "idle": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
-  "stall": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
-  "overheat": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System`,
-  "coolant": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System`,
-  "thermostat": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair`,
-  "radiator": `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair`,
+  idle: `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
+  stall: `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
+  overheat: `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System`,
+  coolant: `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System`,
+  thermostat: `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Thermostat/Service%20and%20Repair`,
+  radiator: `${R}Engine%2C%20Cooling%20and%20Exhaust/Cooling%20System/Radiator/Service%20and%20Repair`,
   "water pump": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Water%20Pump/Service%20and%20Repair`,
-  "vtec": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Actuators%20and%20Solenoids%20-%20Engine/Variable%20Valve%20Timing%20Solenoid`,
+  vtec: `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Actuators%20and%20Solenoids%20-%20Engine/Variable%20Valve%20Timing%20Solenoid`,
   "oil leak": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication`,
-  "oil": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication`,
-  "transmission": `${R}Transmission%20and%20Drivetrain`,
-  "vibration": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
+  oil: `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Engine%20Lubrication`,
+  transmission: `${R}Transmission%20and%20Drivetrain`,
+  vibration: `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
   "engine mount": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Engine%20Mount/Service%20and%20Repair`,
-  "ac": `${R}Heating%20and%20Air%20Conditioning`,
+  ac: `${R}Heating%20and%20Air%20Conditioning`,
   "air conditioning": `${R}Heating%20and%20Air%20Conditioning`,
-  "fuel": `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
+  fuel: `${R}Powertrain%20Management/Fuel%20Delivery%20and%20Air%20Induction`,
   "spark plug": `${R}Powertrain%20Management/Ignition%20System/Spark%20Plug/Service%20and%20Repair`,
-  "ignition": `${R}Powertrain%20Management/Ignition%20System`,
+  ignition: `${R}Powertrain%20Management/Ignition%20System`,
   "serpentine belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
   "drive belt": `${R}Engine%2C%20Cooling%20and%20Exhaust/Engine/Drive%20Belts%2C%20Mounts%2C%20Brackets%20and%20Accessories/Drive%20Belt/Service%20and%20Repair`,
-  "noise": `${R}Engine%2C%20Cooling%20and%20Exhaust`,
+  noise: `${R}Engine%2C%20Cooling%20and%20Exhaust`,
   "power steering": `${R}Steering%20and%20Suspension/Steering/Power%20Steering/Service%20and%20Repair`,
-  "abs": `${R}Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes`,
+  abs: `${R}Brakes%20and%20Traction%20Control/Anti-Lock%20Brakes`,
   "wheel bearing": `${R}Steering%20and%20Suspension/Front%20Suspension/Wheel%20Bearing/Service%20and%20Repair`,
-  "suspension": `${R}Steering%20and%20Suspension`,
-  "strut": `${R}Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair`,
+  suspension: `${R}Steering%20and%20Suspension`,
+  strut: `${R}Steering%20and%20Suspension/Front%20Suspension/Strut/Service%20and%20Repair`,
 };
 
 function matchJobKeyword(job: string): string | string[] | null {
@@ -212,19 +200,28 @@ function matchJobKeyword(job: string): string | string[] | null {
   let best: string | string[] | null = null;
   let bestLen = 0;
   for (const [kw, path] of Object.entries(JOB_KEYWORD_MAP)) {
-    if (lower.includes(kw) && kw.length > bestLen) { best = path; bestLen = kw.length; }
+    if (lower.includes(kw) && kw.length > bestLen) {
+      best = path;
+      bestLen = kw.length;
+    }
   }
   return best;
 }
 
-const STANDARD_DISPLACEMENTS = [1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 3.0, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8, 4.0, 4.2, 4.3, 4.6, 4.7, 5.0, 5.3, 5.4, 5.7, 6.0, 6.2, 6.4, 6.6, 6.7, 7.0, 7.3];
+const STANDARD_DISPLACEMENTS = [
+  1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.3, 2.4, 2.5, 2.7, 2.8, 3.0, 3.2, 3.3, 3.5, 3.6, 3.7, 3.8, 4.0,
+  4.2, 4.3, 4.6, 4.7, 5.0, 5.3, 5.4, 5.7, 6.0, 6.2, 6.4, 6.6, 6.7, 7.0, 7.3,
+];
 
 function roundDisplacement(raw: number): string {
   let closest = STANDARD_DISPLACEMENTS[0];
   let minDiff = Math.abs(raw - closest);
   for (const std of STANDARD_DISPLACEMENTS) {
     const diff = Math.abs(raw - std);
-    if (diff < minDiff) { closest = std; minDiff = diff; }
+    if (diff < minDiff) {
+      closest = std;
+      minDiff = diff;
+    }
   }
   return closest.toFixed(1);
 }
@@ -239,11 +236,11 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   const dm = engine.match(/(\d+\.?\d*)\s*L/i);
   const rawD = dm ? parseFloat(dm[1]) : null;
   const d = rawD ? roundDisplacement(rawD) : null;
-  let c = '';
-  if (/V\s*6|V6/i.test(engine)) c = 'V6';
-  else if (/V\s*8|V8/i.test(engine)) c = 'V8';
-  else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = 'L4';
-  else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = 'L6';
+  let c = "";
+  if (/V\s*6|V6/i.test(engine)) c = "V6";
+  else if (/V\s*8|V8/i.test(engine)) c = "V8";
+  else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = "L4";
+  else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = "L6";
   if (d && c) return `${model} ${c}-${d}L`;
   if (d) return `${model} ${d}L`;
   return model;
@@ -255,23 +252,28 @@ function extractImages(html: string): string[] {
   let m;
   while ((m = imgRegex.exec(html)) !== null) {
     const src = m[1];
-    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
-      images.push(src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`);
+    if (src.includes("charm.li/images") || (src.includes("/images/") && !src.includes("/icons/"))) {
+      images.push(src.startsWith("http") ? src : `https://charm.li${src.startsWith("/") ? "" : "/"}${src}`);
     }
   }
   return [...new Set(images)];
 }
 
 function extractProcedureText(html: string): string {
-  let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
   const parts: string[] = [];
   const cRe = /<(?:p|li|td|div|span|h[1-6])[^>]*>([\s\S]*?)<\/(?:p|li|td|div|span|h[1-6])>/gi;
   let m;
   while ((m = cRe.exec(cleaned)) !== null) {
-    const t = m[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    const t = m[1]
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
     if (t.length > 5) parts.push(t);
   }
-  return [...new Set(parts)].join('\n');
+  return [...new Set(parts)].join("\n");
 }
 
 function extractTorqueSpecs(text: string): any[] {
@@ -280,8 +282,12 @@ function extractTorqueSpecs(text: string): any[] {
   let m;
   while ((m = tRe.exec(text)) !== null) {
     const start = Math.max(0, m.index - 60);
-    const ctx = text.slice(start, m.index).replace(/\n/g, ' ').trim();
-    specs.push({ value: m[1], unit: m[2].replace(/[\s·.-]/g, ' ').trim(), context: ctx.split('.').pop()?.trim() || '' });
+    const ctx = text.slice(start, m.index).replace(/\n/g, " ").trim();
+    specs.push({
+      value: m[1],
+      unit: m[2].replace(/[\s·.-]/g, " ").trim(),
+      context: ctx.split(".").pop()?.trim() || "",
+    });
   }
   return specs;
 }
@@ -296,7 +302,7 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
   const encodedModel = encodeURIComponent(charmModel);
 
   let allImages: string[] = [];
-  let allText = '';
+  let allText = "";
   let allTorqueSpecs: any[] = [];
   const fetchedUrls: string[] = [];
 
@@ -306,9 +312,10 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
     const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
     if (cached) {
       const fetchedAt = new Date(cached.fetched_at);
-      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-      if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || (cached.images?.length > 0))) {
-        allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${cached.procedure_text || ''}`;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+      if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || cached.images?.length > 0)) {
+        allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split("/").pop() || path)}) ---\n${cached.procedure_text || ""}`;
         allImages.push(...(cached.images || []));
         allTorqueSpecs.push(...(cached.torque_specs || []));
         fetchedUrls.push(charmUrl);
@@ -319,7 +326,10 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
     try {
       console.log(`Fetching charm.li: ${charmUrl}`);
       const resp = await fetch(charmUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
-      if (!resp.ok) { console.log(`Charm.li ${resp.status} for ${charmUrl}`); continue; }
+      if (!resp.ok) {
+        console.log(`Charm.li ${resp.status} for ${charmUrl}`);
+        continue;
+      }
       const html = await resp.text();
 
       const images = extractImages(html);
@@ -329,12 +339,22 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
       if (procedureText.length < 50 && images.length === 0) continue;
 
       if (cached) {
-        await supabase.from("charm_cache").update({ images, procedure_text: procedureText, torque_specs: torqueSpecs, fetched_at: new Date().toISOString() }).eq("id", cached.id);
+        await supabase
+          .from("charm_cache")
+          .update({
+            images,
+            procedure_text: procedureText,
+            torque_specs: torqueSpecs,
+            fetched_at: new Date().toISOString(),
+          })
+          .eq("id", cached.id);
       } else {
-        await supabase.from("charm_cache").insert({ charm_url: charmUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
+        await supabase
+          .from("charm_cache")
+          .insert({ charm_url: charmUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
       }
 
-      allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${procedureText}`;
+      allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split("/").pop() || path)}) ---\n${procedureText}`;
       allImages.push(...images);
       allTorqueSpecs.push(...torqueSpecs);
       fetchedUrls.push(charmUrl);
@@ -434,7 +454,7 @@ serve(async (req) => {
     try {
       const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
         body: JSON.stringify({ jobKeyword: symptom, vehicleYear: vehicle.year }),
       });
       if (manualResp.ok) {
@@ -466,24 +486,20 @@ serve(async (req) => {
     const hasFactoryData = mergedText.length > 0 || mergedImages.length > 0;
     const factorySourceUrl = manualData?.sourceUrl || charmData?.charmUrl || null;
 
-    let factorySystemAddition = '';
+    let factorySystemAddition = "";
     if (hasFactoryData && mergedText.length > 0) {
-      const torqueLines = mergedTorque
-        .map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`)
-        .join('\n');
+      const torqueLines = mergedTorque.map((ts: any) => `${ts.context}: ${ts.value} ${ts.unit}`).join("\n");
 
-      const imageList = mergedImages.map((url: string, idx: number) =>
-        `[Image ${idx}]: ${url}`
-      ).join('\n');
+      const imageList = mergedImages.map((url: string, idx: number) => `[Image ${idx}]: ${url}`).join("\n");
 
       factorySystemAddition = `\n\n## ${vehicle.make} Factory Service Manual — Reference Data
 
 The following factory data is available for reference during diagnostic steps:
 
 FACTORY PROCEDURE TEXT:
-${mergedText.join('\n\n').slice(0, 16000)}
+${mergedText.join("\n\n").slice(0, 16000)}
 
-${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ''}
+${torqueLines ? `CONFIRMED TORQUE SPECS FROM FACTORY MANUAL:\n${torqueLines}` : ""}
 
 FACTORY IMAGES AVAILABLE (${mergedImages.length} total):
 ${imageList}
@@ -547,7 +563,8 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
             {
               role: "system",
               content:
-                SYSTEM_PROMPT + factorySystemAddition +
+                SYSTEM_PROMPT +
+                factorySystemAddition +
                 "\n\nCRITICAL: Return ONLY raw JSON. No markdown fences. No explanation. Start with { and end with }. Nothing else.",
             },
             { role: "user", content: userMessage },
@@ -601,7 +618,11 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
 
       const steps = plan.steps.map((s: any, idx: number) => {
         let assignedImage: string | null = null;
-        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
+        if (
+          typeof s.factoryImageIndex === "number" &&
+          s.factoryImageIndex >= 0 &&
+          s.factoryImageIndex < stepImages.length
+        ) {
           assignedImage = stepImages[s.factoryImageIndex];
         } else if (stepImages[idx]) {
           assignedImage = stepImages[idx] || null;
@@ -636,14 +657,13 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
       await supabase.from("project_steps").insert(steps);
     }
 
-    // Link to diagnosis session — use "name" field (not "cause")
     if (diagnosisId) {
       await supabase
         .from("diagnosis_sessions")
         .update({
           project_id: project.id,
           tree_data: plan.possibleCauses
-            ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
+            ? plan.possibleCauses.map((c: string) => ({ name: c, status: "untested" }))
             : [],
         })
         .eq("id", diagnosisId);
@@ -669,11 +689,13 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
         steps: savedSteps,
         projectId: project.id,
         possibleCauses: plan.possibleCauses || [],
-        charmData: hasFactoryData ? {
-          charmUrl: factorySourceUrl,
-          imageCount: mergedImages.length,
-          hasFactoryData: true,
-        } : null,
+        charmData: hasFactoryData
+          ? {
+              charmUrl: factorySourceUrl,
+              imageCount: mergedImages.length,
+              hasFactoryData: true,
+            }
+          : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
