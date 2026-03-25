@@ -66,6 +66,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [symptom, setSymptom] = useState('');
+  const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [whenChip, setWhenChip] = useState<string | null>(null);
   const [whereChip, setWhereChip] = useState<string | null>(null);
   const [soundChip, setSoundChip] = useState<string | null>(null);
