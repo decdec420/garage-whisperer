@@ -565,6 +565,9 @@ export default function ProjectDetail() {
                       notes: project.description || `Completed via project`,
                     });
                   }
+                  queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['repair-logs', vehicleId] });
                   toast.success('Repair logged! 🔧');
                   navigate(`/garage/${vehicleId}?tab=repairs`);
                 } catch (err) {
