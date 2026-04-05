@@ -86,7 +86,6 @@ function DiagStepCard({
   const [isOpen, setIsOpen] = useState(isActive);
   const [resultNote, setResultNote] = useState('');
   const [checkedSubs, setCheckedSubs] = useState<Set<number>>(new Set());
-  const [hasMarkedResult, setHasMarkedResult] = useState(false);
   const stepOpenedAt = useRef<number | null>(null);
   const torqueSpecs = step.torque_specs as any[] | null;
 
@@ -375,7 +374,7 @@ function DiagStepCard({
           )}
 
           {/* Media capture + Ask Ratchet (active only) */}
-          {(isActive || (isCompleted && !hasMarkedResult)) && (
+          {isActive && (
             <>
               <button onClick={() => onCapturePhoto(step.id)}
                 className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2">
@@ -387,30 +386,17 @@ function DiagStepCard({
                 placeholder="What did you find? (optional)"
                 className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
 
-              {/* Result buttons */}
-              {!hasMarkedResult && (
+              {/* Result buttons — show when step has no result yet */}
+              {step.status !== 'healthy' && step.status !== 'faulty' && (
                 <div className="flex flex-col gap-2 pt-1">
-                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'healthy', resultNote, t); setHasMarkedResult(true); setIsOpen(false); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'healthy', resultNote, t); setIsOpen(false); }}
                     className="w-full h-14 text-base font-semibold bg-green-600 hover:bg-green-700 text-white">
                     <CheckCircle2 className="h-5 w-5 mr-2" /> Looks good — Test passed
                   </Button>
-                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'faulty', resultNote, t); setHasMarkedResult(true); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'faulty', resultNote, t); }}
                     variant="destructive" className="w-full h-14 text-base font-semibold">
                     <AlertCircle className="h-5 w-5 mr-2" /> Found the problem
                   </Button>
-                </div>
-              )}
-              {hasMarkedResult && isCompleted && (
-                <div className="rounded-xl p-3 text-center space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {step.status === 'faulty' ? '🎯 Marked as the problem' : '✅ Marked as healthy'}
-                  </p>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onUndoResult(step.id); setHasMarkedResult(false); }}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
-                  >
-                    ↩ Undo — I made a mistake
-                  </button>
                 </div>
               )}
 
@@ -1235,18 +1221,71 @@ export default function DiagnosisSession() {
                     </Button>
                     <Button variant="ghost" className="text-sm text-muted-foreground"
                       onClick={async () => {
-                        await supabase.from('diagnosis_sessions').update({ status: 'active' } as any).eq('id', diagnosisId!);
-                        queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
-                        const nextIdx = steps?.findIndex(s => s.status !== 'healthy' && s.status !== 'faulty') ?? -1;
-                        if (nextIdx >= 0) {
-                          setCurrentStepIndex(nextIdx);
-                          setTimeout(() => {
-                            const nextStep = steps?.[nextIdx];
-                            if (nextStep && stepRefs.current[nextStep.id]) {
-                              stepRefs.current[nextStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }, 100);
+                        // Find the faulty step and reset it
+                        const faultyStep = steps?.find(s => s.status === 'faulty');
+                        if (faultyStep) {
+                          // Reset step in DB
+                          await supabase.from('project_steps').update({ status: null, completed_at: null }).eq('id', faultyStep.id);
                         }
+
+                        // Reset diagnosis session: status back to active, clear conclusion
+                        await supabase.from('diagnosis_sessions').update({
+                          status: 'active',
+                          confirmed_cause: null,
+                          conclusion: null,
+                          conclusion_confidence: null,
+                        } as any).eq('id', diagnosisId!);
+
+                        // Reset the faulty tree node to untested
+                        const resetTree = treeNodes.map(n =>
+                          n.status === 'faulty' ? { ...n, status: 'untested' as const } : n
+                        );
+                        // Ensure at least one node is 'testing'
+                        if (!resetTree.some(n => n.status === 'testing')) {
+                          const firstUntested = resetTree.findIndex(n => n.status === 'untested');
+                          if (firstUntested >= 0) resetTree[firstUntested].status = 'testing';
+                        }
+
+                        // Recalculate probabilities from remaining completed steps
+                        const remainingCompleted = (steps || []).filter(s => s.id !== faultyStep?.id && (s.status === 'healthy' || s.status === 'faulty'));
+                        const completedForConf = remainingCompleted.map(s => {
+                          let meta: any = null;
+                          try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+                          return { result: s.status as 'healthy' | 'faulty', eliminates: meta?.eliminates, confirms: meta?.confirms };
+                        });
+                        const possibleCauses = resetTree.map(n => n.cause);
+                        const { probs } = calculateConfidence(possibleCauses, completedForConf) as any;
+                        if (probs) resetTree.forEach(n => { if (probs[n.cause] !== undefined) n.probability = probs[n.cause]; });
+
+                        setTreeNodes(resetTree);
+
+                        // Update tree_data in DB
+                        const testsSummary = remainingCompleted.map(s => {
+                          let meta: any = null;
+                          try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+                          return { step_number: s.step_number, step_title: s.title, result: s.status, eliminated: s.status === 'healthy' ? (meta?.eliminates || []) : [], confirmed: s.status === 'faulty' ? (meta?.confirms || []) : [] };
+                        });
+                        await supabase.from('diagnosis_sessions').update({
+                          tree_data: resetTree,
+                          tests_summary: testsSummary,
+                        } as any).eq('id', diagnosisId!);
+
+                        // Invalidate queries to refetch fresh data
+                        queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
+                        queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+
+                        // Set active index to the reset step
+                        const resetIdx = faultyStep ? steps?.findIndex(s => s.id === faultyStep.id) ?? 0 : 0;
+                        setCurrentStepIndex(resetIdx);
+
+                        setTimeout(() => {
+                          const targetStep = faultyStep || steps?.[0];
+                          if (targetStep && stepRefs.current[targetStep.id]) {
+                            stepRefs.current[targetStep.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }
+                        }, 100);
+
+                        toast.success('Step reset — re-examine and try again');
                       }}>
                       Continue Testing
                     </Button>
