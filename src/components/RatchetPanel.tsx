@@ -414,7 +414,7 @@ function ChatContent() {
         for (const qf of filesToUpload) {
           try {
             const [url, dataUrl] = await Promise.all([
-              uploadToStorage(qf.file, ratchetProjectContext!.id),
+              uploadToStorage(qf.file, ratchetProjectContext?.id || ratchetDiagnosisContext?.sessionId || user!.id),
               fileToBase64(qf.file),
             ]);
             uploadedUrls.push(url);
