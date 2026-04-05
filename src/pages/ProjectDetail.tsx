@@ -577,6 +577,23 @@ export default function ProjectDetail() {
       </div>
 
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+        {/* Post-repair feedback prompt (shown when project is completed and has linked diagnosis) */}
+        {project.status === 'completed' && showFeedbackPrompt && (
+          <div className="rounded-xl border-2 border-primary/30 bg-card p-4">
+            <p className="text-sm font-semibold text-foreground mb-3">Did this fix the original problem?</p>
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1" disabled={feedbackLoading}
+                onClick={() => submitFeedback('post_repair_fixed')}>
+                ✅ Yes, it's fixed
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1" disabled={feedbackLoading}
+                onClick={() => submitFeedback('post_repair_not_fixed')}>
+                ❌ No, still having issues
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* How we found this — diagnosis link */}
         {linkedDiagnosis && (
           <DiagnosisLinkCard diagnosis={linkedDiagnosis} vehicleId={vehicleId!} />
