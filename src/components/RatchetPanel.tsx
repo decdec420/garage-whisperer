@@ -352,6 +352,13 @@ function ChatContent() {
     if (ratchetPrefilledMessage && isRatchetOpen) {
       setInput(ratchetPrefilledMessage);
       useAppStore.setState({ ratchetPrefilledMessage: null });
+      // Auto-resize textarea to fit prefilled content
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 280) + 'px';
+        }
+      });
     }
   }, [ratchetPrefilledMessage, isRatchetOpen]);
 
