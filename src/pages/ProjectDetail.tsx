@@ -360,6 +360,7 @@ export default function ProjectDetail() {
     },
     onSuccess: (_data, stepId) => {
       queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
       // Auto-check all sub-steps for the completed step
       const step = steps.find(s => s.id === stepId);
       if (step?.sub_steps?.length) {
@@ -564,6 +565,9 @@ export default function ProjectDetail() {
                       notes: project.description || `Completed via project`,
                     });
                   }
+                  queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['repair-logs', vehicleId] });
                   toast.success('Repair logged! 🔧');
                   navigate(`/garage/${vehicleId}?tab=repairs`);
                 } catch (err) {
