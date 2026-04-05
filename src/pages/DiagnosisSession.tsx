@@ -409,6 +409,18 @@ function DiagStepCard({
               </button>
             </>
           )}
+
+          {/* Undo button for completed steps when expanded */}
+          {isCompleted && (
+            <div className="text-center pt-1">
+              <button
+                onClick={() => onUndoResult(step.id)}
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+              >
+                ↩ Undo — I made a mistake
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -926,6 +938,10 @@ export default function DiagnosisSession() {
       tests_summary: testsSummary,
       ...(!hasFaulty ? { conclusion: null, conclusion_confidence: null, status: 'in_progress' } : {}),
     } as any).eq('id', diagnosisId!);
+
+    // Set currentStepIndex to the undone step so it becomes active with result buttons
+    const stepIdx = (steps || []).findIndex(s => s.id === stepId);
+    if (stepIdx >= 0) setCurrentStepIndex(stepIdx);
 
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
