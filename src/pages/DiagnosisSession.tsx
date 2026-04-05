@@ -601,6 +601,7 @@ export default function DiagnosisSession() {
   const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
   const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhotoBase64 = useRef<string | null>(null);
   const [captureStepId, setCaptureStepId] = useState<string | null>(null);
 
   const { data: vehicle } = useQuery({
@@ -865,6 +866,8 @@ export default function DiagnosisSession() {
     const userMsg: Message = { role: 'user', content: text.trim() };
     const newMessages = [...chatMessages, userMsg];
     setChatMessages(newMessages); setChatInput(''); setIsChatStreaming(true);
+    const photoBase64 = pendingPhotoBase64.current;
+    pendingPhotoBase64.current = null;
     try {
       if (diagSession?.chat_session_id) {
         await supabase.from('chat_messages').insert({ session_id: diagSession.chat_session_id, role: 'user', content: text.trim() });
@@ -874,10 +877,23 @@ export default function DiagnosisSession() {
         : '';
       const accessToken = await getAccessToken();
       if (!accessToken) { toast.error('Please log in to chat'); setIsChatStreaming(false); return; }
+      // Build message content: multimodal array when photo is pending, plain string otherwise
+      const outMessages = newMessages.map((m, i) => {
+        if (i === newMessages.length - 1 && m.role === 'user' && photoBase64) {
+          return {
+            role: m.role,
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photoBase64 } },
+              { type: 'text', text: m.content },
+            ],
+          };
+        }
+        return { role: m.role, content: m.content };
+      });
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })), vehicleContext, vehicleId: vehicleId || null }),
+        body: JSON.stringify({ messages: outMessages, vehicleContext, vehicleId: vehicleId || null }),
       });
       if (!resp.ok || !resp.body) throw new Error('Stream failed');
       const reader = resp.body.getReader(); const decoder = new TextDecoder();
@@ -930,6 +946,9 @@ export default function DiagnosisSession() {
     if (!step) return;
     const reader = new FileReader();
     reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // Store raw base64 (strip the data:image/…;base64, prefix)
+      pendingPhotoBase64.current = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
       const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'my vehicle';
       const diagMeta = (() => { try { return step.notes ? JSON.parse(step.notes) : null; } catch { return null; } })();
       const prefill = `I'm on Step ${step.step_number} diagnosing "${diagSession?.symptom}" on my ${vehicleName}.\nTesting: ${step.title}. Expected: ${diagMeta?.expectedResult || 'N/A'}.\nHere's what I see. Is this healthy or the problem?`;
