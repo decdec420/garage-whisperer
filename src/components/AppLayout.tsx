@@ -153,7 +153,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className={cn("flex-1 md:ml-60 pb-20 md:pb-0 transition-[margin] duration-300", isRatchetOpen && "md:mr-[420px]")}>
+      <main className={cn("flex-1 md:ml-60 pb-20 md:pb-0 transition-[margin] duration-300 overflow-x-hidden", isRatchetOpen && "md:mr-[420px]")}>
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-20">
           <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NotificationCenter />
         </div>
 
-        <div className={cn("mx-auto animate-page-enter transition-[max-width] duration-300", isRatchetOpen ? "max-w-full px-4" : "max-w-[1200px]")} key={location.pathname}>
+        <div className="w-full mx-auto animate-page-enter max-w-[1100px]" key={location.pathname}>
           {children}
         </div>
       </main>
