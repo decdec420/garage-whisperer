@@ -918,6 +918,19 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
               hasFactoryData: true,
             }
           : null,
+        patternMatch: highConfidence.length > 0
+          ? {
+              confidence: Math.round(highConfidence[0].confidence_score * 100),
+              confirmedFixes: highConfidence[0].success_count,
+              topCause: highConfidence[0].confirmed_cause,
+            }
+          : moderateConfidence.length > 0
+          ? {
+              confidence: Math.round(moderateConfidence[0].confidence_score * 100),
+              confirmedFixes: moderateConfidence[0].success_count,
+              topCause: moderateConfidence[0].confirmed_cause,
+            }
+          : null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
