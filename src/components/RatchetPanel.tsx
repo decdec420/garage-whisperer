@@ -228,6 +228,8 @@ function ChatContent() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isProjectMode = !!ratchetProjectContext;
+  const isDiagnosisMode = !!ratchetDiagnosisContext;
+  const isContextMode = isProjectMode || isDiagnosisMode; // Has a specific context (project or diagnosis)
   const activePrompts = isProjectMode ? projectQuickPrompts : quickPrompts;
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -407,12 +409,12 @@ function ChatContent() {
       // Upload images to storage and get base64 for AI
       let uploadedUrls: string[] = [];
       let base64Images: string[] = [];
-      if (hasImages && isProjectMode) {
+      if (hasImages && isContextMode) {
         setIsUploading(true);
         for (const qf of filesToUpload) {
           try {
             const [url, dataUrl] = await Promise.all([
-              uploadToStorage(qf.file, ratchetProjectContext!.id),
+              uploadToStorage(qf.file, ratchetProjectContext?.id || ratchetDiagnosisContext?.sessionId || user!.id),
               fileToBase64(qf.file),
             ]);
             uploadedUrls.push(url);
@@ -562,7 +564,7 @@ How to help:
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {!isProjectMode && (
+          {!isContextMode && (
             <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
               <Plus className="h-4 w-4" />
             </button>
@@ -796,7 +798,7 @@ How to help:
       )}
 
       {/* Attach menu popover */}
-      {showAttachMenu && isProjectMode && (
+      {showAttachMenu && isContextMode && (
         <div className="absolute bottom-20 left-3 z-50 bg-popover border border-border rounded-xl shadow-lg p-1 min-w-[200px]">
           <button
             onClick={() => { cameraInputRef.current?.click(); }}
@@ -836,8 +838,8 @@ How to help:
       {/* Input */}
       <div className="bg-card border-t border-border p-3 shrink-0">
         <div className="flex items-end gap-2">
-          {/* Attachment button — only active in project mode */}
-          {isProjectMode ? (
+          {/* Attachment button — available in project and diagnosis modes */}
+          {isContextMode ? (
             <button
               onClick={() => setShowAttachMenu(!showAttachMenu)}
               className={cn(
@@ -868,13 +870,13 @@ How to help:
               e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-            placeholder={isProjectMode ? `Ask about ${ratchetProjectContext!.title}...` : 'Ask Ratchet anything...'}
+            placeholder={isDiagnosisMode ? `Ask about this diagnosis...` : isProjectMode ? `Ask about ${ratchetProjectContext!.title}...` : 'Ask Ratchet anything...'}
             className="flex-1 bg-muted border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-[160px] focus:outline-none focus:border-primary transition-all"
             style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
           />
           {/* Mic button in project mode */}
-          {isProjectMode && (
+          {isContextMode && (
             <button
               onClick={toggleVoice}
               className={cn(
