@@ -333,6 +333,80 @@ export type Database = {
           },
         ]
       }
+      diagnostic_patterns: {
+        Row: {
+          avg_diagnostic_minutes: number | null
+          confidence_score: number
+          confirmed_cause: string
+          created_at: string
+          diagnostic_tree: Json
+          engine_family: string | null
+          failure_count: number
+          id: string
+          source_diagnosis_id: string | null
+          source_user_id: string | null
+          steps_summary: Json
+          success_count: number
+          symptom_normalized: string
+          tools_used: Json | null
+          updated_at: string
+          vehicle_make: string
+          vehicle_model: string
+          vehicle_year_max: number | null
+          vehicle_year_min: number | null
+        }
+        Insert: {
+          avg_diagnostic_minutes?: number | null
+          confidence_score?: number
+          confirmed_cause: string
+          created_at?: string
+          diagnostic_tree?: Json
+          engine_family?: string | null
+          failure_count?: number
+          id?: string
+          source_diagnosis_id?: string | null
+          source_user_id?: string | null
+          steps_summary?: Json
+          success_count?: number
+          symptom_normalized: string
+          tools_used?: Json | null
+          updated_at?: string
+          vehicle_make: string
+          vehicle_model: string
+          vehicle_year_max?: number | null
+          vehicle_year_min?: number | null
+        }
+        Update: {
+          avg_diagnostic_minutes?: number | null
+          confidence_score?: number
+          confirmed_cause?: string
+          created_at?: string
+          diagnostic_tree?: Json
+          engine_family?: string | null
+          failure_count?: number
+          id?: string
+          source_diagnosis_id?: string | null
+          source_user_id?: string | null
+          steps_summary?: Json
+          success_count?: number
+          symptom_normalized?: string
+          tools_used?: Json | null
+          updated_at?: string
+          vehicle_make?: string
+          vehicle_model?: string
+          vehicle_year_max?: number | null
+          vehicle_year_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_patterns_source_diagnosis_id_fkey"
+            columns: ["source_diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dtc_records: {
         Row: {
           cleared_date: string | null
