@@ -863,7 +863,12 @@ How to help:
             </div>
           </div>
         ) : (
-          messages.map((m, i) => (
+          messages.map((m, i) => {
+            const { cleanContent, projectCause } = m.role === 'assistant'
+              ? parseProjectAction(m.content)
+              : { cleanContent: m.content, projectCause: null };
+
+            return (
             <div
               key={i}
               className={cn(
@@ -880,7 +885,7 @@ How to help:
                     : 'bg-card border border-border text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
                 )}>
                   {m.role === 'assistant' ? (
-                    <RatchetMarkdown content={m.content} />
+                    <RatchetMarkdown content={cleanContent} />
                   ) : m.content || null}
                   {/* Inline images */}
                   {m.images && m.images.length > 0 && (
@@ -899,8 +904,17 @@ How to help:
                       ))}
                     </div>
                   )}
+                  {/* Create Project action button */}
+                  {projectCause && activeVehicle && (
+                    <CreateProjectButton
+                      cause={projectCause}
+                      vehicleId={activeVehicle.id}
+                      diagnosisSessionId={ratchetDiagnosisContext?.sessionId}
+                      symptom={ratchetDiagnosisContext?.symptom}
+                    />
+                  )}
                 </div>
-                {m.role === 'assistant' && activeVehicle && m.content.length > 50 && (
+                {m.role === 'assistant' && activeVehicle && cleanContent.length > 50 && (
                   <span className="text-[11px] text-green-500/80 flex items-center gap-1 ml-1">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
                     Specific to your {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
@@ -908,7 +922,8 @@ How to help:
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
         {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
         <div ref={messagesEndRef} />
