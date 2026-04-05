@@ -184,7 +184,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <NotificationCenter />
         </div>
 
-        <div className="max-w-[1200px] mx-auto animate-page-enter" key={location.pathname}>
+        <div className={cn("mx-auto animate-page-enter transition-[max-width] duration-300", isRatchetOpen ? "max-w-full px-4" : "max-w-[1200px]")} key={location.pathname}>
           {children}
         </div>
       </main>
