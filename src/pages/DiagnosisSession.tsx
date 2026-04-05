@@ -220,6 +220,16 @@ function DiagStepCard({
 
       {isOpen && (
         <div className={cn("px-4 pb-4 space-y-4", bgColor)}>
+          {/* Go back button */}
+          {isActive && hasPreviousCompleted && !isCompleted && (
+            <button
+              onClick={onGoBack}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 hover:bg-primary/10 hover:border-primary/30 text-muted-foreground hover:text-primary transition-all py-2 px-3 text-xs font-medium"
+            >
+              ← Go back to previous step
+            </button>
+          )}
+
           {/* Access Path */}
           {accessPath?.required && accessPath.steps?.length > 0 && (
             <Collapsible>
@@ -1372,6 +1382,7 @@ export default function DiagnosisSession() {
                         step={step}
                         isActive={i === currentStepIndex}
                         isCompleted={step.status === 'healthy' || step.status === 'faulty'}
+                        hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty')}
                         stepTools={tools?.filter(() => {
                           return true;
                         })}
@@ -1380,6 +1391,13 @@ export default function DiagnosisSession() {
                         treeNodes={treeNodes}
                         onMarkResult={markStepResult}
                         onUndoResult={undoStepResult}
+                        onGoBack={() => {
+                          // Find the previous completed step and undo it
+                          const prevStep = steps?.[i - 1];
+                          if (prevStep && (prevStep.status === 'healthy' || prevStep.status === 'faulty')) {
+                            undoStepResult(prevStep.id);
+                          }
+                        }}
                         onImageClick={openImageInLightbox}
                         onAskRatchet={openAskRatchet}
                         onCapturePhoto={handleCapturePhoto}
