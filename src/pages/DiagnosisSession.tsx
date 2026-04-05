@@ -841,6 +841,15 @@ export default function DiagnosisSession() {
       ...(result === 'faulty' ? { conclusion: diagMeta?.systemTesting || step.title, conclusion_confidence: confidenceScore || 90, status: 'resolved' } : {}),
     } as any).eq('id', diagnosisId!);
 
+    // Advance currentStepIndex synchronously so buttons appear on next step immediately
+    if (result === 'healthy') {
+      const stepIdx = (steps || []).findIndex(s => s.id === stepId);
+      if (stepIdx >= 0) {
+        const nextIdx = (steps || []).findIndex((s, i) => i > stepIdx && s.status !== 'healthy' && s.status !== 'faulty');
+        setCurrentStepIndex(nextIdx >= 0 ? nextIdx : (steps?.length || 0));
+      }
+    }
+
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
 
