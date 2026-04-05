@@ -228,6 +228,8 @@ function ChatContent() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const isProjectMode = !!ratchetProjectContext;
+  const isDiagnosisMode = !!ratchetDiagnosisContext;
+  const isContextMode = isProjectMode || isDiagnosisMode; // Has a specific context (project or diagnosis)
   const activePrompts = isProjectMode ? projectQuickPrompts : quickPrompts;
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
