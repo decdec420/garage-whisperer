@@ -747,7 +747,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + factorySystemAddition },
+          { role: "system", content: SYSTEM_PROMPT + patternContextBlock + userHistoryBlock + factorySystemAddition },
           { role: "user", content: userMessage },
         ],
       }),
