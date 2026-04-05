@@ -259,6 +259,17 @@ export default function ProjectDetail() {
     enabled: !!projectId,
   });
 
+  const { data: existingFeedback } = useQuery({
+    queryKey: ['diagnosis-feedback', projectId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('diagnosis_feedback').select('id')
+        .eq('project_id', projectId!).limit(1);
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
   // Timer
   useEffect(() => {
     if (!project) return;
