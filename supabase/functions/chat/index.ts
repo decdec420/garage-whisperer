@@ -825,6 +825,31 @@ serve(async (req) => {
       }
     }
 
+    // --- Inject past diagnosis history for this vehicle ---
+    let diagHistoryBlock = "";
+    if (vehicleId && userId) {
+      try {
+        const { data: pastDiags } = await supabase
+          .from("diagnosis_sessions")
+          .select("symptom, confirmed_cause, status, created_at")
+          .eq("vehicle_id", vehicleId)
+          .eq("user_id", userId)
+          .in("status", ["concluded", "completed"])
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (pastDiags && pastDiags.length > 0) {
+          diagHistoryBlock = "\n\n## Diagnostic History for This Vehicle\n";
+          diagHistoryBlock += pastDiags.map((d: any) => 
+            `- ${d.symptom} → ${d.confirmed_cause || 'inconclusive'} (${new Date(d.created_at).toLocaleDateString()})`
+          ).join("\n");
+          diagHistoryBlock += "\n\nConnect dots between past and current issues when relevant. Identify recurring patterns.";
+        }
+      } catch (e) {
+        console.error("Diagnosis history fetch error (non-fatal):", e);
+      }
+    }
+
     // --- Inject charm.li factory data if relevant ---
     let charmBlock = "";
     if (vehicleId) {
