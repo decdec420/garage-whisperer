@@ -849,7 +849,7 @@ serve(async (req) => {
           if (year >= 1982 && year <= 2013) {
             const charmResp = await fetch(`${supabaseUrl}/functions/v1/fetch-charm-data`, {
               method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
+              headers: { "Content-Type": "application/json", "Authorization": authHeader },
               body: JSON.stringify({
                 make: vehicleContext.match(/\d{4}\s+(\w+)/)?.[1] || '',
                 year,
