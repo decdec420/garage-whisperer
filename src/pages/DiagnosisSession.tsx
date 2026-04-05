@@ -72,11 +72,12 @@ function CauseCard({ node, onClick }: { node: TreeNode; onClick: () => void }) {
 // ─── Diagnostic Step Card ───
 function DiagStepCard({
   step, isActive, isCompleted, stepTools, vehicle, diagSession, treeNodes,
-  onMarkResult, onImageClick, onAskRatchet, onCapturePhoto, diagnosisId,
+  onMarkResult, onUndoResult, onImageClick, onAskRatchet, onCapturePhoto, diagnosisId,
 }: {
   step: StepRow; isActive: boolean; isCompleted: boolean; stepTools?: ToolRow[];
   vehicle: any; diagSession: any; treeNodes: TreeNode[];
   onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => void;
+  onUndoResult: (stepId: string) => void;
   onImageClick?: (url: string) => void;
   onAskRatchet: (prefill: string) => void;
   onCapturePhoto: (stepId: string) => void;
@@ -124,29 +125,38 @@ function DiagStepCard({
       ? `❌ ${step.title} — problem found`
       : `✅ ${step.title} — healthy`;
     return (
-      <button onClick={() => setIsOpen(true)}
-        className={cn(
-          "w-full text-left rounded-xl border border-border border-l-4 p-4 transition-all",
-          step.status === 'faulty' ? 'border-l-destructive bg-destructive/5' : 'border-l-green-500 bg-green-500/5',
-        )}>
-        <div className="flex items-center gap-3">
-          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
-            step.status === 'faulty' ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'
-          )}>
-            {step.status === 'faulty' ? '✗' : '✓'}
+      <div className={cn(
+        "w-full rounded-xl border border-border border-l-4 p-4 transition-all",
+        step.status === 'faulty' ? 'border-l-destructive bg-destructive/5' : 'border-l-green-500 bg-green-500/5',
+      )}>
+        <button onClick={() => setIsOpen(true)} className="w-full text-left">
+          <div className="flex items-center gap-3">
+            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+              step.status === 'faulty' ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'
+            )}>
+              {step.status === 'faulty' ? '✗' : '✓'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{resultLabel}</p>
+              {step.status === 'healthy' && eliminates.length > 0 && (
+                <p className="text-[11px] text-green-500 mt-0.5">🔍 Ruled out: {eliminates.join(', ')}</p>
+              )}
+              {step.status === 'faulty' && confirms.length > 0 && (
+                <p className="text-[11px] text-destructive mt-0.5">🎯 Confirmed: {confirms.join(', ')}</p>
+              )}
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">{resultLabel}</p>
-            {step.status === 'healthy' && eliminates.length > 0 && (
-              <p className="text-[11px] text-green-500 mt-0.5">🔍 Ruled out: {eliminates.join(', ')}</p>
-            )}
-            {step.status === 'faulty' && confirms.length > 0 && (
-              <p className="text-[11px] text-destructive mt-0.5">🎯 Confirmed: {confirms.join(', ')}</p>
-            )}
-          </div>
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+        <div className="mt-2 text-center">
+          <button
+            onClick={() => onUndoResult(step.id)}
+            className="text-[11px] text-muted-foreground hover:text-destructive transition-colors underline"
+          >
+            ↩ Undo
+          </button>
         </div>
-      </button>
+      </div>
     );
   }
 
@@ -391,10 +401,16 @@ function DiagStepCard({
                 </div>
               )}
               {hasMarkedResult && isCompleted && (
-                <div className="rounded-xl p-3 text-center">
+                <div className="rounded-xl p-3 text-center space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
                     {step.status === 'faulty' ? '🎯 Marked as the problem' : '✅ Marked as healthy'}
                   </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onUndoResult(step.id); setHasMarkedResult(false); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+                  >
+                    ↩ Undo — I made a mistake
+                  </button>
                 </div>
               )}
 
@@ -849,6 +865,79 @@ export default function DiagnosisSession() {
     }
   };
 
+  const undoStepResult = async (stepId: string) => {
+    const step = steps?.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Reset the step status
+    await supabase.from('project_steps').update({ status: null, completed_at: null }).eq('id', stepId);
+
+    // Recalculate tree from remaining completed steps
+    const allSteps = steps || [];
+    const remainingCompleted = allSteps.filter(s => s.id !== stepId && (s.status === 'healthy' || s.status === 'faulty'));
+
+    // Reset tree nodes - rebuild from scratch based on remaining completed steps
+    const resetTree: TreeNode[] = treeNodes.map(n => ({ ...n, status: 'untested' as const }));
+    for (const s of remainingCompleted) {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      if (s.status === 'healthy' && meta?.eliminates) {
+        resetTree.forEach(n => {
+          if (meta.eliminates.some((e: string) => n.cause.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.cause.toLowerCase())))
+            (n as any).status = 'healthy';
+        });
+      }
+      if (s.status === 'faulty' && meta?.confirms) {
+        resetTree.forEach(n => {
+          if (meta.confirms.some((c: string) => n.cause.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.cause.toLowerCase())))
+            (n as any).status = 'faulty';
+        });
+      }
+    }
+
+    // Set first untested to testing
+    const firstUntested = resetTree.findIndex(n => n.status === 'untested');
+    if (firstUntested >= 0) (resetTree[firstUntested] as any).status = 'testing';
+
+    // Recalculate confidence
+    const completedForConfidence = remainingCompleted.map(s => {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      return { result: s.status as 'healthy' | 'faulty', eliminates: meta?.eliminates, confirms: meta?.confirms };
+    });
+
+    const possibleCauses = resetTree.map(n => n.cause);
+    const { score: confidenceScore, confirmedCause, probs } = calculateConfidence(possibleCauses, completedForConfidence) as any;
+
+    if (probs) {
+      resetTree.forEach(n => { if (probs[n.cause] !== undefined) n.probability = probs[n.cause]; });
+    }
+
+    setTreeNodes(resetTree);
+
+    // Update diagnosis session - revert to in_progress if was resolved
+    const hasFaulty = resetTree.some(n => n.status === 'faulty');
+    const testsSummary = remainingCompleted.map(s => {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      return { step_number: s.step_number, step_title: s.title, result: s.status, eliminated: s.status === 'healthy' ? (meta?.eliminates || []) : [], confirmed: s.status === 'faulty' ? (meta?.confirms || []) : [] };
+    });
+
+    await supabase.from('diagnosis_sessions').update({
+      tree_data: resetTree,
+      updated_at: new Date().toISOString(),
+      confidence_score: confidenceScore || 0,
+      confirmed_cause: hasFaulty ? confirmedCause : null,
+      tests_summary: testsSummary,
+      ...(!hasFaulty ? { conclusion: null, conclusion_confidence: null, status: 'in_progress' } : {}),
+    } as any).eq('id', diagnosisId!);
+
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+
+    toast.success('Step result undone', { description: 'You can re-test this step' });
+  };
+
   const createRepairProject = async () => {
     if (!vehicle || !diagSession || !user) return;
     setIsCreatingRepair(true);
@@ -1227,6 +1316,7 @@ export default function DiagnosisSession() {
                         diagSession={diagSession}
                         treeNodes={treeNodes}
                         onMarkResult={markStepResult}
+                        onUndoResult={undoStepResult}
                         onImageClick={openImageInLightbox}
                         onAskRatchet={openAskRatchet}
                         onCapturePhoto={handleCapturePhoto}
