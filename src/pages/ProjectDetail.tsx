@@ -298,7 +298,7 @@ export default function ProjectDetail() {
     return () => { setRatchetProjectContext(null); };
   }, [project?.id, vehicleId, setRatchetProjectContext]);
 
-  // Auto-set active step to first non-done step
+  // Auto-set active step to first non-done step & initialize checked sub-steps for completed steps
   useEffect(() => {
     if (steps.length) {
       const firstActive = steps.findIndex(s => s.status !== 'done');
@@ -306,6 +306,16 @@ export default function ProjectDetail() {
         setActiveStepIdx(firstActive);
         setExpandedSteps(new Set([firstActive]));
       }
+      // Mark all sub-steps as checked for completed steps
+      setCheckedSubSteps(prev => {
+        const next = { ...prev };
+        steps.forEach(s => {
+          if (s.status === 'done' && s.sub_steps?.length && !next[s.id]) {
+            next[s.id] = new Set(s.sub_steps.map((_, i) => i));
+          }
+        });
+        return next;
+      });
     }
   }, [steps.length]);
 
