@@ -929,7 +929,7 @@ export default function DiagnosisSession() {
     toast.success('Step result undone', { description: 'You can re-test this step' });
   };
 
-
+  const createRepairProject = async () => {
     if (!vehicle || !diagSession || !user) return;
     setIsCreatingRepair(true);
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
