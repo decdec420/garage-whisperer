@@ -523,12 +523,60 @@ export default function ProjectDetail() {
 
           <div className="space-y-3 pt-4">
             <Button size="lg" className="w-full bg-primary text-primary-foreground h-14 text-lg"
-              onClick={() => { navigate(`/garage/${vehicleId}`); }}>
+              disabled={feedbackLoading}
+              onClick={async () => {
+                try {
+                  if (!user || !project || !vehicleId) return;
+                  setFeedbackLoading(true);
+                  // Mark project completed
+                  await supabase.from('projects').update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                    actual_minutes: Math.floor(elapsedSeconds / 60) || null,
+                  }).eq('id', project.id);
+                  // Calculate total parts cost
+                  const totalCost = parts.reduce((sum, p) => sum + (p.actual_cost || p.estimated_cost || 0), 0);
+                  // Create repair log entry
+                  await supabase.from('repair_logs').insert({
+                    vehicle_id: vehicleId,
+                    title: project.title,
+                    description: project.description || undefined,
+                    date: new Date().toISOString().split('T')[0],
+                    labor_hours: Math.round((elapsedSeconds / 3600) * 10) / 10 || null,
+                    diy_cost: totalCost || null,
+                    total_cost: totalCost || null,
+                    difficulty: project.difficulty === 'Beginner' ? 1 : project.difficulty === 'Intermediate' ? 2 : project.difficulty === 'Advanced' ? 3 : project.difficulty === 'Expert' ? 4 : null,
+                    parts: parts.length > 0 ? parts.map(p => ({ name: p.name, partNumber: p.part_number, brand: p.brand, cost: p.actual_cost || p.estimated_cost })) : null,
+                    notes: `Completed project: ${project.title}. ${steps.length} steps completed in ${elapsedStr}.`,
+                  });
+                  // Also log as maintenance if applicable
+                  const maintenanceKeywords = ['oil change', 'tire rotation', 'brake', 'filter', 'fluid', 'coolant', 'transmission', 'spark plug', 'belt', 'battery'];
+                  const titleLower = project.title.toLowerCase();
+                  const isMaintenance = maintenanceKeywords.some(kw => titleLower.includes(kw));
+                  if (isMaintenance) {
+                    const currentMileage = vehicle?.mileage || null;
+                    await supabase.from('maintenance_logs').insert({
+                      vehicle_id: vehicleId,
+                      service: project.title,
+                      date: new Date().toISOString().split('T')[0],
+                      cost: totalCost || null,
+                      mileage: currentMileage,
+                      notes: project.description || `Completed via project`,
+                    });
+                  }
+                  toast.success('Repair logged! 🔧');
+                  navigate(`/garage/${vehicleId}?tab=repairs`);
+                } catch (err) {
+                  toast.error('Failed to log repair');
+                } finally {
+                  setFeedbackLoading(false);
+                }
+              }}>
               Log this repair
             </Button>
             <Button variant="ghost" className="w-full text-muted-foreground"
               onClick={() => navigate(`/garage/${vehicleId}`)}>
-              Back to garage
+              Skip — Back to garage
             </Button>
           </div>
         </div>
