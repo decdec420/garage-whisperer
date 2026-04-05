@@ -891,12 +891,25 @@ export default function ProjectDetail() {
                     {/* Sub-steps */}
                     {step.sub_steps && step.sub_steps.length > 0 && (
                       <div className="space-y-2 pl-2">
-                        {step.sub_steps.map((ss, i) => (
+                        {step.sub_steps.map((ss, i) => {
+                          const isChecked = checkedSubSteps[step.id]?.has(i) || false;
+                          return (
                           <label key={i} className="flex items-start gap-3 min-h-[44px] cursor-pointer">
-                            <Checkbox className="mt-0.5" style={{ minHeight: 28, minWidth: 28, height: 28, width: 28 }} />
-                            <span className="text-[15px] text-foreground/90">{ss}</span>
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(c) => {
+                                setCheckedSubSteps(prev => {
+                                  const stepSet = new Set(prev[step.id] || []);
+                                  if (c) stepSet.add(i); else stepSet.delete(i);
+                                  return { ...prev, [step.id]: stepSet };
+                                });
+                              }}
+                              className="mt-0.5" style={{ minHeight: 28, minWidth: 28, height: 28, width: 28 }}
+                            />
+                            <span className={cn("text-[15px]", isChecked ? "text-muted-foreground line-through" : "text-foreground/90")}>{ss}</span>
                           </label>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
