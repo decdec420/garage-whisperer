@@ -598,6 +598,76 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    // --- Check diagnostic pattern cache ---
+    const symptomLower = symptom.toLowerCase().trim();
+    const makeLower = vehicle.make.toLowerCase();
+    const modelLower = vehicle.model.toLowerCase();
+    
+    const { data: matchedPatterns } = await supabase
+      .from("diagnostic_patterns")
+      .select("*")
+      .ilike("vehicle_make", makeLower)
+      .ilike("vehicle_model", modelLower)
+      .order("confidence_score", { ascending: false })
+      .limit(10);
+
+    // Find patterns that match by symptom similarity and year range
+    const relevantPatterns = (matchedPatterns || []).filter((p: any) => {
+      const symMatch = symptomLower.includes(p.symptom_normalized) || 
+                       p.symptom_normalized.includes(symptomLower) ||
+                       symptomLower.split(/\s+/).some((w: string) => w.length > 3 && p.symptom_normalized.includes(w));
+      const yearMatch = (!p.vehicle_year_min || vehicle.year >= p.vehicle_year_min) &&
+                        (!p.vehicle_year_max || vehicle.year <= p.vehicle_year_max);
+      return symMatch && yearMatch;
+    });
+
+    // High-confidence patterns (>90%) get auto-applied, moderate (50-90%) get suggested
+    const highConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.9 && p.success_count >= 3);
+    const moderateConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.5 && p.confidence_score < 0.9);
+
+    let patternContextBlock = "";
+    if (relevantPatterns.length > 0) {
+      const topPatterns = relevantPatterns.slice(0, 5);
+      const lines = topPatterns.map((p: any) => 
+        `- "${p.confirmed_cause}" (${Math.round(p.confidence_score * 100)}% success rate, ${p.success_count} confirmed fixes)`
+      );
+      patternContextBlock = `\n\n## Ratchet's Diagnostic Memory — Past Confirmed Fixes
+The following causes have been CONFIRMED by real users fixing this exact issue on similar vehicles:
+
+${lines.join("\n")}
+
+${highConfidence.length > 0 
+  ? `HIGH CONFIDENCE: "${highConfidence[0].confirmed_cause}" has a ${Math.round(highConfidence[0].confidence_score * 100)}% success rate across ${highConfidence[0].success_count} confirmed fixes. Prioritize this as the most likely cause and order your diagnostic steps to test it early. Don't skip other causes — but weight this one heavily.`
+  : `Use these as informed priors for your Bayesian elimination. Weight these causes higher in your initial probability distribution, but verify through testing.`}
+`;
+    }
+
+    // --- Fetch user's past diagnosis history for this vehicle ---
+    let userHistoryBlock = "";
+    try {
+      const { data: pastDiagnoses } = await supabase
+        .from("diagnosis_sessions")
+        .select("symptom, confirmed_cause, status, confidence_score")
+        .eq("vehicle_id", vehicleId)
+        .eq("user_id", userId)
+        .in("status", ["concluded", "completed"])
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (pastDiagnoses && pastDiagnoses.length > 0) {
+        const historyLines = pastDiagnoses.map((d: any) => 
+          `- Symptom: "${d.symptom}" → ${d.confirmed_cause ? `Confirmed: ${d.confirmed_cause}` : `Status: ${d.status}`}`
+        );
+        userHistoryBlock = `\n\n## This Vehicle's Diagnostic History
+Previous diagnoses on this exact vehicle:
+${historyLines.join("\n")}
+
+Use this history to identify patterns. If this vehicle has had repeated electrical issues, check grounds first. If there's a history of oil-related problems, consider systemic causes.`;
+      }
+    } catch (e) {
+      console.error("Failed to fetch diagnosis history (non-fatal):", e);
+    }
+
     // --- Fetch factory manual data ---
     const charmData = await fetchCharmData(supabase, vehicle, symptom);
 
@@ -677,7 +747,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + factorySystemAddition },
+          { role: "system", content: SYSTEM_PROMPT + patternContextBlock + userHistoryBlock + factorySystemAddition },
           { role: "user", content: userMessage },
         ],
       }),
@@ -715,6 +785,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
               role: "system",
               content:
                 SYSTEM_PROMPT +
+                patternContextBlock + userHistoryBlock +
                 factorySystemAddition +
                 "\n\nCRITICAL: Return ONLY raw JSON. No markdown fences. No explanation. Start with { and end with }. Nothing else.",
             },
@@ -845,6 +916,19 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
               charmUrl: factorySourceUrl,
               imageCount: mergedImages.length,
               hasFactoryData: true,
+            }
+          : null,
+        patternMatch: highConfidence.length > 0
+          ? {
+              confidence: Math.round(highConfidence[0].confidence_score * 100),
+              confirmedFixes: highConfidence[0].success_count,
+              topCause: highConfidence[0].confirmed_cause,
+            }
+          : moderateConfidence.length > 0
+          ? {
+              confidence: Math.round(moderateConfidence[0].confidence_score * 100),
+              confirmedFixes: moderateConfidence[0].success_count,
+              topCause: moderateConfidence[0].confirmed_cause,
             }
           : null,
       }),

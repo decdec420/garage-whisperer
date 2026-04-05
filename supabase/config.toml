@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.fetch-manual-data]
 verify_jwt = false
+
+[functions.cache-diagnostic-pattern]
+verify_jwt = false

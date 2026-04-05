@@ -449,6 +449,26 @@ export default function ProjectDetail() {
       setFeedbackSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ['diagnosis-feedback', projectId] });
       toast.success(type === 'post_repair_fixed' ? 'Great — glad it worked!' : 'Thanks for the feedback');
+
+      // Cache diagnostic pattern for Ratchet's learning system
+      if (linkedDiagnosis?.id) {
+        try {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          if (token) {
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cache-diagnostic-pattern`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                diagnosisSessionId: linkedDiagnosis.id,
+                feedbackType: type,
+              }),
+            }).catch(() => { /* fire and forget */ });
+          }
+        } catch { /* non-critical */ }
+      }
     } catch { toast.error('Failed to save feedback'); }
     setFeedbackLoading(false);
   };
