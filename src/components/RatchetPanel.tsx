@@ -614,9 +614,11 @@ How to help:
               <Plus className="h-4 w-4" />
             </button>
           )}
-          <button onClick={() => setShowSessions(!showSessions)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="Chat history">
-            <Clock className="h-4 w-4" />
-          </button>
+          {!isDiagnosisMode && (
+            <button onClick={() => setShowSessions(!showSessions)} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="Chat history">
+              <Clock className="h-4 w-4" />
+            </button>
+          )}
           <button onClick={closeRatchetPanel} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors">
             <X className="h-4 w-4" />
           </button>
