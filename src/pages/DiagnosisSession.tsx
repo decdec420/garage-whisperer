@@ -863,6 +863,9 @@ export default function DiagnosisSession() {
       ...(result === 'faulty' ? { conclusion: diagMeta?.systemTesting || step.title, conclusion_confidence: confidenceScore || 90, status: 'resolved' } : {}),
     } as any).eq('id', diagnosisId!);
 
+    // Track completed step locally so go-back button renders immediately
+    setLocallyCompletedSteps(prev => new Set(prev).add(stepId));
+
     // Advance currentStepIndex synchronously so buttons appear on next step immediately
     if (result === 'healthy') {
       const stepIdx = (steps || []).findIndex(s => s.id === stepId);
