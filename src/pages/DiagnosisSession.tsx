@@ -856,7 +856,80 @@ export default function DiagnosisSession() {
     }
   };
 
-  const createRepairProject = async () => {
+  const undoStepResult = async (stepId: string) => {
+    const step = steps?.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Reset the step status
+    await supabase.from('project_steps').update({ status: null, completed_at: null }).eq('id', stepId);
+
+    // Recalculate tree from remaining completed steps
+    const allSteps = steps || [];
+    const remainingCompleted = allSteps.filter(s => s.id !== stepId && (s.status === 'healthy' || s.status === 'faulty'));
+
+    // Reset tree nodes - rebuild from scratch based on remaining completed steps
+    const resetTree = treeNodes.map(n => ({ ...n, status: 'untested' as const }));
+    for (const s of remainingCompleted) {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      if (s.status === 'healthy' && meta?.eliminates) {
+        resetTree.forEach(n => {
+          if (meta.eliminates.some((e: string) => n.cause.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.cause.toLowerCase())))
+            n.status = 'healthy';
+        });
+      }
+      if (s.status === 'faulty' && meta?.confirms) {
+        resetTree.forEach(n => {
+          if (meta.confirms.some((c: string) => n.cause.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.cause.toLowerCase())))
+            n.status = 'faulty';
+        });
+      }
+    }
+
+    // Set first untested to testing
+    const firstUntested = resetTree.findIndex(n => n.status === 'untested');
+    if (firstUntested >= 0) resetTree[firstUntested].status = 'testing';
+
+    // Recalculate confidence
+    const completedForConfidence = remainingCompleted.map(s => {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      return { result: s.status, eliminates: meta?.eliminates, confirms: meta?.confirms };
+    });
+
+    const possibleCauses = resetTree.map(n => n.cause);
+    const { score: confidenceScore, confirmedCause, probs } = calculateConfidence(possibleCauses, completedForConfidence) as any;
+
+    if (probs) {
+      resetTree.forEach(n => { if (probs[n.cause] !== undefined) n.probability = probs[n.cause]; });
+    }
+
+    setTreeNodes(resetTree);
+
+    // Update diagnosis session - revert to in_progress if was resolved
+    const hasFaulty = resetTree.some(n => n.status === 'faulty');
+    const testsSummary = remainingCompleted.map(s => {
+      let meta: any = null;
+      try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
+      return { step_number: s.step_number, step_title: s.title, result: s.status, eliminated: s.status === 'healthy' ? (meta?.eliminates || []) : [], confirmed: s.status === 'faulty' ? (meta?.confirms || []) : [] };
+    });
+
+    await supabase.from('diagnosis_sessions').update({
+      tree_data: resetTree,
+      updated_at: new Date().toISOString(),
+      confidence_score: confidenceScore || 0,
+      confirmed_cause: hasFaulty ? confirmedCause : null,
+      tests_summary: testsSummary,
+      ...(!hasFaulty ? { conclusion: null, conclusion_confidence: null, status: 'in_progress' } : {}),
+    } as any).eq('id', diagnosisId!);
+
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+
+    toast.success('Step result undone', { description: 'You can re-test this step' });
+  };
+
+
     if (!vehicle || !diagSession || !user) return;
     setIsCreatingRepair(true);
     const faultyNode = treeNodes.find(n => n.status === 'faulty');
