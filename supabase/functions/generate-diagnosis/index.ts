@@ -743,7 +743,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
         .update({
           project_id: project.id,
           tree_data: plan.possibleCauses
-            ? plan.possibleCauses.map((c: string) => ({ name: c, status: "untested" }))
+            ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
             : [],
         })
         .eq("id", diagnosisId);
