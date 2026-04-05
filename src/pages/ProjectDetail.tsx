@@ -360,6 +360,7 @@ export default function ProjectDetail() {
     },
     onSuccess: (_data, stepId) => {
       queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
       // Auto-check all sub-steps for the completed step
       const step = steps.find(s => s.id === stepId);
       if (step?.sub_steps?.length) {
