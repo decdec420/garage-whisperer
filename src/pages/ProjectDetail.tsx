@@ -348,8 +348,16 @@ export default function ProjectDetail() {
         status: 'done', completed_at: new Date().toISOString(),
       }).eq('id', stepId);
     },
-    onSuccess: () => {
+    onSuccess: (_data, stepId) => {
       queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      // Auto-check all sub-steps for the completed step
+      const step = steps.find(s => s.id === stepId);
+      if (step?.sub_steps?.length) {
+        setCheckedSubSteps(prev => ({
+          ...prev,
+          [stepId]: new Set(step.sub_steps!.map((_, i) => i)),
+        }));
+      }
       const nextIdx = activeStepIdx + 1;
       if (nextIdx < steps.length) {
         setActiveStepIdx(nextIdx);
