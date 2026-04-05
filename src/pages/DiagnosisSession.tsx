@@ -758,13 +758,13 @@ export default function DiagnosisSession() {
 
     await supabase.from('project_steps').update({ status: result, completed_at: new Date().toISOString() }).eq('id', stepId);
 
-    // Track step event
-    supabase.from('diagnosis_step_events').insert({
+    // Track step event (table not yet in generated types, use rpc-style insert)
+    (supabase as any).from('diagnosis_step_events').insert({
       diagnosis_session_id: diagnosisId!,
       step_number: step.step_number,
       event_type: result === 'healthy' ? 'step_passed' : 'step_failed',
       time_on_step_seconds: timeOnStep ?? null,
-    } as any).then(() => {});
+    }).then(() => {});
 
     let diagMeta: any = null;
     try { if (step.notes) diagMeta = JSON.parse(step.notes); } catch {}
