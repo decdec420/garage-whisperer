@@ -125,29 +125,38 @@ function DiagStepCard({
       ? `❌ ${step.title} — problem found`
       : `✅ ${step.title} — healthy`;
     return (
-      <button onClick={() => setIsOpen(true)}
-        className={cn(
-          "w-full text-left rounded-xl border border-border border-l-4 p-4 transition-all",
-          step.status === 'faulty' ? 'border-l-destructive bg-destructive/5' : 'border-l-green-500 bg-green-500/5',
-        )}>
-        <div className="flex items-center gap-3">
-          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
-            step.status === 'faulty' ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'
-          )}>
-            {step.status === 'faulty' ? '✗' : '✓'}
+      <div className={cn(
+        "w-full rounded-xl border border-border border-l-4 p-4 transition-all",
+        step.status === 'faulty' ? 'border-l-destructive bg-destructive/5' : 'border-l-green-500 bg-green-500/5',
+      )}>
+        <button onClick={() => setIsOpen(true)} className="w-full text-left">
+          <div className="flex items-center gap-3">
+            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+              step.status === 'faulty' ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'
+            )}>
+              {step.status === 'faulty' ? '✗' : '✓'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{resultLabel}</p>
+              {step.status === 'healthy' && eliminates.length > 0 && (
+                <p className="text-[11px] text-green-500 mt-0.5">🔍 Ruled out: {eliminates.join(', ')}</p>
+              )}
+              {step.status === 'faulty' && confirms.length > 0 && (
+                <p className="text-[11px] text-destructive mt-0.5">🎯 Confirmed: {confirms.join(', ')}</p>
+              )}
+            </div>
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">{resultLabel}</p>
-            {step.status === 'healthy' && eliminates.length > 0 && (
-              <p className="text-[11px] text-green-500 mt-0.5">🔍 Ruled out: {eliminates.join(', ')}</p>
-            )}
-            {step.status === 'faulty' && confirms.length > 0 && (
-              <p className="text-[11px] text-destructive mt-0.5">🎯 Confirmed: {confirms.join(', ')}</p>
-            )}
-          </div>
-          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+        <div className="mt-2 text-center">
+          <button
+            onClick={() => onUndoResult(step.id)}
+            className="text-[11px] text-muted-foreground hover:text-destructive transition-colors underline"
+          >
+            ↩ Undo
+          </button>
         </div>
-      </button>
+      </div>
     );
   }
 
