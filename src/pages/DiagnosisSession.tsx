@@ -868,27 +868,27 @@ export default function DiagnosisSession() {
     const remainingCompleted = allSteps.filter(s => s.id !== stepId && (s.status === 'healthy' || s.status === 'faulty'));
 
     // Reset tree nodes - rebuild from scratch based on remaining completed steps
-    const resetTree = treeNodes.map(n => ({ ...n, status: 'untested' as const }));
+    const resetTree: TreeNode[] = treeNodes.map(n => ({ ...n, status: 'untested' as const }));
     for (const s of remainingCompleted) {
       let meta: any = null;
       try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
       if (s.status === 'healthy' && meta?.eliminates) {
         resetTree.forEach(n => {
           if (meta.eliminates.some((e: string) => n.cause.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase().includes(n.cause.toLowerCase())))
-            n.status = 'healthy';
+            (n as any).status = 'healthy';
         });
       }
       if (s.status === 'faulty' && meta?.confirms) {
         resetTree.forEach(n => {
           if (meta.confirms.some((c: string) => n.cause.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(n.cause.toLowerCase())))
-            n.status = 'faulty';
+            (n as any).status = 'faulty';
         });
       }
     }
 
     // Set first untested to testing
     const firstUntested = resetTree.findIndex(n => n.status === 'untested');
-    if (firstUntested >= 0) resetTree[firstUntested].status = 'testing';
+    if (firstUntested >= 0) (resetTree[firstUntested] as any).status = 'testing';
 
     // Recalculate confidence
     const completedForConfidence = remainingCompleted.map(s => {
