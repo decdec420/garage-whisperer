@@ -955,6 +955,8 @@ export default function DiagnosisSession() {
     // Set currentStepIndex to the undone step so it becomes active with result buttons
     const stepIdx = (steps || []).findIndex(s => s.id === stepId);
     if (stepIdx >= 0) setCurrentStepIndex(stepIdx);
+    // Remove from local tracking
+    setLocallyCompletedSteps(prev => { const next = new Set(prev); next.delete(stepId); return next; });
 
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
