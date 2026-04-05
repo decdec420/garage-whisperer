@@ -579,8 +579,8 @@ export default function ProjectDetail() {
               Log this repair
             </Button>
             <Button variant="ghost" className="w-full text-muted-foreground"
-              onClick={() => navigate(`/garage/${vehicleId}`)}>
-              Skip — Back to garage
+              onClick={() => navigate(`/garage/${vehicleId}?tab=projects`)}>
+              Skip — Back to Projects
             </Button>
           </div>
         </div>
