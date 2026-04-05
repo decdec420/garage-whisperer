@@ -180,6 +180,108 @@ function RatchetMarkdown({ content }: { content: string }) {
   );
 }
 
+// ─── Parse [ACTION:CREATE_PROJECT:cause] markers ───
+const ACTION_RE = /\[ACTION:CREATE_PROJECT:([^\]]+)\]/g;
+
+function parseProjectAction(content: string): { cleanContent: string; projectCause: string | null } {
+  const match = ACTION_RE.exec(content);
+  ACTION_RE.lastIndex = 0; // reset regex
+  if (!match) return { cleanContent: content, projectCause: null };
+  const cleanContent = content.replace(ACTION_RE, '').trim();
+  return { cleanContent, projectCause: match[1].trim() };
+}
+
+function CreateProjectButton({
+  cause,
+  vehicleId,
+  diagnosisSessionId,
+  symptom,
+}: {
+  cause: string;
+  vehicleId: string;
+  diagnosisSessionId?: string;
+  symptom?: string;
+}) {
+  const navigate = useNavigate();
+  const [isCreating, setIsCreating] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const jobDescription = `Replace/repair ${cause}${symptom ? `. Diagnosed from symptom: "${symptom}"` : ''}`;
+
+      const diagnosisContext = diagnosisSessionId ? {
+        confirmedCause: cause,
+        symptom: symptom || cause,
+        testsPerformed: [],
+        testsRuledOut: [],
+        accessPathDiscovered: [],
+        componentHardware: undefined,
+        accessHardware: [],
+      } : undefined;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-project`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            vehicleId,
+            jobDescription,
+            diagnosisContext,
+            diagnosisId: diagnosisSessionId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to generate project');
+      }
+
+      const data = await response.json();
+      const projectId = data?.project?.id || data?.projectId;
+      if (!projectId) throw new Error('No project ID returned');
+
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+      toast.success(`Repair project created for ${cause}`);
+      navigate(`/garage/${vehicleId}/projects/${projectId}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'Failed to create repair project');
+    }
+    setIsCreating(false);
+  };
+
+  return (
+    <button
+      onClick={handleCreate}
+      disabled={isCreating}
+      className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-all py-3 px-4 text-sm font-semibold"
+    >
+      {isCreating ? (
+        <>
+          <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+          Building repair plan...
+        </>
+      ) : (
+        <>
+          <Wrench className="h-4 w-4" />
+          🔧 Create Repair Project — {cause}
+        </>
+      )}
+    </button>
+  );
+}
+
 // extractMemories is now imported from @/lib/ratchet-chat
 
 async function fileToBase64(file: File): Promise<string> {
