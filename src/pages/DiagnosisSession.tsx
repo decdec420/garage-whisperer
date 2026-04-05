@@ -1398,9 +1398,8 @@ export default function DiagnosisSession() {
                         onMarkResult={markStepResult}
                         onUndoResult={undoStepResult}
                         onGoBack={() => {
-                          // Find the previous completed step and undo it
                           const prevStep = steps?.[i - 1];
-                          if (prevStep && (prevStep.status === 'healthy' || prevStep.status === 'faulty')) {
+                          if (prevStep && (prevStep.status === 'healthy' || prevStep.status === 'faulty' || locallyCompletedSteps.has(prevStep.id))) {
                             undoStepResult(prevStep.id);
                           }
                         }}
