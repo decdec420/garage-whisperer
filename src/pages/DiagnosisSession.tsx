@@ -409,6 +409,18 @@ function DiagStepCard({
               </button>
             </>
           )}
+
+          {/* Undo button for completed steps when expanded */}
+          {isCompleted && (
+            <div className="text-center pt-1">
+              <button
+                onClick={() => onUndoResult(step.id)}
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+              >
+                ↩ Undo — I made a mistake
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
