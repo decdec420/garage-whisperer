@@ -133,6 +133,80 @@ export type Database = {
           },
         ]
       }
+      diagnosis_feedback: {
+        Row: {
+          confirmed_cause_at_feedback: string | null
+          created_at: string | null
+          diagnosis_session_id: string | null
+          feedback_type: string | null
+          id: string
+          is_repeat_of_session_id: string | null
+          notes: string | null
+          project_id: string | null
+          repeat_type: string | null
+          resolution_details: string | null
+          user_id: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          confirmed_cause_at_feedback?: string | null
+          created_at?: string | null
+          diagnosis_session_id?: string | null
+          feedback_type?: string | null
+          id?: string
+          is_repeat_of_session_id?: string | null
+          notes?: string | null
+          project_id?: string | null
+          repeat_type?: string | null
+          resolution_details?: string | null
+          user_id: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          confirmed_cause_at_feedback?: string | null
+          created_at?: string | null
+          diagnosis_session_id?: string | null
+          feedback_type?: string | null
+          id?: string
+          is_repeat_of_session_id?: string | null
+          notes?: string | null
+          project_id?: string | null
+          repeat_type?: string | null
+          resolution_details?: string | null
+          user_id?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_feedback_diagnosis_session_id_fkey"
+            columns: ["diagnosis_session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_feedback_is_repeat_of_session_id_fkey"
+            columns: ["is_repeat_of_session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_feedback_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diagnosis_feedback_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diagnosis_sessions: {
         Row: {
           access_paths_used: string[] | null
@@ -217,6 +291,44 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnosis_step_events: {
+        Row: {
+          confidence_at_event: number | null
+          created_at: string | null
+          diagnosis_session_id: string | null
+          event_type: string | null
+          id: string
+          step_number: number
+          time_on_step_seconds: number | null
+        }
+        Insert: {
+          confidence_at_event?: number | null
+          created_at?: string | null
+          diagnosis_session_id?: string | null
+          event_type?: string | null
+          id?: string
+          step_number: number
+          time_on_step_seconds?: number | null
+        }
+        Update: {
+          confidence_at_event?: number | null
+          created_at?: string | null
+          diagnosis_session_id?: string | null
+          event_type?: string | null
+          id?: string
+          step_number?: number
+          time_on_step_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnosis_step_events_diagnosis_session_id_fkey"
+            columns: ["diagnosis_session_id"]
+            isOneToOne: false
+            referencedRelation: "diagnosis_sessions"
             referencedColumns: ["id"]
           },
         ]
