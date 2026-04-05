@@ -252,6 +252,44 @@ function ChatContent() {
     }
   }, [ratchetPrefilledMessage, isRatchetOpen]);
 
+  // In diagnosis mode, fetch/create a dedicated chat session linked to the diagnosis
+  const { data: diagnosisChatSessionId } = useQuery({
+    queryKey: ['diagnosis-chat-session', ratchetDiagnosisContext?.sessionId],
+    queryFn: async () => {
+      const diagId = ratchetDiagnosisContext!.sessionId;
+      // Check if diagnosis already has a linked chat session
+      const { data: diag } = await supabase.from('diagnosis_sessions')
+        .select('chat_session_id')
+        .eq('id', diagId)
+        .single();
+      if (diag?.chat_session_id) return diag.chat_session_id;
+      // Create one and link it
+      const { data: newSession, error } = await supabase.from('chat_sessions')
+        .insert({
+          user_id: user!.id,
+          vehicle_id: activeVehicle?.id || null,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      // Set title and link to diagnosis
+      const title = `Diagnosis: ${ratchetDiagnosisContext!.symptom.slice(0, 50)}`;
+      await supabase.from('chat_sessions').update({ title }).eq('id', newSession.id);
+      await supabase.from('diagnosis_sessions')
+        .update({ chat_session_id: newSession.id })
+        .eq('id', diagId);
+      return newSession.id;
+    },
+    enabled: !!user && isRatchetOpen && isDiagnosisMode,
+  });
+
+  // Auto-set the active session in diagnosis mode
+  useEffect(() => {
+    if (isDiagnosisMode && diagnosisChatSessionId) {
+      setActiveSessionId(diagnosisChatSessionId);
+    }
+  }, [diagnosisChatSessionId, isDiagnosisMode]);
+
   const { data: sessions } = useQuery({
     queryKey: ['ratchet-sessions', activeVehicle?.id, ratchetProjectContext?.id],
     queryFn: async () => {
@@ -273,7 +311,7 @@ function ChatContent() {
         return data;
       }
     },
-    enabled: !!user && isRatchetOpen,
+    enabled: !!user && isRatchetOpen && !isDiagnosisMode,
   });
 
   const { data: generalSessions } = useQuery({
@@ -292,8 +330,10 @@ function ChatContent() {
   });
 
   useEffect(() => {
-    setActiveSessionId(null);
-    setMessages([]);
+    if (!isDiagnosisMode) {
+      setActiveSessionId(null);
+      setMessages([]);
+    }
   }, [activeVehicle?.id, ratchetProjectContext?.id]);
 
   // Handle openRatchetWithSession — load a specific session from store
@@ -306,7 +346,7 @@ function ChatContent() {
   }, [ratchetActiveSessionId, isRatchetOpen]);
 
   useEffect(() => {
-    if (sessions?.length && !activeSessionId && !messages.length) {
+    if (!isDiagnosisMode && sessions?.length && !activeSessionId && !messages.length) {
       setActiveSessionId(sessions[0].id);
     }
   }, [sessions]);
