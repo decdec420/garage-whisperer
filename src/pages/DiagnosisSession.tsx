@@ -72,11 +72,12 @@ function CauseCard({ node, onClick }: { node: TreeNode; onClick: () => void }) {
 // ─── Diagnostic Step Card ───
 function DiagStepCard({
   step, isActive, isCompleted, stepTools, vehicle, diagSession, treeNodes,
-  onMarkResult, onImageClick, onAskRatchet, onCapturePhoto, diagnosisId,
+  onMarkResult, onUndoResult, onImageClick, onAskRatchet, onCapturePhoto, diagnosisId,
 }: {
   step: StepRow; isActive: boolean; isCompleted: boolean; stepTools?: ToolRow[];
   vehicle: any; diagSession: any; treeNodes: TreeNode[];
   onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => void;
+  onUndoResult: (stepId: string) => void;
   onImageClick?: (url: string) => void;
   onAskRatchet: (prefill: string) => void;
   onCapturePhoto: (stepId: string) => void;
