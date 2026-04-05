@@ -1137,7 +1137,7 @@ export default function DiagnosisSession() {
   const mediaCount = Array.isArray(diagSession.media_urls) ? diagSession.media_urls.length : 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Hidden photo input */}
       <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoCapture} />
 
