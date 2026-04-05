@@ -631,6 +631,7 @@ export default function DiagnosisSession() {
 
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [locallyCompletedSteps, setLocallyCompletedSteps] = useState<Set<string>>(new Set());
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
   const [activeTab, setActiveTab] = useState('steps');
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
