@@ -1,52 +1,150 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Wrench, DollarSign, Trash2, TrendingDown } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Wrench, DollarSign, TrendingDown, ChevronDown, Clock,
+  Zap, Cog, Thermometer, Gauge, Shield, Car, Fuel, Eye,
+  Calendar,
+} from 'lucide-react';
+import { format, getYear } from 'date-fns';
+import { cn } from '@/lib/utils';
+
+// Categorize repairs by vehicle system
+const SYSTEM_CATEGORIES: { key: string; label: string; icon: any; keywords: string[] }[] = [
+  { key: 'engine', label: 'Engine & Drivetrain', icon: Cog, keywords: ['engine', 'motor', 'timing', 'head gasket', 'valve', 'piston', 'crankshaft', 'camshaft', 'oil pump', 'intake', 'exhaust', 'turbo', 'supercharger', 'throttle'] },
+  { key: 'transmission', label: 'Transmission & Clutch', icon: Gauge, keywords: ['transmission', 'clutch', 'gear', 'torque converter', 'differential', 'driveshaft', 'cv joint', 'cv axle', 'transfer case'] },
+  { key: 'cooling', label: 'Cooling & A/C', icon: Thermometer, keywords: ['coolant', 'radiator', 'thermostat', 'water pump', 'heater', 'a/c', 'ac ', 'condenser', 'compressor', 'evaporator', 'refrigerant', 'fan', 'cooling'] },
+  { key: 'electrical', label: 'Electrical & Lighting', icon: Zap, keywords: ['battery', 'alternator', 'starter', 'wiring', 'fuse', 'relay', 'sensor', 'light', 'headlight', 'taillight', 'signal', 'electrical', 'module', 'ecu', 'pcm'] },
+  { key: 'brakes', label: 'Brakes & Safety', icon: Shield, keywords: ['brake', 'rotor', 'pad', 'caliper', 'abs', 'master cylinder', 'brake line', 'parking brake', 'drum'] },
+  { key: 'suspension', label: 'Suspension & Steering', icon: Car, keywords: ['suspension', 'strut', 'shock', 'spring', 'control arm', 'ball joint', 'tie rod', 'wheel bearing', 'hub', 'alignment', 'steering', 'rack', 'sway bar', 'bushing'] },
+  { key: 'fuel', label: 'Fuel System', icon: Fuel, keywords: ['fuel', 'injector', 'fuel pump', 'fuel filter', 'fuel line', 'gas', 'carburetor'] },
+  { key: 'body', label: 'Body & Interior', icon: Eye, keywords: ['body', 'paint', 'dent', 'bumper', 'fender', 'door', 'window', 'mirror', 'seat', 'dash', 'carpet', 'trim', 'weather strip', 'windshield', 'wiper'] },
+];
+
+function categorizeRepair(title: string, description: string | null): string {
+  const text = `${title} ${description || ''}`.toLowerCase();
+  for (const cat of SYSTEM_CATEGORIES) {
+    if (cat.keywords.some(kw => text.includes(kw))) return cat.key;
+  }
+  return 'other';
+}
+
+interface Repair {
+  id: string;
+  title: string;
+  date: string;
+  mileage: number | null;
+  diy_cost: number | null;
+  shop_quote: number | null;
+  total_cost: number | null;
+  difficulty: number | null;
+  labor_hours: number | null;
+  description: string | null;
+  notes: string | null;
+}
 
 export default function RepairsTab({ vehicleId }: { vehicleId: string }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const queryClient = useQueryClient();
-
   const { data: repairs, isLoading } = useQuery({
     queryKey: ['repairs', vehicleId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('repair_logs').select('id, title, date, mileage, diy_cost, shop_quote, total_cost, difficulty, labor_hours, description, notes').eq('vehicle_id', vehicleId).order('date', { ascending: false });
+      const { data, error } = await supabase.from('repair_logs')
+        .select('id, title, date, mileage, diy_cost, shop_quote, total_cost, difficulty, labor_hours, description, notes')
+        .eq('vehicle_id', vehicleId)
+        .order('date', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as Repair[];
     },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('repair_logs').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['repairs', vehicleId] }); toast.success('Deleted'); },
   });
 
   const totalCost = repairs?.reduce((a, r) => a + (Number(r.diy_cost) || Number(r.total_cost) || 0), 0) ?? 0;
   const totalSavings = repairs?.reduce((a, r) => a + Math.max(0, (Number(r.shop_quote) || 0) - (Number(r.diy_cost) || 0)), 0) ?? 0;
+  const totalHours = repairs?.reduce((a, r) => a + (Number(r.labor_hours) || 0), 0) ?? 0;
+
+  // Group repairs by system category
+  const grouped = useMemo(() => {
+    if (!repairs?.length) return [];
+    const map = new Map<string, Repair[]>();
+    repairs.forEach(r => {
+      const cat = categorizeRepair(r.title, r.description);
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(r);
+    });
+
+    // Build result with category metadata, sorted by most recent repair
+    const result: { key: string; label: string; icon: any; repairs: Repair[]; totalCost: number }[] = [];
+    for (const [key, reps] of map) {
+      const cat = SYSTEM_CATEGORIES.find(c => c.key === key);
+      result.push({
+        key,
+        label: cat?.label || 'Other Repairs',
+        icon: cat?.icon || Wrench,
+        repairs: reps,
+        totalCost: reps.reduce((a, r) => a + (Number(r.diy_cost) || Number(r.total_cost) || 0), 0),
+      });
+    }
+    return result.sort((a, b) => {
+      const aDate = new Date(a.repairs[0].date).getTime();
+      const bDate = new Date(b.repairs[0].date).getTime();
+      return bDate - aDate;
+    });
+  }, [repairs]);
+
+  // Group by year for timeline
+  const years = useMemo(() => {
+    if (!repairs?.length) return [];
+    const ySet = new Set(repairs.map(r => getYear(new Date(r.date))));
+    return Array.from(ySet).sort((a, b) => b - a);
+  }, [repairs]);
+
+  const [view, setView] = useState<'system' | 'timeline'>('system');
 
   return (
     <div className="space-y-6 mt-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Repair History</h2>
-        <Button size="sm" onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1" /> Log Repair</Button>
+        <div className="flex gap-1 bg-muted rounded-lg p-0.5">
+          <button
+            onClick={() => setView('system')}
+            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              view === 'system' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            By System
+          </button>
+          <button
+            onClick={() => setView('timeline')}
+            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              view === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Timeline
+          </button>
+        </div>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Cost</p><p className="text-lg font-bold">${totalCost.toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">DIY Savings</p><p className="text-lg font-bold text-success">${totalSavings.toLocaleString()}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Repairs</p><p className="text-lg font-bold">{repairs?.length ?? 0}</p></CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Total Invested</p>
+          <p className="text-lg font-bold">${totalCost.toLocaleString()}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">DIY Savings</p>
+          <p className="text-lg font-bold text-success">${totalSavings.toLocaleString()}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Repairs Done</p>
+          <p className="text-lg font-bold">{repairs?.length ?? 0}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Wrench Time</p>
+          <p className="text-lg font-bold">{totalHours.toFixed(1)}h</p>
+        </CardContent></Card>
       </div>
 
       {totalSavings > 0 && (
@@ -56,112 +154,161 @@ export default function RepairsTab({ vehicleId }: { vehicleId: string }) {
         </div>
       )}
 
+      {/* Content */}
       {isLoading ? (
-        <div className="space-y-3">{[1, 2].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
       ) : !repairs?.length ? (
-        <div className="flex flex-col items-center py-12 text-center">
-          <Wrench className="h-10 w-10 text-muted-foreground mb-3" />
-          <p className="font-medium">No repairs recorded</p>
-          <p className="text-sm text-muted-foreground mb-4">Log a repair to track your costs and DIY savings</p>
-          <Button onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add first repair</Button>
+        <div className="flex flex-col items-center py-16 text-center">
+          <Wrench className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="font-semibold text-lg">No repairs yet</p>
+          <p className="text-sm text-muted-foreground max-w-xs mt-1">
+            Complete a project and click "Log this repair" to start tracking your repair history automatically.
+          </p>
         </div>
+      ) : view === 'system' ? (
+        <SystemView groups={grouped} />
       ) : (
-        <div className="space-y-3">
-          {repairs.map(r => (
-            <Card key={r.id} className="border-border hover:border-primary/20 transition-colors group">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium">{r.title}</p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                      <span>{format(new Date(r.date), 'MMM d, yyyy')}</span>
-                      {r.mileage && <span>{r.mileage.toLocaleString()} mi</span>}
-                      {r.difficulty && (
-                        <span className="flex items-center gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Wrench key={i} className={`h-3 w-3 ${i < r.difficulty! ? 'text-primary' : 'text-muted'}`} />
-                          ))}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs mt-2">
-                      {r.diy_cost != null && <span>DIY: ${Number(r.diy_cost).toFixed(0)}</span>}
-                      {r.shop_quote != null && <span className="text-muted-foreground">Shop: ${Number(r.shop_quote).toFixed(0)}</span>}
-                      {r.shop_quote != null && r.diy_cost != null && Number(r.shop_quote) > Number(r.diy_cost) && (
-                        <span className="text-success font-medium">Saved ${(Number(r.shop_quote) - Number(r.diy_cost)).toFixed(0)}</span>
-                      )}
-                    </div>
-                    {r.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{r.description}</p>}
-                  </div>
-                  <button onClick={() => deleteMutation.mutate(r.id)} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <TimelineView repairs={repairs} years={years} />
       )}
-
-      <AddRepairModal open={modalOpen} onOpenChange={setModalOpen} vehicleId={vehicleId} />
     </div>
   );
 }
 
-function AddRepairModal({ open, onOpenChange, vehicleId }: { open: boolean; onOpenChange: (o: boolean) => void; vehicleId: string }) {
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState({ title: '', date: '', mileage: '', description: '', diy_cost: '', shop_quote: '', difficulty: '', notes: '' });
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
-  const savings = Math.max(0, (parseFloat(form.shop_quote) || 0) - (parseFloat(form.diy_cost) || 0));
+function SystemView({ groups }: { groups: { key: string; label: string; icon: any; repairs: Repair[]; totalCost: number }[] }) {
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(groups.map(g => g.key)));
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!form.title || !form.date) throw new Error('Title and date required');
-      const { error } = await supabase.from('repair_logs').insert({
-        vehicle_id: vehicleId,
-        title: form.title,
-        date: form.date,
-        mileage: form.mileage ? parseInt(form.mileage) : null,
-        description: form.description || null,
-        diy_cost: form.diy_cost ? parseFloat(form.diy_cost) : null,
-        shop_quote: form.shop_quote ? parseFloat(form.shop_quote) : null,
-        difficulty: form.difficulty ? parseInt(form.difficulty) : null,
-        notes: form.notes || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repairs', vehicleId] });
-      toast.success('Repair logged');
-      onOpenChange(false);
-      setForm({ title: '', date: '', mileage: '', description: '', diy_cost: '', shop_quote: '', difficulty: '', notes: '' });
-    },
-    onError: (e) => toast.error(e.message),
-  });
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Log Repair</DialogTitle></DialogHeader>
-        <div className="space-y-3 mt-2">
-          <div><Label className="text-xs">Title *</Label><Input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Replaced starter motor" className="bg-popover" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs">Date *</Label><Input type="date" value={form.date} onChange={e => set('date', e.target.value)} className="bg-popover" /></div>
-            <div><Label className="text-xs">Mileage</Label><Input type="number" value={form.mileage} onChange={e => set('mileage', e.target.value)} className="bg-popover" /></div>
+    <div className="space-y-3">
+      {groups.map(group => {
+        const Icon = group.icon;
+        const isOpen = openGroups.has(group.key);
+        return (
+          <Collapsible key={group.key} open={isOpen} onOpenChange={() => toggleGroup(group.key)}>
+            <CollapsibleTrigger className="w-full">
+              <Card className={cn("border-border transition-colors", isOpen && "border-primary/30")}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-sm">{group.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {group.repairs.length} repair{group.repairs.length !== 1 ? 's' : ''} · ${group.totalCost.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">{group.repairs.length}</Badge>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                  </div>
+                </CardContent>
+              </Card>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="ml-5 border-l-2 border-primary/20 pl-4 mt-2 space-y-2">
+                {group.repairs.map(r => (
+                  <RepairCard key={r.id} repair={r} />
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimelineView({ repairs, years }: { repairs: Repair[]; years: number[] }) {
+  return (
+    <div className="space-y-6">
+      {years.map(year => {
+        const yearRepairs = repairs.filter(r => getYear(new Date(r.date)) === year);
+        const yearCost = yearRepairs.reduce((a, r) => a + (Number(r.diy_cost) || Number(r.total_cost) || 0), 0);
+        return (
+          <div key={year}>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-base font-bold">{year}</h3>
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground font-medium">
+                {yearRepairs.length} repair{yearRepairs.length !== 1 ? 's' : ''} · ${yearCost.toLocaleString()}
+              </span>
+            </div>
+            <div className="border-l-2 border-border pl-4 ml-2 space-y-2">
+              {yearRepairs.map(r => (
+                <RepairCard key={r.id} repair={r} />
+              ))}
+            </div>
           </div>
-          <div><Label className="text-xs">Description</Label><Textarea value={form.description} onChange={e => set('description', e.target.value)} className="bg-popover" rows={2} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs">DIY Cost ($)</Label><Input type="number" value={form.diy_cost} onChange={e => set('diy_cost', e.target.value)} className="bg-popover" /></div>
-            <div><Label className="text-xs">Shop Quote ($)</Label><Input type="number" value={form.shop_quote} onChange={e => set('shop_quote', e.target.value)} className="bg-popover" /></div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RepairCard({ repair: r }: { repair: Repair }) {
+  const savings = r.shop_quote != null && r.diy_cost != null ? Math.max(0, Number(r.shop_quote) - Number(r.diy_cost)) : 0;
+  const category = categorizeRepair(r.title, r.description);
+  const cat = SYSTEM_CATEGORIES.find(c => c.key === category);
+  const Icon = cat?.icon || Wrench;
+
+  return (
+    <Card className="border-border hover:border-primary/20 transition-colors">
+      <CardContent className="p-3">
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+            <Icon className="h-4 w-4 text-primary" />
           </div>
-          {savings > 0 && <p className="text-sm text-success font-medium">You'd save ${savings.toFixed(0)} doing it yourself!</p>}
-          <div><Label className="text-xs">Difficulty (1-5)</Label><Input type="number" min={1} max={5} value={form.difficulty} onChange={e => set('difficulty', e.target.value)} className="bg-popover" /></div>
-          <div><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="bg-popover" rows={2} /></div>
-          <Button className="w-full" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? 'Saving...' : 'Log Repair'}
-          </Button>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm">{r.title}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {format(new Date(r.date), 'MMM d, yyyy')}
+              </span>
+              {r.mileage && <span>{r.mileage.toLocaleString()} mi</span>}
+              {r.labor_hours && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />{r.labor_hours}h
+                </span>
+              )}
+              {r.difficulty && (
+                <span className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Wrench key={i} className={cn("h-2.5 w-2.5", i < r.difficulty! ? 'text-primary' : 'text-muted')} />
+                  ))}
+                </span>
+              )}
+            </div>
+            {/* Cost row */}
+            <div className="flex items-center gap-3 text-xs mt-1.5">
+              {r.diy_cost != null && (
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                  DIY: ${Number(r.diy_cost).toFixed(0)}
+                </span>
+              )}
+              {r.shop_quote != null && (
+                <span className="text-muted-foreground">Shop: ${Number(r.shop_quote).toFixed(0)}</span>
+              )}
+              {savings > 0 && (
+                <Badge variant="secondary" className="text-[10px] bg-success/10 text-success border-success/20">
+                  Saved ${savings.toFixed(0)}
+                </Badge>
+              )}
+            </div>
+            {r.description && <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{r.description}</p>}
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 }
