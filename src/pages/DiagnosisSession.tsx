@@ -1388,7 +1388,7 @@ export default function DiagnosisSession() {
                         step={step}
                         isActive={i === currentStepIndex}
                         isCompleted={step.status === 'healthy' || step.status === 'faulty'}
-                        hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty')}
+                        hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty' || locallyCompletedSteps.has(steps?.[i - 1]?.id))}
                         stepTools={tools?.filter(() => {
                           return true;
                         })}
