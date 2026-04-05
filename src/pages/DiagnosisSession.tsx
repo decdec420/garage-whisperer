@@ -705,7 +705,7 @@ export default function DiagnosisSession() {
 
   // Confidence calculation
   const calculateConfidence = (possibleCauses: string[], completedSteps: { result: 'healthy' | 'faulty'; eliminates?: string[]; confirms?: string[] }[]) => {
-    if (completedSteps.length < 2) return { score: null, confirmedCause: null };
+    if (completedSteps.length < 1) return { score: null, confirmedCause: null };
     const probs: Record<string, number> = {};
     possibleCauses.forEach((cause, i) => {
       if (i === 0) probs[cause] = 50;
@@ -1170,10 +1170,8 @@ export default function DiagnosisSession() {
                         step={step}
                         isActive={i === currentStepIndex}
                         isCompleted={step.status === 'healthy' || step.status === 'faulty'}
-                        stepTools={tools?.filter(t => {
-                          let meta: any = null;
-                          try { if (step.notes) meta = JSON.parse(step.notes); } catch {}
-                          return false;
+                        stepTools={tools?.filter(() => {
+                          return true;
                         })}
                         vehicle={vehicle}
                         diagSession={diagSession}
