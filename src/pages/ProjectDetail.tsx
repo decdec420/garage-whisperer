@@ -175,6 +175,7 @@ export default function ProjectDetail() {
   const [activeStepIdx, setActiveStepIdx] = useState(0);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   const [noteText, setNoteText] = useState('');
+  const [checkedSubSteps, setCheckedSubSteps] = useState<Record<string, Set<number>>>({});
   const [showCompletion, setShowCompletion] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
