@@ -434,6 +434,27 @@ export default function ProjectDetail() {
     );
   }
 
+  const submitFeedback = async (type: 'post_repair_fixed' | 'post_repair_not_fixed') => {
+    if (!user || !projectId) return;
+    setFeedbackLoading(true);
+    try {
+      await (supabase as any).from('diagnosis_feedback').insert({
+        project_id: projectId,
+        user_id: user.id,
+        vehicle_id: vehicleId,
+        diagnosis_session_id: linkedDiagnosis?.id || null,
+        feedback_type: type,
+        confirmed_cause_at_feedback: linkedDiagnosis?.confirmed_cause || null,
+      });
+      setFeedbackSubmitted(true);
+      queryClient.invalidateQueries({ queryKey: ['diagnosis-feedback', projectId] });
+      toast.success(type === 'post_repair_fixed' ? 'Great — glad it worked!' : 'Thanks for the feedback');
+    } catch { toast.error('Failed to save feedback'); }
+    setFeedbackLoading(false);
+  };
+
+  const showFeedbackPrompt = linkedDiagnosis && !feedbackSubmitted && (!existingFeedback || existingFeedback.length === 0);
+
   if (showCompletion) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 animate-fade-in">
@@ -442,6 +463,24 @@ export default function ProjectDetail() {
           <h1 className="text-3xl font-bold text-foreground">Job done.</h1>
           <p className="text-lg text-primary">{vehicleLabel}</p>
           <p className="text-muted-foreground">You spent {elapsedStr} on this repair</p>
+
+          {/* Post-repair feedback prompt */}
+          {showFeedbackPrompt && (
+            <div className="rounded-xl border border-border bg-card p-5 text-left max-w-sm mx-auto">
+              <p className="text-sm font-semibold text-foreground mb-3">Did this fix the original problem?</p>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1" disabled={feedbackLoading}
+                  onClick={() => submitFeedback('post_repair_fixed')}>
+                  ✅ Yes, it's fixed
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" disabled={feedbackLoading}
+                  onClick={() => submitFeedback('post_repair_not_fixed')}>
+                  ❌ No, still having issues
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3 pt-4">
             <Button size="lg" className="w-full bg-primary text-primary-foreground h-14 text-lg"
               onClick={() => { navigate(`/garage/${vehicleId}`); }}>
