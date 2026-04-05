@@ -752,11 +752,19 @@ export default function DiagnosisSession() {
     return { score: confirmedCause ? 95 : Math.round(Math.max(...Object.values(probs))), confirmedCause, probs };
   };
 
-  const markStepResult = async (stepId: string, result: 'healthy' | 'faulty', note?: string) => {
+  const markStepResult = async (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => {
     const step = steps?.find(s => s.id === stepId);
     if (!step) return;
 
     await supabase.from('project_steps').update({ status: result, completed_at: new Date().toISOString() }).eq('id', stepId);
+
+    // Track step event
+    supabase.from('diagnosis_step_events').insert({
+      diagnosis_session_id: diagnosisId!,
+      step_number: step.step_number,
+      event_type: result === 'healthy' ? 'step_passed' : 'step_failed',
+      time_on_step_seconds: timeOnStep ?? null,
+    } as any).then(() => {});
 
     let diagMeta: any = null;
     try { if (step.notes) diagMeta = JSON.parse(step.notes); } catch {}
