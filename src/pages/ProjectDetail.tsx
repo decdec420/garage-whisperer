@@ -599,9 +599,9 @@ export default function ProjectDetail() {
       </div>
       {/* Hero Header */}
       <div className="bg-card p-4 md:p-6 border-b border-border">
-        <button onClick={() => navigate(`/garage/${vehicleId}`)}
+        <button onClick={() => navigate(`/garage/${vehicleId}?tab=projects`)}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3">
-          <ArrowLeft className="h-4 w-4" /> Back
+          <ArrowLeft className="h-4 w-4" /> Back to Projects
         </button>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">

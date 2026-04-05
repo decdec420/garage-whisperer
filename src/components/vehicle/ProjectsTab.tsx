@@ -81,6 +81,19 @@ export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps
 
   const deleteProject = useMutation({
     mutationFn: async (id: string) => {
+      // Delete child records first to avoid FK constraint errors
+      await Promise.all([
+        supabase.from('project_steps').delete().eq('project_id', id),
+        supabase.from('project_parts').delete().eq('project_id', id),
+        supabase.from('project_tools').delete().eq('project_id', id),
+        supabase.from('project_notes').delete().eq('project_id', id),
+      ]);
+      // Unlink any diagnosis/chat sessions (set project_id to null)
+      await Promise.all([
+        supabase.from('diagnosis_sessions').update({ project_id: null }).eq('project_id', id),
+        supabase.from('chat_sessions').update({ project_id: null }).eq('project_id', id),
+        supabase.from('diagnosis_feedback').update({ project_id: null }).eq('project_id', id),
+      ]);
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
     },
