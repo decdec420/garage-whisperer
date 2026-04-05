@@ -667,6 +667,8 @@ export default function DiagnosisSession() {
           else if (i === 2) n.probability = 15;
           else n.probability = Math.max(1, Math.round(10 / Math.max(1, nodes.length - 3)));
         });
+        const total = nodes.reduce((s, n) => s + (n.probability || 0), 0);
+        if (total > 0) nodes.forEach(n => { n.probability = ((n.probability || 0) / total) * 100; });
       }
       setTreeNodes(nodes);
     }
@@ -713,6 +715,8 @@ export default function DiagnosisSession() {
       else if (i === 2) probs[cause] = 15;
       else probs[cause] = Math.max(1, 10 / Math.max(1, possibleCauses.length - 3));
     });
+    const initTotal = Object.values(probs).reduce((s, v) => s + v, 0);
+    if (initTotal > 0) for (const k of Object.keys(probs)) probs[k] = (probs[k] / initTotal) * 100;
     let confirmedCause: string | null = null;
     for (const step of completedSteps) {
       if (step.result === 'healthy' && step.eliminates) {
