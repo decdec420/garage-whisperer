@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -176,6 +177,108 @@ function RatchetMarkdown({ content }: { content: string }) {
     <div className="max-w-none">
       <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
+  );
+}
+
+// ─── Parse [ACTION:CREATE_PROJECT:cause] markers ───
+const ACTION_RE = /\[ACTION:CREATE_PROJECT:([^\]]+)\]/g;
+
+function parseProjectAction(content: string): { cleanContent: string; projectCause: string | null } {
+  const match = ACTION_RE.exec(content);
+  ACTION_RE.lastIndex = 0; // reset regex
+  if (!match) return { cleanContent: content, projectCause: null };
+  const cleanContent = content.replace(ACTION_RE, '').trim();
+  return { cleanContent, projectCause: match[1].trim() };
+}
+
+function CreateProjectButton({
+  cause,
+  vehicleId,
+  diagnosisSessionId,
+  symptom,
+}: {
+  cause: string;
+  vehicleId: string;
+  diagnosisSessionId?: string;
+  symptom?: string;
+}) {
+  const navigate = useNavigate();
+  const [isCreating, setIsCreating] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleCreate = async () => {
+    setIsCreating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const jobDescription = `Replace/repair ${cause}${symptom ? `. Diagnosed from symptom: "${symptom}"` : ''}`;
+
+      const diagnosisContext = diagnosisSessionId ? {
+        confirmedCause: cause,
+        symptom: symptom || cause,
+        testsPerformed: [],
+        testsRuledOut: [],
+        accessPathDiscovered: [],
+        componentHardware: undefined,
+        accessHardware: [],
+      } : undefined;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-project`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            vehicleId,
+            jobDescription,
+            diagnosisContext,
+            diagnosisId: diagnosisSessionId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to generate project');
+      }
+
+      const data = await response.json();
+      const projectId = data?.project?.id || data?.projectId;
+      if (!projectId) throw new Error('No project ID returned');
+
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+      toast.success(`Repair project created for ${cause}`);
+      navigate(`/garage/${vehicleId}/projects/${projectId}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'Failed to create repair project');
+    }
+    setIsCreating(false);
+  };
+
+  return (
+    <button
+      onClick={handleCreate}
+      disabled={isCreating}
+      className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-all py-3 px-4 text-sm font-semibold"
+    >
+      {isCreating ? (
+        <>
+          <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+          Building repair plan...
+        </>
+      ) : (
+        <>
+          <Wrench className="h-4 w-4" />
+          🔧 Create Repair Project — {cause}
+        </>
+      )}
+    </button>
   );
 }
 
@@ -760,7 +863,12 @@ How to help:
             </div>
           </div>
         ) : (
-          messages.map((m, i) => (
+          messages.map((m, i) => {
+            const { cleanContent, projectCause } = m.role === 'assistant'
+              ? parseProjectAction(m.content)
+              : { cleanContent: m.content, projectCause: null };
+
+            return (
             <div
               key={i}
               className={cn(
@@ -777,7 +885,7 @@ How to help:
                     : 'bg-card border border-border text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
                 )}>
                   {m.role === 'assistant' ? (
-                    <RatchetMarkdown content={m.content} />
+                    <RatchetMarkdown content={cleanContent} />
                   ) : m.content || null}
                   {/* Inline images */}
                   {m.images && m.images.length > 0 && (
@@ -796,8 +904,17 @@ How to help:
                       ))}
                     </div>
                   )}
+                  {/* Create Project action button */}
+                  {projectCause && activeVehicle && (
+                    <CreateProjectButton
+                      cause={projectCause}
+                      vehicleId={activeVehicle.id}
+                      diagnosisSessionId={ratchetDiagnosisContext?.sessionId}
+                      symptom={ratchetDiagnosisContext?.symptom}
+                    />
+                  )}
                 </div>
-                {m.role === 'assistant' && activeVehicle && m.content.length > 50 && (
+                {m.role === 'assistant' && activeVehicle && cleanContent.length > 50 && (
                   <span className="text-[11px] text-green-500/80 flex items-center gap-1 ml-1">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
                     Specific to your {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
@@ -805,7 +922,8 @@ How to help:
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
         {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
         <div ref={messagesEndRef} />
