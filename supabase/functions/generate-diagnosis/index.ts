@@ -785,6 +785,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
               role: "system",
               content:
                 SYSTEM_PROMPT +
+                patternContextBlock + userHistoryBlock +
                 factorySystemAddition +
                 "\n\nCRITICAL: Return ONLY raw JSON. No markdown fences. No explanation. Start with { and end with }. Nothing else.",
             },
