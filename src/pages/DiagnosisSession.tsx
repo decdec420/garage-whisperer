@@ -371,11 +371,11 @@ function DiagStepCard({
               {/* Result buttons */}
               {!hasMarkedResult && (
                 <div className="flex flex-col gap-2 pt-1">
-                  <Button onClick={() => { onMarkResult(step.id, 'healthy', resultNote); setHasMarkedResult(true); setIsOpen(false); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'healthy', resultNote, t); setHasMarkedResult(true); setIsOpen(false); }}
                     className="w-full h-14 text-base font-semibold bg-green-600 hover:bg-green-700 text-white">
                     <CheckCircle2 className="h-5 w-5 mr-2" /> Looks good — Test passed
                   </Button>
-                  <Button onClick={() => { onMarkResult(step.id, 'faulty', resultNote); setHasMarkedResult(true); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'faulty', resultNote, t); setHasMarkedResult(true); }}
                     variant="destructive" className="w-full h-14 text-base font-semibold">
                     <AlertCircle className="h-5 w-5 mr-2" /> Found the problem
                   </Button>
