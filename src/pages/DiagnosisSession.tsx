@@ -927,6 +927,10 @@ export default function DiagnosisSession() {
       ...(!hasFaulty ? { conclusion: null, conclusion_confidence: null, status: 'in_progress' } : {}),
     } as any).eq('id', diagnosisId!);
 
+    // Set currentStepIndex to the undone step so it becomes active with result buttons
+    const stepIdx = (steps || []).findIndex(s => s.id === stepId);
+    if (stepIdx >= 0) setCurrentStepIndex(stepIdx);
+
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
 
