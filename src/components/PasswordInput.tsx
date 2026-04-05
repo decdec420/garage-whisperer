@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import ratchetIcon from '@/assets/ratchet-icon.png';
+import { Wrench } from 'lucide-react';
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   className?: string;
@@ -24,11 +24,9 @@ export default function PasswordInput({ className, ...props }: PasswordInputProp
         tabIndex={-1}
         aria-label={show ? 'Hide password' : 'Show password'}
       >
-        <img
-          src={ratchetIcon}
-          alt=""
+        <Wrench
           className={cn(
-            'h-5 w-5 transition-transform duration-300 ease-in-out',
+            'h-4 w-4 text-primary transition-transform duration-300 ease-in-out',
             show ? 'rotate-90' : 'rotate-0'
           )}
         />
