@@ -631,6 +631,7 @@ export default function DiagnosisSession() {
 
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [locallyCompletedSteps, setLocallyCompletedSteps] = useState<Set<string>>(new Set());
   const [isCreatingRepair, setIsCreatingRepair] = useState(false);
   const [activeTab, setActiveTab] = useState('steps');
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -862,6 +863,9 @@ export default function DiagnosisSession() {
       ...(result === 'faulty' ? { conclusion: diagMeta?.systemTesting || step.title, conclusion_confidence: confidenceScore || 90, status: 'resolved' } : {}),
     } as any).eq('id', diagnosisId!);
 
+    // Track completed step locally so go-back button renders immediately
+    setLocallyCompletedSteps(prev => new Set(prev).add(stepId));
+
     // Advance currentStepIndex synchronously so buttons appear on next step immediately
     if (result === 'healthy') {
       const stepIdx = (steps || []).findIndex(s => s.id === stepId);
@@ -951,6 +955,8 @@ export default function DiagnosisSession() {
     // Set currentStepIndex to the undone step so it becomes active with result buttons
     const stepIdx = (steps || []).findIndex(s => s.id === stepId);
     if (stepIdx >= 0) setCurrentStepIndex(stepIdx);
+    // Remove from local tracking
+    setLocallyCompletedSteps(prev => { const next = new Set(prev); next.delete(stepId); return next; });
 
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
@@ -1382,7 +1388,7 @@ export default function DiagnosisSession() {
                         step={step}
                         isActive={i === currentStepIndex}
                         isCompleted={step.status === 'healthy' || step.status === 'faulty'}
-                        hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty')}
+                        hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty' || locallyCompletedSteps.has(steps?.[i - 1]?.id))}
                         stepTools={tools?.filter(() => {
                           return true;
                         })}
