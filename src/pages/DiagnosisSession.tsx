@@ -1307,6 +1307,7 @@ export default function DiagnosisSession() {
                         diagSession={diagSession}
                         treeNodes={treeNodes}
                         onMarkResult={markStepResult}
+                        onUndoResult={undoStepResult}
                         onImageClick={openImageInLightbox}
                         onAskRatchet={openAskRatchet}
                         onCapturePhoto={handleCapturePhoto}
