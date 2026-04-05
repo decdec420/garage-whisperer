@@ -392,10 +392,16 @@ function DiagStepCard({
                 </div>
               )}
               {hasMarkedResult && isCompleted && (
-                <div className="rounded-xl p-3 text-center">
+                <div className="rounded-xl p-3 text-center space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
                     {step.status === 'faulty' ? '🎯 Marked as the problem' : '✅ Marked as healthy'}
                   </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onUndoResult(step.id); setHasMarkedResult(false); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
+                  >
+                    ↩ Undo — I made a mistake
+                  </button>
                 </div>
               )}
 
