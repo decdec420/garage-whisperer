@@ -337,7 +337,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
           {/* WHEN chips */}
           <div className="mb-3">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">When</p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
               {WHEN_CHIPS.map(chip => (
                 <button key={chip} onClick={() => setWhenChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
                   className={cn(
@@ -355,7 +355,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
           {/* WHERE chips */}
           <div className="mb-3">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Where</p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
               {WHERE_CHIPS.map(chip => (
                 <button key={chip} onClick={() => setWhereChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
                   className={cn(
@@ -374,7 +374,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
           {soundVisible && (
             <div className="mb-3">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Sound</p>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
                 {SOUND_CHIPS.map(chip => (
                   <button key={chip.label}
                     onClick={() => setSoundChips(prev => prev.includes(chip.label) ? prev.filter(c => c !== chip.label) : [...prev, chip.label])}
@@ -489,7 +489,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
           {/* Attachment thumbnails */}
           {attachments.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 -mx-1 px-1" style={{ overscrollBehaviorX: 'contain' }}>
               {attachments.map((att, i) => (
                 <div key={i} className="relative shrink-0 group">
                   {att.type === 'photo' && att.thumbnailUrl && (
