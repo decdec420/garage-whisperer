@@ -367,6 +367,11 @@ function ChatContent() {
   }, [activeSessionId]);
 
   const createSession = async (): Promise<string> => {
+    // In diagnosis mode, the session is already created by the query above
+    if (isDiagnosisMode && diagnosisChatSessionId) {
+      setActiveSessionId(diagnosisChatSessionId);
+      return diagnosisChatSessionId;
+    }
     const insertData: any = {
       user_id: user!.id,
       vehicle_id: activeVehicle?.id || null,
