@@ -1140,7 +1140,7 @@ function MobilePanel() {
   );
 }
 
-// Desktop: right-side drawer
+// Desktop: right-side persistent sidebar (no overlay — content pushes left)
 function DesktopPanel() {
   const { isRatchetOpen, closeRatchetPanel } = useAppStore();
 
@@ -1153,12 +1153,9 @@ function DesktopPanel() {
   if (!isRatchetOpen) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 z-[9998] bg-black/60 animate-fade-in" onClick={closeRatchetPanel} />
-      <div className="fixed top-0 right-0 bottom-0 z-[9999] w-[420px] animate-slide-in-right border-l border-border shadow-2xl">
-        <ChatContent />
-      </div>
-    </>
+    <div className="fixed top-0 right-0 bottom-0 z-40 w-[420px] border-l border-border shadow-2xl animate-slide-in-right">
+      <ChatContent />
+    </div>
   );
 }
 
