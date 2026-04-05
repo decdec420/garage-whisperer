@@ -76,7 +76,7 @@ function DiagStepCard({
 }: {
   step: StepRow; isActive: boolean; isCompleted: boolean; stepTools?: ToolRow[];
   vehicle: any; diagSession: any; treeNodes: TreeNode[];
-  onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string) => void;
+  onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => void;
   onImageClick?: (url: string) => void;
   onAskRatchet: (prefill: string) => void;
   onCapturePhoto: (stepId: string) => void;
@@ -85,6 +85,7 @@ function DiagStepCard({
   const [resultNote, setResultNote] = useState('');
   const [checkedSubs, setCheckedSubs] = useState<Set<number>>(new Set());
   const [hasMarkedResult, setHasMarkedResult] = useState(false);
+  const stepOpenedAt = useRef<number | null>(null);
   const torqueSpecs = step.torque_specs as any[] | null;
 
   let diagMeta: any = null;
@@ -99,7 +100,12 @@ function DiagStepCard({
   const eliminates = diagMeta?.eliminates || [];
   const confirms = diagMeta?.confirms || [];
 
-  useEffect(() => { if (isActive) setIsOpen(true); }, [isActive]);
+  useEffect(() => {
+    if (isActive) {
+      setIsOpen(true);
+      stepOpenedAt.current = Date.now();
+    }
+  }, [isActive]);
 
   const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
   const effectivelyCompleted = isCompleted;
@@ -365,11 +371,11 @@ function DiagStepCard({
               {/* Result buttons */}
               {!hasMarkedResult && (
                 <div className="flex flex-col gap-2 pt-1">
-                  <Button onClick={() => { onMarkResult(step.id, 'healthy', resultNote); setHasMarkedResult(true); setIsOpen(false); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'healthy', resultNote, t); setHasMarkedResult(true); setIsOpen(false); }}
                     className="w-full h-14 text-base font-semibold bg-green-600 hover:bg-green-700 text-white">
                     <CheckCircle2 className="h-5 w-5 mr-2" /> Looks good — Test passed
                   </Button>
-                  <Button onClick={() => { onMarkResult(step.id, 'faulty', resultNote); setHasMarkedResult(true); }}
+                  <Button onClick={() => { const t = stepOpenedAt.current ? Math.round((Date.now() - stepOpenedAt.current) / 1000) : undefined; onMarkResult(step.id, 'faulty', resultNote, t); setHasMarkedResult(true); }}
                     variant="destructive" className="w-full h-14 text-base font-semibold">
                     <AlertCircle className="h-5 w-5 mr-2" /> Found the problem
                   </Button>
@@ -746,11 +752,19 @@ export default function DiagnosisSession() {
     return { score: confirmedCause ? 95 : Math.round(Math.max(...Object.values(probs))), confirmedCause, probs };
   };
 
-  const markStepResult = async (stepId: string, result: 'healthy' | 'faulty', note?: string) => {
+  const markStepResult = async (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => {
     const step = steps?.find(s => s.id === stepId);
     if (!step) return;
 
     await supabase.from('project_steps').update({ status: result, completed_at: new Date().toISOString() }).eq('id', stepId);
+
+    // Track step event (table not yet in generated types, use rpc-style insert)
+    (supabase as any).from('diagnosis_step_events').insert({
+      diagnosis_session_id: diagnosisId!,
+      step_number: step.step_number,
+      event_type: result === 'healthy' ? 'step_passed' : 'step_failed',
+      time_on_step_seconds: timeOnStep ?? null,
+    }).then(() => {});
 
     let diagMeta: any = null;
     try { if (step.notes) diagMeta = JSON.parse(step.notes); } catch {}
