@@ -72,7 +72,7 @@ function CauseCard({ node, onClick }: { node: TreeNode; onClick: () => void }) {
 // ─── Diagnostic Step Card ───
 function DiagStepCard({
   step, isActive, isCompleted, stepTools, vehicle, diagSession, treeNodes,
-  onMarkResult, onImageClick, onAskRatchet, onCapturePhoto,
+  onMarkResult, onImageClick, onAskRatchet, onCapturePhoto, diagnosisId,
 }: {
   step: StepRow; isActive: boolean; isCompleted: boolean; stepTools?: ToolRow[];
   vehicle: any; diagSession: any; treeNodes: TreeNode[];
@@ -80,6 +80,7 @@ function DiagStepCard({
   onImageClick?: (url: string) => void;
   onAskRatchet: (prefill: string) => void;
   onCapturePhoto: (stepId: string) => void;
+  diagnosisId?: string;
 }) {
   const [isOpen, setIsOpen] = useState(isActive);
   const [resultNote, setResultNote] = useState('');
@@ -104,6 +105,14 @@ function DiagStepCard({
     if (isActive) {
       setIsOpen(true);
       stepOpenedAt.current = Date.now();
+      // Track step_started event
+      if (diagnosisId) {
+        (supabase as any).from('diagnosis_step_events').insert({
+          diagnosis_session_id: diagnosisId,
+          step_number: step.step_number,
+          event_type: 'step_started',
+        }).then(() => {});
+      }
     }
   }, [isActive]);
 
@@ -758,12 +767,16 @@ export default function DiagnosisSession() {
 
     await supabase.from('project_steps').update({ status: result, completed_at: new Date().toISOString() }).eq('id', stepId);
 
-    // Track step event (table not yet in generated types, use rpc-style insert)
+    // Track step event
+    const currentConfidence = treeNodes.length > 0
+      ? Math.round(Math.max(...treeNodes.map(n => n.probability || 0)))
+      : null;
     (supabase as any).from('diagnosis_step_events').insert({
       diagnosis_session_id: diagnosisId!,
       step_number: step.step_number,
       event_type: result === 'healthy' ? 'step_passed' : 'step_failed',
       time_on_step_seconds: timeOnStep ?? null,
+      confidence_at_event: currentConfidence,
     }).then(() => {});
 
     let diagMeta: any = null;
@@ -1217,6 +1230,7 @@ export default function DiagnosisSession() {
                         onImageClick={openImageInLightbox}
                         onAskRatchet={openAskRatchet}
                         onCapturePhoto={handleCapturePhoto}
+                        diagnosisId={diagnosisId}
                       />
                     </div>
                   ))}
