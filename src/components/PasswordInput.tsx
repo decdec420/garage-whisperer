@@ -26,8 +26,8 @@ export default function PasswordInput({ className, ...props }: PasswordInputProp
       >
         <Wrench
           className={cn(
-            'h-4 w-4 text-primary transition-transform duration-300 ease-in-out',
-            show ? 'rotate-90' : 'rotate-0'
+            'h-4 w-4 text-primary transition-transform duration-300 ease-in-out origin-center',
+            show ? '-rotate-45' : 'rotate-0'
           )}
         />
       </button>
