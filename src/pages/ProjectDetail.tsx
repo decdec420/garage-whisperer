@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
