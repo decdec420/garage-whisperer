@@ -147,14 +147,12 @@ function DiagStepCard({
             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           </div>
         </button>
-        <div className="mt-2 text-center">
-          <button
-            onClick={() => onUndoResult(step.id)}
-            className="text-[11px] text-muted-foreground hover:text-destructive transition-colors underline"
-          >
-            ↩ Undo
-          </button>
-        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onUndoResult(step.id); }}
+          className="mt-3 w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 hover:bg-destructive/10 hover:border-destructive/30 text-muted-foreground hover:text-destructive transition-all py-2 px-3 text-xs font-medium"
+        >
+          ↩ Undo — I made a mistake
+        </button>
       </div>
     );
   }
@@ -412,14 +410,12 @@ function DiagStepCard({
 
           {/* Undo button for completed steps when expanded */}
           {isCompleted && (
-            <div className="text-center pt-1">
-              <button
-                onClick={() => onUndoResult(step.id)}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
-              >
-                ↩ Undo — I made a mistake
-              </button>
-            </div>
+            <button
+              onClick={() => onUndoResult(step.id)}
+              className="mt-3 w-full flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 hover:bg-destructive/10 hover:border-destructive/30 text-muted-foreground hover:text-destructive transition-all py-2.5 px-3 text-sm font-medium"
+            >
+              ↩ Undo — I made a mistake
+            </button>
           )}
         </div>
       )}
