@@ -76,7 +76,7 @@ function DiagStepCard({
 }: {
   step: StepRow; isActive: boolean; isCompleted: boolean; stepTools?: ToolRow[];
   vehicle: any; diagSession: any; treeNodes: TreeNode[];
-  onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string) => void;
+  onMarkResult: (stepId: string, result: 'healthy' | 'faulty', note?: string, timeOnStep?: number) => void;
   onImageClick?: (url: string) => void;
   onAskRatchet: (prefill: string) => void;
   onCapturePhoto: (stepId: string) => void;
@@ -85,6 +85,7 @@ function DiagStepCard({
   const [resultNote, setResultNote] = useState('');
   const [checkedSubs, setCheckedSubs] = useState<Set<number>>(new Set());
   const [hasMarkedResult, setHasMarkedResult] = useState(false);
+  const stepOpenedAt = useRef<number | null>(null);
   const torqueSpecs = step.torque_specs as any[] | null;
 
   let diagMeta: any = null;
@@ -99,7 +100,12 @@ function DiagStepCard({
   const eliminates = diagMeta?.eliminates || [];
   const confirms = diagMeta?.confirms || [];
 
-  useEffect(() => { if (isActive) setIsOpen(true); }, [isActive]);
+  useEffect(() => {
+    if (isActive) {
+      setIsOpen(true);
+      stepOpenedAt.current = Date.now();
+    }
+  }, [isActive]);
 
   const vehicleName = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
   const effectivelyCompleted = isCompleted;
