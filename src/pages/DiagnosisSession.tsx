@@ -894,7 +894,7 @@ export default function DiagnosisSession() {
     const completedForConfidence = remainingCompleted.map(s => {
       let meta: any = null;
       try { if (s.notes) meta = JSON.parse(s.notes); } catch {}
-      return { result: s.status, eliminates: meta?.eliminates, confirms: meta?.confirms };
+      return { result: s.status as 'healthy' | 'faulty', eliminates: meta?.eliminates, confirms: meta?.confirms };
     });
 
     const possibleCauses = resetTree.map(n => n.cause);
