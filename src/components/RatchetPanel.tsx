@@ -870,7 +870,7 @@ How to help:
               e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
             }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
-            placeholder={isProjectMode ? `Ask about ${ratchetProjectContext!.title}...` : 'Ask Ratchet anything...'}
+            placeholder={isDiagnosisMode ? `Ask about this diagnosis...` : isProjectMode ? `Ask about ${ratchetProjectContext!.title}...` : 'Ask Ratchet anything...'}
             className="flex-1 bg-muted border border-border rounded-xl px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none min-h-[44px] max-h-[160px] focus:outline-none focus:border-primary transition-all"
             style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
