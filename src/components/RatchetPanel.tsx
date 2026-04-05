@@ -409,7 +409,7 @@ function ChatContent() {
       // Upload images to storage and get base64 for AI
       let uploadedUrls: string[] = [];
       let base64Images: string[] = [];
-      if (hasImages && isProjectMode) {
+      if (hasImages && isContextMode) {
         setIsUploading(true);
         for (const qf of filesToUpload) {
           try {
@@ -564,7 +564,7 @@ How to help:
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {!isProjectMode && (
+          {!isContextMode && (
             <button onClick={startNewConversation} className="p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted transition-colors" title="New chat">
               <Plus className="h-4 w-4" />
             </button>
@@ -798,7 +798,7 @@ How to help:
       )}
 
       {/* Attach menu popover */}
-      {showAttachMenu && isProjectMode && (
+      {showAttachMenu && isContextMode && (
         <div className="absolute bottom-20 left-3 z-50 bg-popover border border-border rounded-xl shadow-lg p-1 min-w-[200px]">
           <button
             onClick={() => { cameraInputRef.current?.click(); }}
@@ -838,8 +838,8 @@ How to help:
       {/* Input */}
       <div className="bg-card border-t border-border p-3 shrink-0">
         <div className="flex items-end gap-2">
-          {/* Attachment button — only active in project mode */}
-          {isProjectMode ? (
+          {/* Attachment button — available in project and diagnosis modes */}
+          {isContextMode ? (
             <button
               onClick={() => setShowAttachMenu(!showAttachMenu)}
               className={cn(
@@ -876,7 +876,7 @@ How to help:
             rows={1}
           />
           {/* Mic button in project mode */}
-          {isProjectMode && (
+          {isContextMode && (
             <button
               onClick={toggleVoice}
               className={cn(
