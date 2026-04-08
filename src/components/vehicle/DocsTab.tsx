@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { getSignedUrl } from '@/lib/storage-helpers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -145,8 +146,13 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
     if (!user) return;
     setSearchingManuals(true);
     try {
-      const { data, error } = await supabase.functions.invoke('search-manuals', {
-        body: { vehicleId, year: vehicle.year, make: vehicle.make, model: vehicle.model, trim: vehicle.trim, userId: user.id },
+      const { data, error } = await invokeWithAuth('search-manuals', {
+        vehicleId,
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        trim: vehicle.trim,
+        userId: user.id,
       });
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['vehicle-documents', vehicleId] });

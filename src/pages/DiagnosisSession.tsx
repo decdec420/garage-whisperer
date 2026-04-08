@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useAuth } from '@/hooks/useAuth';
 import { getAccessToken } from '@/lib/auth-helpers';
 import { getSignedUrl } from '@/lib/storage-helpers';
@@ -991,8 +992,11 @@ export default function DiagnosisSession() {
       };
 
       const jobDescription = `Replace/repair ${conclusion} on ${vehicle.year} ${vehicle.make} ${vehicle.model}${vehicle.engine ? ` ${vehicle.engine}` : ''}. Diagnosed from symptom: "${diagSession.symptom}". Diagnostic testing confirmed ${conclusion} as the root cause.`;
-      const { data, error } = await supabase.functions.invoke('generate-project', {
-        body: { vehicleId, jobDescription, diagnosisContext, diagnosisId: diagnosisId },
+      const { data, error } = await invokeWithAuth('generate-project', {
+        vehicleId,
+        jobDescription,
+        diagnosisContext,
+        diagnosisId,
       });
       if (error) throw error;
       const projectId = data?.project?.id || data?.projectId;

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -115,15 +116,13 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
       setNhtsaData(null);
 
       // Auto-search for manuals in the background
-      supabase.functions.invoke('search-manuals', {
-        body: {
-          vehicleId: inserted.id,
-          year: inserted.year,
-          make: inserted.make,
-          model: inserted.model,
-          trim: inserted.trim,
-          userId: user!.id,
-        },
+      invokeWithAuth('search-manuals', {
+        vehicleId: inserted.id,
+        year: inserted.year,
+        make: inserted.make,
+        model: inserted.model,
+        trim: inserted.trim,
+        userId: user!.id,
       }).then(() => {
         toast.success('Found manual references for your vehicle', { duration: 3000 });
       }).catch(() => {});

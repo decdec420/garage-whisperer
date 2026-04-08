@@ -595,6 +595,23 @@ serve(async (req) => {
       });
     }
 
+    if (diagnosisId) {
+      const { data: diagnosisSession } = await supabase
+        .from("diagnosis_sessions")
+        .select("id")
+        .eq("id", diagnosisId)
+        .eq("user_id", userId)
+        .eq("vehicle_id", vehicleId)
+        .single();
+
+      if (!diagnosisSession) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -888,7 +905,9 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
             ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
             : [],
         })
-        .eq("id", diagnosisId);
+        .eq("id", diagnosisId)
+        .eq("user_id", userId)
+        .eq("vehicle_id", vehicleId);
     }
 
     // Return full project

@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.env
+.env.*
+
+# macOS AppleDouble metadata (tar from mac can include these)
+._*

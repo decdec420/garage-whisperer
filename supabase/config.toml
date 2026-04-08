@@ -1,25 +1,30 @@
 project_id = "kzspxrjehqrcwmxicehj"
 
+# SECURITY NOTE
+# Supabase Edge Functions should require JWT verification by default.
+# If you truly need a public/anonymous function, opt it out explicitly and add
+# your own auth (e.g. HMAC, captcha, per-user rate limiting).
+
 [functions.chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-project]
-verify_jwt = false
+verify_jwt = true
 
 [functions.extract-memories]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-diagnosis]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search-manuals]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-charm-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-manual-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cache-diagnostic-pattern]
-verify_jwt = false
+verify_jwt = true

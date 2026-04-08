@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Search, ChevronRight, CheckCircle2, AlertCircle, Clock, Wrench,
@@ -258,12 +259,11 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         ? `\n\nUser provided references: ${contextParts.join(', ')}`
         : '';
 
-      const { data: genData, error: genError } = await supabase.functions.invoke('generate-diagnosis', {
-        body: {
-          vehicleId, symptom: fullSymptom + additionalContext,
-          diagnosisId: (diagSession as any).id,
-          images: photoBase64s.length > 0 ? photoBase64s : undefined,
-        },
+      const { data: genData, error: genError } = await invokeWithAuth('generate-diagnosis', {
+        vehicleId,
+        symptom: fullSymptom + additionalContext,
+        diagnosisId: (diagSession as any).id,
+        images: photoBase64s.length > 0 ? photoBase64s : undefined,
       });
 
       if (genError) {

@@ -430,6 +430,23 @@ serve(async (req) => {
       });
     }
 
+    if (diagnosisId) {
+      const { data: diagnosisSession } = await supabase
+        .from("diagnosis_sessions")
+        .select("id")
+        .eq("id", diagnosisId)
+        .eq("user_id", userId)
+        .eq("vehicle_id", vehicleId)
+        .single();
+
+      if (!diagnosisSession) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Auto-build jobDescription from diagnosis if not provided
     if (needsAutoJob) {
       if (diagnosisContext?.confirmedCause) {
@@ -691,7 +708,7 @@ Generate the complete project plan for this exact vehicle and job.`;
         project_id: project.id,
         status: 'resolved',
         updated_at: new Date().toISOString(),
-      }).eq("id", diagnosisId);
+      }).eq("id", diagnosisId).eq("user_id", userId).eq("vehicle_id", vehicleId);
     }
 
     // Return full project

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useAppStore } from '@/stores/app-store';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -583,14 +584,12 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                                   setLoadingCharm(compKey);
                                   try {
                                     const keyword = componentToJobKeyword(comp.name);
-                                    const resp = await supabase.functions.invoke('fetch-charm-data', {
-                                      body: {
-                                        make: vehicle.make,
-                                        year: vehicle.year,
-                                        model: vehicle.model,
-                                        engine: vehicle.engine || null,
-                                        jobKeyword: keyword,
-                                      },
+                                    const resp = await invokeWithAuth('fetch-charm-data', {
+                                      make: vehicle.make,
+                                      year: vehicle.year,
+                                      model: vehicle.model,
+                                      engine: vehicle.engine || null,
+                                      jobKeyword: keyword,
                                     });
                                     if (resp.error) throw resp.error;
                                     const data = resp.data;
@@ -636,9 +635,7 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                                     const { data: { session } } = await supabase.auth.getSession();
                                     if (!session) throw new Error('Not authenticated');
 
-                                    const resp = await supabase.functions.invoke('generate-project', {
-                                      body: { vehicleId, jobDescription },
-                                    });
+                                    const resp = await invokeWithAuth('generate-project', { vehicleId, jobDescription });
 
                                     if (resp.error) throw resp.error;
                                     const result = resp.data;
@@ -761,9 +758,7 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session) throw new Error('Not authenticated');
                       toast.info('Generating project from factory procedure...');
-                      const resp = await supabase.functions.invoke('generate-project', {
-                        body: { vehicleId, jobDescription },
-                      });
+                      const resp = await invokeWithAuth('generate-project', { vehicleId, jobDescription });
                       if (resp.error) throw resp.error;
                       const result = resp.data;
                       if (result?.error) throw new Error(result.error);
