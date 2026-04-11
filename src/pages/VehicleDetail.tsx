@@ -55,7 +55,7 @@ export default function VehicleDetail() {
         .from('projects')
         .select('id, title, status, difficulty')
         .eq('vehicle_id', vehicleId!)
-        .in('status', ['planning', 'in_progress']);
+        .in('status', ['planning', 'active', 'paused']);
       if (error) throw error;
       return data || [];
     },
@@ -148,7 +148,7 @@ export default function VehicleDetail() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue={defaultTab}>
+      <Tabs value={defaultTab} onValueChange={switchTab}>
         <TabsList className="w-full overflow-x-auto overflow-y-hidden flex-nowrap justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="blueprint"><Grid3X3 className="h-3.5 w-3.5 mr-1" />Blueprint</TabsTrigger>
@@ -234,7 +234,7 @@ export default function VehicleDetail() {
                         <div>
                           <p className="font-medium text-sm">{p.title}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">{p.status === 'in_progress' ? 'In Progress' : 'Planning'}</Badge>
+                            <Badge variant="outline" className="text-xs">{{ active: 'Active', planning: 'Planning', paused: 'Paused' }[p.status] ?? p.status}</Badge>
                             {p.difficulty && <Badge variant="secondary" className="text-xs">{p.difficulty}</Badge>}
                           </div>
                         </div>

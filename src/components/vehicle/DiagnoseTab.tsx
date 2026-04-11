@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeWithAuth } from '@/integrations/supabase/functions';
 import { useAuth } from '@/hooks/useAuth';
@@ -66,6 +66,7 @@ interface DiagnoseTabProps {
 export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [symptom, setSymptom] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [whenChips, setWhenChips] = useState<string[]>([]);
@@ -268,7 +269,12 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
       if (genError) {
         console.error('Generation error:', genError);
-        toast.error('Plan generation had an issue, but you can still diagnose with Ratchet');
+        const isRateLimit = (genError as any).status === 429 || genError.message?.toLowerCase().includes('rate limit');
+        toast.error(isRateLimit
+          ? 'Rate limit reached — max 20 AI diagnoses per day.'
+          : 'Plan generation had an issue, but you can still diagnose with Ratchet'
+        );
+        queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
         navigate(`/garage/${vehicleId}/diagnose/${(diagSession as any).id}`);
         return;
       }
@@ -304,6 +310,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         } as any).eq('id', (diagSession as any).id);
       }
 
+      queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
       toast.success('Diagnostic plan ready!');
       navigate(`/garage/${vehicleId}/diagnose/${(diagSession as any).id}`);
     } catch (e) {

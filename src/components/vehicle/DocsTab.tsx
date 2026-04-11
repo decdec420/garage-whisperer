@@ -57,9 +57,9 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
   const deleteMutation = useMutation({
     mutationFn: async (docId: string) => {
       const doc = docs?.find((d: any) => d.id === docId);
-      if (doc?.file_url) {
-        const path = doc.file_url.split('/vehicle-documents/')[1];
-        if (path) await supabase.storage.from('vehicle-documents').remove([path]);
+      if (doc?.file_url && !doc.file_url.startsWith('http')) {
+        // file_url is stored as a raw path (e.g. userId/vehicleId/file.pdf)
+        await supabase.storage.from('vehicle-documents').remove([doc.file_url]);
       }
       const { error } = await supabase.from('vehicle_documents').delete().eq('id', docId);
       if (error) throw error;

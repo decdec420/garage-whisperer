@@ -1,6 +1,7 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
+import { capture } from "@/lib/posthog";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -38,6 +39,14 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageviewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    capture('$pageview', { path: location.pathname });
+  }, [location.pathname]);
+  return null;
+}
+
 function RouteFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -51,7 +60,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <PageviewTracker />
         <AuthProvider>
           <Suspense fallback={<RouteFallback />}>
             <Routes>

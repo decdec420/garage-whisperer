@@ -4,8 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getSignedUrl } from '@/lib/storage-helpers';
 import { streamChat, extractMemories } from '@/lib/ratchet-chat';
-import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen, Paperclip, Camera, Image as ImageIcon } from 'lucide-react';
+import { X, Wrench, Plus, Clock, Send, Mic, MicOff, Car, ChevronDown, FolderOpen, Paperclip, Camera, Image as ImageIcon, Copy, ThumbsUp, ThumbsDown, Check, Maximize2, Minimize2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -70,6 +71,60 @@ function TypingIndicator() {
   );
 }
 
+function CodeBlock({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const text = typeof children === 'string' ? children : String(children ?? '');
+  return (
+    <div className="relative group/code my-2">
+      <code className={cn("block p-3 rounded-lg text-xs font-mono bg-muted/50 overflow-x-auto pr-8", className)}>
+        {children}
+      </code>
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          });
+        }}
+        className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover/code:opacity-100 transition-opacity bg-background/80 hover:bg-muted border border-border"
+        title="Copy code"
+      >
+        {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+      </button>
+    </div>
+  );
+}
+
+function MessageActions({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
+  return (
+    <div className="flex items-center gap-0.5 mt-1.5 ml-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+      <button
+        onClick={() => navigator.clipboard.writeText(content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
+        className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+        title="Copy response"
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+      </button>
+      <button
+        onClick={() => setFeedback(f => f === 'up' ? null : 'up')}
+        className={cn("p-1.5 rounded-lg hover:bg-muted transition-colors", feedback === 'up' && "text-green-500")}
+        title="Good response"
+      >
+        <ThumbsUp className={cn("h-3.5 w-3.5", feedback === 'up' ? "text-green-500" : "text-muted-foreground")} />
+      </button>
+      <button
+        onClick={() => setFeedback(f => f === 'down' ? null : 'down')}
+        className={cn("p-1.5 rounded-lg hover:bg-muted transition-colors", feedback === 'down' && "text-destructive")}
+        title="Not helpful"
+      >
+        <ThumbsDown className={cn("h-3.5 w-3.5", feedback === 'down' ? "text-destructive" : "text-muted-foreground")} />
+      </button>
+    </div>
+  );
+}
+
 function RatchetMarkdown({ content }: { content: string }) {
   const components: Components = {
     h2: ({ children }) => (
@@ -123,11 +178,7 @@ function RatchetMarkdown({ content }: { content: string }) {
     code: ({ children, className }) => {
       const isBlock = className?.includes('language-');
       if (isBlock) {
-        return (
-          <code className={cn("block my-2 p-3 rounded-lg text-xs font-mono bg-muted/50 overflow-x-auto", className)}>
-            {children}
-          </code>
-        );
+        return <CodeBlock className={className}>{children}</CodeBlock>;
       }
       return (
         <code className="px-1.5 py-0.5 rounded font-mono text-xs"
@@ -251,6 +302,10 @@ function CreateProjectButton({
       if (!projectId) throw new Error('No project ID returned');
 
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['active-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-parts-summary'] });
       queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
       toast.success(`Repair project created for ${cause}`);
       navigate(`/garage/${vehicleId}/projects/${projectId}`);
@@ -293,11 +348,35 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+async function resizeImageFile(file: File, maxDimension = 1920, quality = 0.85): Promise<File> {
+  if (!file.type.startsWith('image/') || file.size < 500_000) return file;
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        blob => resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 async function uploadToStorage(file: File, userId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
+  const resized = await resizeImageFile(file);
+  const ext = resized.name.split('.').pop() || 'jpg';
   const path = `${userId}/chat/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabase.storage.from('repair-photos').upload(path, file, {
-    contentType: file.type,
+  const { error } = await supabase.storage.from('repair-photos').upload(path, resized, {
+    contentType: resized.type,
     upsert: false,
   });
   if (error) throw error;
@@ -329,6 +408,14 @@ function ChatContent() {
   const lastUserMsgRef = useRef<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+
+  // Abort in-flight stream on unmount
+  useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+    };
+  }, []);
 
   const isProjectMode = !!ratchetProjectContext;
   const isDiagnosisMode = !!ratchetDiagnosisContext;
@@ -464,15 +551,28 @@ function ChatContent() {
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
     supabase.from('chat_messages').select('id, role, content, image_urls, created_at').eq('session_id', activeSessionId)
-      .order('created_at').limit(50)
-      .then(({ data }) => {
-        if (data) setMessages(data.map(m => ({
-          id: m.id,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-          created_at: m.created_at,
-          images: (m as any).image_urls?.length ? (m as any).image_urls : undefined,
-        })));
+      .order('created_at').limit(100)
+      .then(async ({ data }) => {
+        if (!data) return;
+        const msgs = await Promise.all(data.map(async m => {
+          const rawUrls: string[] = (m as any).image_urls || [];
+          let images: string[] | undefined;
+          if (rawUrls.length) {
+            const signed = await Promise.all(rawUrls.map(async url => {
+              if (url.startsWith('http') || url.startsWith('blob:')) return url;
+              return await getSignedUrl('repair-photos', url) ?? url;
+            }));
+            images = signed;
+          }
+          return {
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            created_at: m.created_at,
+            images,
+          };
+        }));
+        setMessages(msgs);
       });
   }, [activeSessionId]);
 
@@ -493,6 +593,8 @@ function ChatContent() {
     if (error) throw error;
     setActiveSessionId(data.id);
     queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
+    queryClient.invalidateQueries({ queryKey: ['vehicle-chat-sessions', insertData.vehicle_id] });
+    queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     return data.id;
   };
 
@@ -559,12 +661,14 @@ function ChatContent() {
           : text.trim().slice(0, 50) || 'Photo message';
         await supabase.from('chat_sessions').update({ title }).eq('id', sessionId);
         queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
+        queryClient.invalidateQueries({ queryKey: ['vehicle-chat-sessions', activeVehicle?.id] });
+        queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
       }
 
       // Upload images to storage and get base64 for AI
       let uploadedUrls: string[] = [];
       let base64Images: string[] = [];
-      if (hasImages && isContextMode) {
+      if (hasImages) {
         setIsUploading(true);
         for (const qf of filesToUpload) {
           try {
@@ -580,11 +684,6 @@ function ChatContent() {
           }
         }
         setIsUploading(false);
-
-        // Update message with real URLs
-        setMessages(prev => prev.map((m, i) =>
-          i === prev.length - 1 && m.role === 'user' ? { ...m, images: uploadedUrls } : m
-        ));
       }
 
       await saveMessage(sessionId, 'user', text.trim(), uploadedUrls);
@@ -628,10 +727,12 @@ How to help:
         return { role: m.role, content: m.content };
       });
 
+      streamAbortRef.current = new AbortController();
       await streamChat({
         messages: allMessages,
         vehicleContext,
         vehicleId: activeVehicle?.id || null,
+        signal: streamAbortRef.current.signal,
         onToken: (content) => {
           setMessages(prev => {
             const last = prev[prev.length - 1];
@@ -879,7 +980,7 @@ How to help:
             <div
               key={i}
               className={cn(
-                'flex animate-fade-in',
+                'flex animate-fade-in group/msg',
                 m.role === 'user' ? 'justify-end' : 'justify-start gap-2'
               )}
             >
@@ -921,11 +1022,16 @@ How to help:
                     />
                   )}
                 </div>
-                {m.role === 'assistant' && activeVehicle && cleanContent.length > 50 && (
-                  <span className="text-[11px] text-green-500/80 flex items-center gap-1 ml-1">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
-                    Specific to your {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
-                  </span>
+                {m.role === 'assistant' && (
+                  <div className="flex items-center gap-2">
+                    <MessageActions content={cleanContent} />
+                    {activeVehicle && cleanContent.length > 50 && (
+                      <span className="text-[11px] text-green-500/80 flex items-center gap-1 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+                        {activeVehicle.engine || `${activeVehicle.year} ${activeVehicle.make}`}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -970,7 +1076,7 @@ How to help:
       )}
 
       {/* Attach menu popover */}
-      {showAttachMenu && isContextMode && (
+      {showAttachMenu && (
         <div className="absolute bottom-20 left-3 z-50 bg-popover border border-border rounded-xl shadow-lg p-1 min-w-[200px]">
           <button
             onClick={() => { cameraInputRef.current?.click(); }}
@@ -1010,29 +1116,17 @@ How to help:
       {/* Input */}
       <div className="bg-card border-t border-border p-3 shrink-0">
         <div className="flex items-end gap-2">
-          {/* Attachment button — available in project and diagnosis modes */}
-          {isContextMode ? (
-            <button
-              onClick={() => setShowAttachMenu(!showAttachMenu)}
-              className={cn(
-                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-                showAttachMenu ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-              title="Attach photo"
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              onClick={toggleVoice}
-              className={cn(
-                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-                isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </button>
-          )}
+          {/* Attachment button — always available */}
+          <button
+            onClick={() => setShowAttachMenu(!showAttachMenu)}
+            className={cn(
+              'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
+              showAttachMenu ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'
+            )}
+            title="Attach photo"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
           <textarea
             ref={textareaRef}
             value={input}
@@ -1047,18 +1141,17 @@ How to help:
             style={{ WebkitOverflowScrolling: 'touch' }}
             rows={1}
           />
-          {/* Mic button in project mode */}
-          {isContextMode && (
-            <button
-              onClick={toggleVoice}
-              className={cn(
-                'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
-                isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-            </button>
-          )}
+          {/* Mic button — always available */}
+          <button
+            onClick={toggleVoice}
+            className={cn(
+              'shrink-0 h-10 w-10 rounded-full flex items-center justify-center transition-colors',
+              isListening ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted text-muted-foreground hover:text-foreground'
+            )}
+            title="Voice input"
+          >
+            {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
           <button
             onClick={() => sendMessage(input)}
             disabled={(!input.trim() && queuedFiles.length === 0) || isStreaming}
@@ -1150,9 +1243,16 @@ function MobilePanel() {
 // Desktop: right-side persistent sidebar (no overlay — content pushes left)
 function DesktopPanel() {
   const { isRatchetOpen, closeRatchetPanel } = useAppStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRatchetPanel(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRatchetPanel();
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
+        e.preventDefault();
+        setIsFullscreen(f => !f);
+      }
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [closeRatchetPanel]);
@@ -1160,7 +1260,18 @@ function DesktopPanel() {
   if (!isRatchetOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 z-40 w-[420px] border-l border-border shadow-2xl animate-slide-in-right">
+    <div
+      className="fixed top-0 right-0 bottom-0 z-40 border-l border-border shadow-2xl animate-slide-in-right flex flex-col"
+      style={{ width: isFullscreen ? '680px' : '420px', transition: 'width 250ms cubic-bezier(0.32, 0.72, 0, 1)' }}
+    >
+      {/* Fullscreen toggle — floats over header */}
+      <button
+        onClick={() => setIsFullscreen(f => !f)}
+        className="absolute top-3.5 right-12 z-10 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title={isFullscreen ? 'Collapse (⌘⇧F)' : 'Expand (⌘⇧F)'}
+      >
+        {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+      </button>
       <ChatContent />
     </div>
   );

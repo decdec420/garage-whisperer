@@ -339,7 +339,12 @@ export default function ProjectDetail() {
         }).eq('id', project.id);
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
+    },
   });
 
   const updateStatus = useMutation({
@@ -349,7 +354,15 @@ export default function ProjectDetail() {
       if (status === 'completed') updates.completed_at = new Date().toISOString();
       await supabase.from('projects').update(updates).eq('id', projectId!);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['most-recent-active-project'] });
+    },
   });
 
   const completeStep = useMutation({
@@ -361,6 +374,7 @@ export default function ProjectDetail() {
     onSuccess: (_data, stepId) => {
       queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
       // Auto-check all sub-steps for the completed step
       const step = steps.find(s => s.id === stepId);
       if (step?.sub_steps?.length) {
@@ -566,8 +580,16 @@ export default function ProjectDetail() {
                     });
                   }
                   queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+                  queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
                   queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
-                  queryClient.invalidateQueries({ queryKey: ['repair-logs', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+                  queryClient.invalidateQueries({ queryKey: ['all-project-parts-summary'] });
+                  queryClient.invalidateQueries({ queryKey: ['repairs', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['recent-repairs', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['repair-stats', vehicleId] });
+                  queryClient.invalidateQueries({ queryKey: ['repair-stats'] });
+                  queryClient.invalidateQueries({ queryKey: ['most-recent-active-project'] });
                   toast.success('Repair logged! 🔧');
                   navigate(`/garage/${vehicleId}?tab=repairs`);
                 } catch (err) {

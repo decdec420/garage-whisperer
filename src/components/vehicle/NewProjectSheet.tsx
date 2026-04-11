@@ -119,7 +119,12 @@ export default function NewProjectSheet({ open, onClose, vehicleId, vehicleName 
 
   const handleSave = () => {
     queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
-    queryClient.invalidateQueries({ queryKey: ['vehicle-projects', vehicleId] });
+    queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+    queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
+    queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+    queryClient.invalidateQueries({ queryKey: ['project-parts-summary', vehicleId] });
+    queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['all-project-parts-summary'] });
     toast.success('Project saved!');
     onClose();
   };

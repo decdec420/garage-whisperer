@@ -172,7 +172,7 @@ serve(async (req) => {
         success_count: 1,
         failure_count: 0,
         confidence_score: 0.5,
-        avg_diagnostic_minutes: session.conclusion_confidence || null,
+        avg_diagnostic_minutes: null,
         source_diagnosis_id: session.id,
         source_user_id: userId,
       })

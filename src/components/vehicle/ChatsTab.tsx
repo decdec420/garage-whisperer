@@ -31,20 +31,21 @@ export default function ChatsTab({ vehicleId }: ChatsTabProps) {
         .select('id, title, project_id, updated_at, created_at, vehicle_id')
         .eq('vehicle_id', vehicleId)
         .is('project_id', null)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(50);
       if (error) throw error;
       if (!chatSessions?.length) return [];
 
-      // Get message counts
+      // Get message counts in a single query instead of N individual queries
       const sessionIds = chatSessions.map(s => s.id);
+      const { data: messageRows } = await supabase
+        .from('chat_messages')
+        .select('session_id')
+        .in('session_id', sessionIds);
       const counts: Record<string, number> = {};
-      for (const id of sessionIds) {
-        const { count } = await supabase
-          .from('chat_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', id);
-        counts[id] = count || 0;
-      }
+      messageRows?.forEach(m => {
+        counts[m.session_id] = (counts[m.session_id] || 0) + 1;
+      });
 
       return chatSessions.map(s => ({
         ...s,

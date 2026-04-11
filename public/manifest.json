@@ -1,0 +1,20 @@
+{
+  "name": "Ratchet",
+  "short_name": "Ratchet",
+  "description": "Your AI mechanic buddy — diagnose, plan, and track vehicle repairs.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["automotive", "utilities"],
+  "lang": "en-US"
+}

@@ -25,8 +25,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+import { CHAT_URL } from '@/lib/ratchet-chat';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 interface TreeNode { cause: string; status: 'testing' | 'healthy' | 'faulty' | 'untested'; probability?: number; }
@@ -362,6 +361,9 @@ function DiagStepCard({
                   <div className="text-xl font-bold font-mono text-primary">{ts.spec} {ts.unit}</div>
                 </div>
               ))}
+              <p className="text-[11px] text-muted-foreground/70 italic">
+                ⚠️ AI-generated specs. Always verify against your factory service manual before torquing.
+              </p>
             </div>
           )}
 
@@ -878,6 +880,7 @@ export default function DiagnosisSession() {
 
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
 
     if (result === 'faulty') {
       toast.success(`Found the problem: ${diagMeta?.systemTesting || step.title}`, { description: 'Ready to create a repair project' });
@@ -961,6 +964,7 @@ export default function DiagnosisSession() {
 
     queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
     queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+    queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
 
     toast.success('Step result undone', { description: 'You can re-test this step' });
   };
@@ -998,12 +1002,20 @@ export default function DiagnosisSession() {
         diagnosisContext,
         diagnosisId,
       });
-      if (error) throw error;
+      if (error) {
+        const isRateLimit = (error as any).status === 429 || error.message?.toLowerCase().includes('rate limit');
+        throw new Error(isRateLimit ? 'Rate limit reached — max 10 AI projects per day.' : (error.message || 'Failed to create repair project'));
+      }
       const projectId = data?.project?.id || data?.projectId;
       if (!projectId) throw new Error('No project ID returned');
+      queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-parts-summary'] });
       toast.success(`Repair project created for ${conclusion}`);
       navigate(`/garage/${vehicleId}/projects/${projectId}`);
-    } catch (e) { console.error(e); toast.error('Failed to create repair project'); }
+    } catch (e: any) { console.error(e); toast.error(e?.message || 'Failed to create repair project'); }
     setIsCreatingRepair(false);
   };
 
@@ -1041,6 +1053,12 @@ export default function DiagnosisSession() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ messages: outMessages, vehicleContext, vehicleId: vehicleId || null }),
       });
+      if (resp.status === 429) {
+        const err = await resp.json().catch(() => ({}));
+        setChatMessages(prev => [...prev, { role: 'assistant', content: err.error || 'Rate limit reached. Please wait before sending more messages.' }]);
+        setIsChatStreaming(false);
+        return;
+      }
       if (!resp.ok || !resp.body) throw new Error('Stream failed');
       const reader = resp.body.getReader(); const decoder = new TextDecoder();
       let buffer = ''; let assistantContent = '';
@@ -1317,6 +1335,7 @@ export default function DiagnosisSession() {
                         // Invalidate queries to refetch fresh data
                         queryClient.invalidateQueries({ queryKey: ['diagnosis-steps'] });
                         queryClient.invalidateQueries({ queryKey: ['diagnosis-session'] });
+                        queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
 
                         // Set active index to the reset step
                         const resetIdx = faultyStep ? steps?.findIndex(s => s.id === faultyStep.id) ?? 0 : 0;

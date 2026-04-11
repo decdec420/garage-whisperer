@@ -430,6 +430,20 @@ serve(async (req) => {
       });
     }
 
+    // Rate limit: max 10 AI-generated projects per user per day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: recentProjects } = await supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("ai_generated", true)
+      .gt("created_at", oneDayAgo);
+    if ((recentProjects ?? 0) >= 10) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Max 10 AI-generated projects per day." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (diagnosisId) {
       const { data: diagnosisSession } = await supabase
         .from("diagnosis_sessions")

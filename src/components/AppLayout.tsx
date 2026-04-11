@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus, Home, Grid3X3, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,10 +8,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import RatchetFAB from '@/components/RatchetFAB';
+import { toast } from 'sonner';
 import RatchetPanel from '@/components/RatchetPanel';
 import GlobalSearch from '@/components/GlobalSearch';
 import NotificationCenter from '@/components/NotificationCenter';
 import OnboardingFlow from '@/components/OnboardingFlow';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const sidebarNav = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -32,6 +34,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { activeVehicle, setActiveVehicle, setAddVehicleModalOpen, isRatchetOpen } = useAppStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  const handleOffline = useCallback(() => {
+    setIsOffline(true);
+    toast.error("You're offline — changes won't be saved until you reconnect", { id: 'offline', duration: Infinity });
+  }, []);
+  const handleOnline = useCallback(() => {
+    setIsOffline(false);
+    toast.dismiss('offline');
+    toast.success('Back online');
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [handleOffline, handleOnline]);
 
   const { data: vehicles } = useQuery({
     queryKey: ['vehicles'],
@@ -44,7 +66,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (vehicles?.length && !activeVehicle) {
+    if (!vehicles) return;
+    if (vehicles.length === 0) {
+      setActiveVehicle(null);
+      return;
+    }
+    // If no active vehicle, or the active vehicle was deleted, switch to the first available
+    const stillExists = vehicles.some(v => v.id === activeVehicle?.id);
+    if (!activeVehicle || !stillExists) {
       const v = vehicles[0];
       setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
     }
@@ -76,6 +105,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background">
+      {isOffline && (
+        <div className="fixed top-0 left-0 right-0 z-[9998] bg-destructive text-destructive-foreground text-center text-xs py-1.5 font-medium">
+          You're offline — changes won't be saved until you reconnect
+        </div>
+      )}
       {showOnboarding && <OnboardingFlow name={profileName} onComplete={completeOnboarding} />}
       <GlobalSearch />
 
@@ -163,7 +197,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1">
             <NotificationCenter />
             <button
-              onClick={() => {}}
+              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
               className="p-2 text-muted-foreground hover:text-foreground"
             >
               <Search className="h-5 w-5" />
@@ -185,7 +219,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="w-full mx-auto animate-page-enter max-w-[1100px]" key={location.pathname}>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </div>
       </main>
 

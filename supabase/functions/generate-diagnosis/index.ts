@@ -595,6 +595,19 @@ serve(async (req) => {
       });
     }
 
+    // Rate limit: max 20 AI-generated diagnoses per user per day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: recentDiagnoses } = await supabase
+      .from("diagnosis_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gt("created_at", oneDayAgo);
+    if ((recentDiagnoses ?? 0) >= 20) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Max 20 diagnoses per day." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (diagnosisId) {
       const { data: diagnosisSession } = await supabase
         .from("diagnosis_sessions")

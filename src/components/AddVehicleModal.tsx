@@ -108,6 +108,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
     },
     onSuccess: (inserted) => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles-list'] });
       toast.success('Vehicle added!');
       onOpenChange(false);
       setForm(empty);

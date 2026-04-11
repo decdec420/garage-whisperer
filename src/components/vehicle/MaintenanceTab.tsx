@@ -122,6 +122,8 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
       toast.success('Deleted');
     },
   });
@@ -429,6 +431,8 @@ function AddMaintenanceModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['recent-maintenance', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
       toast.success('Service logged');
       onOpenChange(false);
       resetForm();

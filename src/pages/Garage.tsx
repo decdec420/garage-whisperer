@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Car, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import AddVehicleModal from '@/components/AddVehicleModal';
@@ -30,6 +32,7 @@ export default function Garage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { addVehicleModalOpen, setAddVehicleModalOpen } = useAppStore();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { data: vehicles, isLoading } = useQuery({
     queryKey: ['vehicles'],
@@ -48,6 +51,7 @@ export default function Garage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles-list'] });
       toast.success('Vehicle removed');
     },
     onError: () => toast.error('Failed to delete vehicle'),
@@ -99,7 +103,7 @@ export default function Garage() {
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/garage/${v.id}`); }}>
                       <Pencil className="h-4 w-4 mr-2" /> Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(v.id); }}>
+                    <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: v.id, name: `${v.year} ${v.make} ${v.model}` }); }}>
                       <Trash2 className="h-4 w-4 mr-2" /> Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -124,6 +128,23 @@ export default function Garage() {
       )}
 
       <AddVehicleModal open={addVehicleModalOpen} onOpenChange={setAddVehicleModalOpen} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the vehicle and all associated data — projects, diagnoses, maintenance logs, and repair history. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (deleteTarget) { deleteMutation.mutate(deleteTarget.id); setDeleteTarget(null); } }}>
+              Delete Vehicle
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

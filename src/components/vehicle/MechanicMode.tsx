@@ -69,6 +69,13 @@ export default function MechanicMode({
     scrollRef.current?.scrollTo(0, 0);
   }, [activeStepIdx]);
 
+  // Abort speech recognition on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
   // Wake Lock
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;

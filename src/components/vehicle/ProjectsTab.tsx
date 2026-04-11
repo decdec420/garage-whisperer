@@ -99,6 +99,13 @@ export default function ProjectsTab({ vehicleId, vehicleName }: ProjectsTabProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['active-projects', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['project-steps-summary', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['project-parts-summary', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-steps-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['all-project-parts-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['most-recent-active-project'] });
       toast.success('Project deleted');
     },
   });

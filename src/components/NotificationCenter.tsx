@@ -18,7 +18,14 @@ interface Notification {
 
 export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('ratchet-dismissed-notifications');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const navigate = useNavigate();
   const { openRatchetPanel } = useAppStore();
 
@@ -107,7 +114,11 @@ export default function NotificationCenter() {
               <span className="text-sm font-semibold">Notifications</span>
               {visible.length > 0 && (
                 <button
-                  onClick={() => setDismissed(new Set(notifications.map(n => n.id)))}
+                  onClick={() => {
+                    const allIds = new Set(notifications.map(n => n.id));
+                    setDismissed(allIds);
+                    localStorage.setItem('ratchet-dismissed-notifications', JSON.stringify([...allIds]));
+                  }}
                   className="text-xs text-muted-foreground hover:text-foreground"
                 >
                   Mark all read
@@ -133,7 +144,11 @@ export default function NotificationCenter() {
                           <button
                             onClick={() => {
                               setOpen(false);
+                              const newDismissed = new Set([...dismissed, n.id]);
+                              setDismissed(newDismissed);
+                              localStorage.setItem('ratchet-dismissed-notifications', JSON.stringify([...newDismissed]));
                               if (n.action!.path) navigate(n.action!.path);
+                              else if (n.action!.ratchet) openRatchetPanel(n.action!.ratchet);
                             }}
                             className="text-xs text-primary hover:underline mt-1"
                           >

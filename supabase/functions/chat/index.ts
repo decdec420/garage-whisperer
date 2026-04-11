@@ -796,6 +796,31 @@ serve(async (req) => {
       }
     }
 
+    // --- Per-user rate limiting: max 60 AI messages per hour ---
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: userSessions } = await supabase
+        .from("chat_sessions")
+        .select("id")
+        .eq("user_id", userId);
+      if (userSessions && userSessions.length > 0) {
+        const sessionIds = userSessions.map((s: any) => s.id);
+        const { count } = await supabase
+          .from("chat_messages")
+          .select("id", { count: "exact", head: true })
+          .in("session_id", sessionIds)
+          .eq("role", "user")
+          .gt("created_at", oneHourAgo);
+        if ((count ?? 0) >= 60) {
+          return new Response(JSON.stringify({ error: "Rate limit exceeded. Max 60 messages per hour." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Rate limit check error (non-fatal):", e);
+    }
+
     // Fetch memories using authenticated userId
     let memoryBlock = "";
     if (userId) {

@@ -22,18 +22,25 @@ export default function GlobalSearch() {
   const { openRatchetPanel } = useAppStore();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const closeSearch = () => {
+    setOpen(false);
+    setQuery('');
+    setResults([]);
+  };
+
   // Cmd+K handler
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setOpen(o => !o);
+        if (open) { setQuery(''); setResults([]); }
       }
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') closeSearch();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [open]);
 
   // Cleanup debounce on unmount
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
@@ -88,8 +95,7 @@ export default function GlobalSearch() {
   }, [query]);
 
   const handleSelect = (r: SearchResult) => {
-    setOpen(false);
-    setQuery('');
+    closeSearch();
     if (r.type === 'ratchet') {
       openRatchetPanel(query);
     } else if (r.path) {
@@ -102,7 +108,7 @@ export default function GlobalSearch() {
   const q = query.trim();
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-start justify-center pt-[15vh]" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-[9998] flex items-start justify-center pt-[15vh]" onClick={closeSearch}>
       <div className="absolute inset-0 bg-black/70" />
       <div className="relative w-full max-w-lg mx-4 rounded-2xl border border-border bg-popover shadow-2xl overflow-hidden animate-fade-in"
         onClick={e => e.stopPropagation()}>
@@ -116,7 +122,7 @@ export default function GlobalSearch() {
             className="flex-1 bg-transparent text-foreground text-base placeholder:text-muted-foreground outline-none"
           />
           <kbd className="hidden md:inline text-[11px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">ESC</kbd>
-          <button onClick={() => setOpen(false)} className="md:hidden text-muted-foreground">
+          <button onClick={closeSearch} className="md:hidden text-muted-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
