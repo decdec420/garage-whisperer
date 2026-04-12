@@ -623,6 +623,15 @@ function DiagChatTab({
   );
 }
 
+// ─── Confidence state label ───
+function confidenceStateLabel(score: number): string {
+  if (score >= 90) return 'Cause found';
+  if (score >= 75) return 'Likely';
+  if (score >= 55) return 'Strong lead';
+  if (score >= 35) return 'Narrowing';
+  return 'Testing';
+}
+
 // ─── Main Component ───
 export default function DiagnosisSession() {
   const { vehicleId, diagnosisId } = useParams();
@@ -1207,10 +1216,13 @@ export default function DiagnosisSession() {
                   {completedSteps}/{totalSteps}
                 </span>
               </div>
-              {completedSteps >= 2 && confidenceScore && (
+              {completedSteps >= 1 && confidenceScore && (
                 <div className="text-center mt-1">
+                  <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: '#f97316' }}>
+                    {confidenceStateLabel(confidenceScore)}
+                  </p>
                   <span className="text-[10px] text-white font-bold">{confidenceScore}%</span>
-                  <p className="text-[9px] text-primary truncate max-w-[80px]">{leadingCause || 'Testing...'}</p>
+                  <p className="text-[9px] text-primary truncate max-w-[80px]">{leadingCause || ''}</p>
                 </div>
               )}
             </div>
@@ -1412,8 +1424,13 @@ export default function DiagnosisSession() {
                         isActive={i === currentStepIndex}
                         isCompleted={step.status === 'healthy' || step.status === 'faulty'}
                         hasPreviousCompleted={i > 0 && (steps?.[i - 1]?.status === 'healthy' || steps?.[i - 1]?.status === 'faulty' || locallyCompletedSteps.has(steps?.[i - 1]?.id))}
-                        stepTools={tools?.filter(() => {
-                          return true;
+                        stepTools={tools?.filter(t => {
+                          // Show this tool if it's referenced in the step content
+                          // or is marked required (so users always know what's needed)
+                          const tl = t.name.toLowerCase();
+                          return (step.description || '').toLowerCase().includes(tl)
+                            || (step.title || '').toLowerCase().includes(tl)
+                            || t.required === true;
                         })}
                         vehicle={vehicle}
                         diagSession={diagSession}
