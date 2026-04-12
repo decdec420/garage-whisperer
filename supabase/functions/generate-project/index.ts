@@ -408,18 +408,24 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Decode JWT payload — gateway already verified signature via verify_jwt=true
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await anonClient.auth.getUser(token);
-    if (userError || !userData?.user) {
+    const jwtParts = token.split(".");
+    let userId: string | null = null;
+    if (jwtParts.length === 3) {
+      try {
+        const b64 = jwtParts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64.padEnd(b64.length + (4 - b64.length % 4) % 4, "=");
+        const payload = JSON.parse(atob(padded));
+        userId = payload?.sub ?? null;
+      } catch {}
+    }
+    if (\!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = userData.user.id;
 
     const { data: vehicle, error: vErr } = await supabase
       .from("vehicles").select("*").eq("id", vehicleId).eq("user_id", userId).single();
