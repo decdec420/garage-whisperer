@@ -748,7 +748,7 @@ serve(async (req) => {
         userId = payload?.sub ?? null;
       } catch {}
     }
-    if (\!userId) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1008,7 +1008,7 @@ serve(async (req) => {
     const decoder = new TextDecoder();
     const transformedBody = new ReadableStream({
       async start(controller) {
-        const reader = response.body\!.getReader();
+        const reader = response.body!.getReader();
         let buf = "";
         try {
           while (true) {
@@ -1018,9 +1018,9 @@ serve(async (req) => {
             const lines = buf.split("\n");
             buf = lines.pop() || "";
             for (const line of lines) {
-              if (\!line.startsWith("data: ")) continue;
+              if (!line.startsWith("data: ")) continue;
               const json = line.slice(6).trim();
-              if (\!json) continue;
+              if (!json) continue;
               try {
                 const evt = JSON.parse(json);
                 if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {

@@ -32,7 +32,7 @@ serve(async (req) => {
         userId = payload?.sub ?? null;
       } catch {}
     }
-    if (\!userId) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,14 +65,14 @@ serve(async (req) => {
     }
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (\!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify vehicleId belongs to authenticated user
     const { data: vehicle } = await supabase
       .from("vehicles").select("id").eq("id", vehicleId).eq("user_id", userId).single();
-    if (\!vehicle) {
+    if (!vehicle) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -95,7 +95,7 @@ serve(async (req) => {
       }),
     });
 
-    if (\!response.ok) {
+    if (!response.ok) {
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       throw new Error("AI gateway error");
