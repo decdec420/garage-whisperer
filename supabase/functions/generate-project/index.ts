@@ -477,8 +477,8 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     // Build diagnosis context injection for system prompt
     let diagnosisSystemBlock = '';
@@ -594,18 +594,18 @@ Job: ${jobDescription}
 
 Generate the complete project plan for this exact vehicle and job.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + diagnosisSystemBlock + charmSystemAddition },
-          { role: "user", content: userMessage },
-        ],
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        system: SYSTEM_PROMPT + diagnosisSystemBlock + charmSystemAddition,
+        messages: [{ role: "user", content: userMessage }],
       }),
     });
 
@@ -616,38 +616,21 @@ Generate the complete project plan for this exact vehicle and job.`;
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Credits exhausted. Please add funds." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${status}`);
+      throw new Error(`Anthropic API error: ${status}`);
     }
 
     const aiData = await aiResponse.json();
-    let content = aiData.choices?.[0]?.message?.content || "";
+    let content = aiData.content?.[0]?.text || "";
     content = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
     let plan: any;
     try {
       plan = JSON.parse(content);
     } catch {
-      console.error("First parse failed, retrying...");
-      const retryResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT + charmSystemAddition + "\n\nCRITICAL: Your previous response was not valid JSON. Return ONLY raw JSON. No markdown code fences. No explanation text. Start with { and end with }." },
-            { role: "user", content: userMessage },
-          ],
-        }),
-      });
-      const retryData = await retryResp.json();
-      let retryContent = retryData.choices?.[0]?.message?.content || "";
-      retryContent = retryContent.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-      plan = JSON.parse(retryContent);
+      return new Response(
+        JSON.stringify({ error: "Project generation failed — please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Save to DB

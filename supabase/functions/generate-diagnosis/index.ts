@@ -625,8 +625,8 @@ serve(async (req) => {
       }
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     // --- Check diagnostic pattern cache ---
     const symptomLower = symptom.toLowerCase().trim();
@@ -768,18 +768,18 @@ Symptom reported: ${symptom}
 Generate a complete diagnostic procedure for this exact vehicle and symptom.
 Order tests from most likely cause to least likely for THIS specific vehicle/engine combination.`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + patternContextBlock + userHistoryBlock + factorySystemAddition },
-          { role: "user", content: userMessage },
-        ],
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        system: SYSTEM_PROMPT + patternContextBlock + userHistoryBlock + factorySystemAddition,
+        messages: [{ role: "user", content: userMessage }],
       }),
     });
 
@@ -791,11 +791,11 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${status}`);
+      throw new Error(`Anthropic API error: ${status}`);
     }
 
     const aiData = await aiResponse.json();
-    let content = aiData.choices?.[0]?.message?.content || "";
+    let content = aiData.content?.[0]?.text || "";
     content = content
       .replace(/^```(?:json)?\s*\n?/i, "")
       .replace(/\n?```\s*$/i, "")
@@ -805,31 +805,10 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
     try {
       plan = JSON.parse(content);
     } catch {
-      const retryResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content:
-                SYSTEM_PROMPT +
-                patternContextBlock + userHistoryBlock +
-                factorySystemAddition +
-                "\n\nCRITICAL: Return ONLY raw JSON. No markdown fences. No explanation. Start with { and end with }. Nothing else.",
-            },
-            { role: "user", content: userMessage },
-          ],
-        }),
-      });
-      const retryData = await retryResp.json();
-      let rc = retryData.choices?.[0]?.message?.content || "";
-      rc = rc
-        .replace(/^```(?:json)?\s*\n?/i, "")
-        .replace(/\n?```\s*$/i, "")
-        .trim();
-      plan = JSON.parse(rc);
+      return new Response(
+        JSON.stringify({ error: "Diagnosis generation failed — please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Save project
