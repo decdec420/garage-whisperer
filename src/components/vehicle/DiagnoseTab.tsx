@@ -296,10 +296,10 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         }
       }
 
-      if (genData?.projectId) {
+      if ((genData as any)?.projectId) {
         await supabase.from('diagnosis_sessions').update({
-          project_id: genData.projectId,
-          tree_data: (genData.possibleCauses || []).map((c: string) => ({ cause: c, status: 'untested' })),
+          project_id: (genData as any).projectId,
+          tree_data: ((genData as any).possibleCauses || []).map((c: string) => ({ cause: c, status: 'untested' })),
           media_urls: mediaUrls,
           updated_at: new Date().toISOString(),
         } as any).eq('id', (diagSession as any).id);

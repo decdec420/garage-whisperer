@@ -666,8 +666,8 @@ function ChatContent() {
       }
 
       // Upload images to storage and get base64 for AI
-      let uploadedUrls: string[] = [];
-      let base64Images: string[] = [];
+      const uploadedUrls: string[] = [];
+      const base64Images: string[] = [];
       if (hasImages) {
         setIsUploading(true);
         for (const qf of filesToUpload) {

@@ -1006,7 +1006,7 @@ export default function DiagnosisSession() {
         const isRateLimit = (error as any).status === 429 || error.message?.toLowerCase().includes('rate limit');
         throw new Error(isRateLimit ? 'Rate limit reached — max 10 AI projects per day.' : (error.message || 'Failed to create repair project'));
       }
-      const projectId = data?.project?.id || data?.projectId;
+      const projectId = (data as any)?.project?.id || (data as any)?.projectId;
       if (!projectId) throw new Error('No project ID returned');
       queryClient.invalidateQueries({ queryKey: ['projects', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['all-projects'] });

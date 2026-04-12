@@ -156,7 +156,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
       });
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ['vehicle-documents', vehicleId] });
-      toast.success(`Found ${data?.count || 0} manual references`);
+      toast.success(`Found ${(data as any)?.count || 0} manual references`);
     } catch (e: any) {
       toast.error('Manual search failed');
       console.error(e);
