@@ -64,56 +64,45 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (\!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify vehicleId belongs to authenticated user
     const { data: vehicle } = await supabase
       .from("vehicles").select("id").eq("id", vehicleId).eq("user_id", userId).single();
-    if (!vehicle) {
+    if (\!vehicle) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const prompt = `For a ${year} ${make} ${model}${trim ? ` ${trim}` : ''}, provide the most useful online resources a DIY mechanic would need. Return a JSON array of objects with "title", "url", and "description" fields.
+    const prompt = `For a ${year} ${make} ${model}${trim ? ` ${trim}` : ''}, provide the most useful online resources a DIY mechanic would need. Return a JSON array of objects with "title", "url", and "description" fields.\n\nFocus on:\n1. Official owner's manual (if freely available online from the manufacturer)\n2. Service/repair manual sources (Haynes, Chilton, factory service manual)\n3. Wiring diagram resources specific to this vehicle\n4. Known TSBs (Technical Service Bulletins) lookup page\n5. Model-specific forums or communities with repair knowledge\n\nOnly include real, legitimate URLs that are likely to work. If the official owner's manual is behind a paywall, note that in the description and provide the URL anyway.\nReturn ONLY the JSON array, no other text. Limit to 5-8 most useful resources.`;
 
-Focus on:
-1. Official owner's manual (if freely available online from the manufacturer)
-2. Service/repair manual sources (Haynes, Chilton, factory service manual)
-3. Wiring diagram resources specific to this vehicle
-4. Known TSBs (Technical Service Bulletins) lookup page
-5. Model-specific forums or communities with repair knowledge
-
-Only include real, legitimate URLs that are likely to work. If the official owner's manual is behind a paywall, note that in the description and provide the URL anyway.
-Return ONLY the JSON array, no other text. Limit to 5-8 most useful resources.`;
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are an automotive resource specialist. Return only valid JSON arrays. All URLs must be real, well-known automotive resource websites." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.3,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: "You are an automotive resource specialist. Return only valid JSON arrays. All URLs must be real, well-known automotive resource websites.",
+        messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    if (!response.ok) {
+    if (\!response.ok) {
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
       throw new Error("AI gateway error");
     }
 
     const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content || "[]";
+    const content = aiData.content?.[0]?.text || "[]";
 
     let resources: any[] = [];
     try {
