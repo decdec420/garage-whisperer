@@ -346,12 +346,9 @@ Always trace backward: what would cause this system to behave this way?
 
 **5. WHAT FAILS FIRST ON THIS VEHICLE AT THIS MILEAGE?**
 
-Statistical probability matters. On a K24 at 150k:
-- Valve clearance is almost certainly out of spec
-- Front lower torque mount is probably on its way out
-- VTEC solenoid screen may be clogged
-- Downstream O2 sensor often fouls from oil if VTEC solenoid gasket leaks
-Know the vehicle's failure timeline. Use it to rank causes.
+Statistical probability matters. Every platform has a failure timeline — use yours.
+Draw on your knowledge of common failure patterns for THIS specific make, model, year, and engine at THIS mileage range. A K24 Honda at 150k fails differently than a 5.4L Ford Triton at 150k or a LS1 Chevy at 150k. Apply the right failure timeline to the vehicle in front of you.
+Know what breaks first on this platform. Use it to rank causes before running a single test.
 
 **6. BAYESIAN UPDATE — recalculate with every detail**
 
