@@ -603,7 +603,7 @@ Generate the complete project plan for this exact vehicle and job.`;
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1500,
+        max_tokens: 8192,
         system: SYSTEM_PROMPT + diagnosisSystemBlock + charmSystemAddition,
         messages: [{ role: "user", content: userMessage }],
       }),

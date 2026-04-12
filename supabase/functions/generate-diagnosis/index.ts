@@ -777,7 +777,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1500,
+        max_tokens: 8192,
         system: SYSTEM_PROMPT + patternContextBlock + userHistoryBlock + factorySystemAddition,
         messages: [{ role: "user", content: userMessage }],
       }),
