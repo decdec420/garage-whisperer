@@ -396,6 +396,7 @@ function ChatContent() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [freshOpen, setFreshOpen] = useState(true); // true = just opened, don't auto-load last session
   const [showSessions, setShowSessions] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -542,11 +543,21 @@ function ChatContent() {
     }
   }, [ratchetActiveSessionId, isRatchetOpen]);
 
+  // Auto-load the most recent session ONLY if user manually selected one (not a fresh open)
   useEffect(() => {
-    if (!isDiagnosisMode && sessions?.length && !activeSessionId && !messages.length) {
+    if (!isDiagnosisMode && sessions?.length && !activeSessionId && !messages.length && !freshOpen) {
       setActiveSessionId(sessions[0].id);
     }
   }, [sessions]);
+
+  // Reset to fresh state when panel closes
+  useEffect(() => {
+    if (!isRatchetOpen) {
+      setActiveSessionId(null);
+      setMessages([]);
+      setFreshOpen(true);
+    }
+  }, [isRatchetOpen]);
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
@@ -592,6 +603,7 @@ function ChatContent() {
     const { data, error } = await supabase.from('chat_sessions').insert(insertData).select('id').single();
     if (error) throw error;
     setActiveSessionId(data.id);
+    setFreshOpen(false);
     queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
     queryClient.invalidateQueries({ queryKey: ['vehicle-chat-sessions', insertData.vehicle_id] });
     queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
@@ -886,7 +898,7 @@ How to help:
                 {sessions?.map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -907,7 +919,7 @@ How to help:
                 {generalSessions?.slice(0, 5).map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -929,7 +941,7 @@ How to help:
                 {sessions?.map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'

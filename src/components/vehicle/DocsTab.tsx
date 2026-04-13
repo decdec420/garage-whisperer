@@ -333,7 +333,14 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
       )}
 
       {/* Upload Modal */}
-      <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
+      <Dialog open={uploadModalOpen} onOpenChange={(open) => {
+        setUploadModalOpen(open);
+        if (!open) {
+          setNewDoc({ title: '', description: '', doc_type: 'manual', external_url: '' });
+          setSelectedFile(null);
+          setPreviewUrl(null);
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add Document</DialogTitle>
