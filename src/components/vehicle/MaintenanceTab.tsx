@@ -512,13 +512,25 @@ function AddMaintenanceModal({
               </div>
               <div>
                 <Label className="text-xs">Mileage</Label>
-                <Input type="number" min="0" value={form.mileage} onChange={e => set('mileage', e.target.value)} placeholder="45000" className="bg-popover" />
+                <Input
+                  value={form.mileage ? Number(form.mileage).toLocaleString() : ''}
+                  onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ''); set('mileage', raw); }}
+                  placeholder="45,000"
+                  inputMode="numeric"
+                  className="bg-popover"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Cost ($)</Label>
-                <Input type="number" min="0" step="0.01" value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="65" className="bg-popover" />
+                <Input
+                  value={form.cost}
+                  onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); set('cost', v); }}
+                  placeholder="65.00"
+                  inputMode="decimal"
+                  className="bg-popover"
+                />
               </div>
               <div>
                 <Label className="text-xs">Shop / DIY</Label>
@@ -536,7 +548,13 @@ function AddMaintenanceModal({
                 </div>
                 <div>
                   <Label className="text-xs">Next Due Mileage</Label>
-                  <Input type="number" min="0" value={form.nextDueMileage} onChange={e => set('nextDueMileage', e.target.value)} placeholder="50000" className="bg-popover" />
+                  <Input
+                    value={form.nextDueMileage ? Number(form.nextDueMileage).toLocaleString() : ''}
+                    onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ''); set('nextDueMileage', raw); }}
+                    placeholder="50,000"
+                    inputMode="numeric"
+                    className="bg-popover"
+                  />
                 </div>
               </div>
             </div>
