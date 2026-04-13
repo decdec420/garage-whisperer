@@ -897,7 +897,7 @@ How to help:
                 {sessions?.map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -918,7 +918,7 @@ How to help:
                 {generalSessions?.slice(0, 5).map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-1.5 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -940,7 +940,7 @@ How to help:
                 {sessions?.map(s => (
                   <button
                     key={s.id}
-                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); }}
+                    onClick={() => { setActiveSessionId(s.id); setShowSessions(false); setFreshOpen(false); }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors',
                       s.id === activeSessionId ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
