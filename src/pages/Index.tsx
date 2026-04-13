@@ -149,7 +149,7 @@ export default function Dashboard() {
   // Predictive maintenance status per vehicle
   const vehicleHealth = (vehicles ?? []).map(v => {
     const schedules = (serviceSchedules ?? []).filter(s => s.vehicle_id === v.id);
-    const logs = (maintenanceLogs ?? []).filter(l => l.vehicle_id === v.id);
+    const logs = (maintenanceLogs ?? []).filter(l => l.vehicle_id === v.id && l.date !== '2000-01-01' && l.status !== 'needs_attention');
 
     let overdue = 0;
     let dueSoon = 0;
@@ -157,7 +157,7 @@ export default function Dashboard() {
     let unknown = 0;
 
     const serviceStatuses = schedules.map(sched => {
-      // Find the most recent log matching this service
+      // Find the most recent log matching this service (excluding sentinel entries)
       const lastLog = logs.find(l =>
         l.service.toLowerCase().includes(sched.service_name.toLowerCase()) ||
         sched.service_name.toLowerCase().includes(l.service.toLowerCase())
