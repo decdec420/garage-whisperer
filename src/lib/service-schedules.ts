@@ -95,6 +95,9 @@ export function getServiceStatus(
 ): 'overdue' | 'due_soon' | 'ok' | 'unknown' {
   if (!lastPerformed) return 'unknown'; // Never performed — flag it
 
+  // Sentinel date from catch-up wizard means "never done" — treat as unknown
+  if (lastPerformed.date === '2000-01-01') return 'unknown';
+
   const now = new Date();
 
   // Check time-based

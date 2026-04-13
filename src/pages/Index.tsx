@@ -67,7 +67,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('maintenance_logs')
-        .select('vehicle_id, service, date, mileage')
+        .select('vehicle_id, service, date, mileage, status')
         .order('date', { ascending: false });
       if (error) throw error;
       return data;
