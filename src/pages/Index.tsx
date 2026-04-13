@@ -223,14 +223,22 @@ export default function Dashboard() {
       });
     }
     if (vh.unknown > 3) {
+      const unknownServices = vh.serviceStatuses
+        .filter(s => s.status === 'unknown')
+        .map(s => ({ service_name: s.service_name, category: s.category }));
       attentionItems.push({
         type: 'no-history',
         label: `${vh.unknown} services with no history`,
-        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — Log past maintenance to unlock predictions`,
+        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — Quick catch-up takes ~60 seconds`,
         icon: Clock,
         color: 'text-muted-foreground',
-        action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
-        actionLabel: 'Log history',
+        action: () => setCatchUpVehicle({
+          id: vh.vehicle.id,
+          label: vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`,
+          mileage: vh.vehicle.mileage,
+          services: unknownServices,
+        }),
+        actionLabel: 'Catch up',
       });
     }
   }
