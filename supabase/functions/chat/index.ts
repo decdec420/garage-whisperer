@@ -966,7 +966,7 @@ serve(async (req) => {
       }
     }
 
-    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + charmBlock;
+    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + vehicleDocsBlock + charmBlock;
     if (vehicleContext) {
       systemContent += `\n\n${vehicleContext}\n\nAll advice must be specific to this exact vehicle.`;
     }
