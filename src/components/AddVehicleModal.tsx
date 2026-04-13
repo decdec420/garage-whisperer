@@ -117,8 +117,19 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
       setTimeout(() => {
         openRatchetPanel(
           `I just added my ${inserted.year} ${inserted.make} ${inserted.model}${inserted.trim ? ` ${inserted.trim}` : ''} to the garage! ` +
-          `Can you ask me a few quick questions to get to know this car better — like current mileage, any known issues, modifications, or things I should be aware of? ` +
-          `Then offer to go deeper if I want to tell you more about the car's history.`
+          `Please interview me to build a complete maintenance baseline for this vehicle. Ask me these one or two at a time:\n` +
+          `1. Current mileage (exact or approximate)\n` +
+          `2. When was the last oil change and at what mileage?\n` +
+          `3. When were the last brake pads/rotors done?\n` +
+          `4. Has the transmission fluid ever been changed? If so, when?\n` +
+          `5. Coolant flush history?\n` +
+          `6. Spark plugs — ever replaced?\n` +
+          `7. Tire age and tread condition — when were they last replaced or rotated?\n` +
+          `8. Any known issues, warning lights, or weird noises?\n` +
+          `9. Any modifications or non-stock parts?\n` +
+          `10. Is this a new purchase or have you owned it a while?\n\n` +
+          `After I answer, use my responses to figure out what maintenance is overdue or coming up soon based on the manufacturer's recommended schedule for this vehicle. ` +
+          `Then offer to log the services I've already done so my maintenance tracker is accurate from day one.`
         );
       }, 500);
     },

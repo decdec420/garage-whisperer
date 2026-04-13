@@ -405,7 +405,16 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
       {/* Mileage */}
       <div className="space-y-1">
         <Label className="text-xs">Mileage</Label>
-        <Input value={form.mileage} onChange={(e) => set('mileage', e.target.value)} placeholder="45000" type="number" className="bg-popover" />
+        <Input
+          value={form.mileage ? Number(form.mileage).toLocaleString() : ''}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/[^0-9]/g, '');
+            set('mileage', raw);
+          }}
+          placeholder="45,000"
+          inputMode="numeric"
+          className="bg-popover"
+        />
       </div>
 
       {/* Color */}

@@ -1264,10 +1264,10 @@ function DesktopPanel() {
       className="fixed top-0 right-0 bottom-0 z-40 border-l border-border shadow-2xl animate-slide-in-right flex flex-col"
       style={{ width: isFullscreen ? '680px' : '420px', transition: 'width 250ms cubic-bezier(0.32, 0.72, 0, 1)' }}
     >
-      {/* Fullscreen toggle — floats over header */}
+      {/* Fullscreen toggle — floats over header, positioned left of header buttons */}
       <button
         onClick={() => setIsFullscreen(f => !f)}
-        className="absolute top-3.5 right-12 z-10 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        className="absolute top-3.5 right-[7.5rem] z-10 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         title={isFullscreen ? 'Collapse (⌘⇧F)' : 'Expand (⌘⇧F)'}
       >
         {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
