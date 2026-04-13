@@ -41,6 +41,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  const [userSetDocType, setUserSetDocType] = useState(false);
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ['vehicle-documents', vehicleId],
@@ -85,10 +86,13 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
     if (!newDoc.title) {
       setNewDoc(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, '') }));
     }
-    if (file.type.startsWith('image/')) {
-      setNewDoc(prev => ({ ...prev, doc_type: 'photo' }));
-    } else if (file.type === 'application/pdf') {
-      setNewDoc(prev => ({ ...prev, doc_type: 'manual' }));
+    // Only auto-detect doc_type if user hasn't manually chosen one
+    if (!userSetDocType) {
+      if (file.type.startsWith('image/')) {
+        setNewDoc(prev => ({ ...prev, doc_type: 'photo' }));
+      } else if (file.type === 'application/pdf') {
+        setNewDoc(prev => ({ ...prev, doc_type: 'manual' }));
+      }
     }
   };
 
@@ -167,6 +171,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
       setNewDoc({ title: '', description: '', doc_type: 'manual', external_url: '' });
       setSelectedFile(null);
       setPreviewUrl(null);
+      setUserSetDocType(false);
     } catch (e: any) {
       toast.error(e.message || 'Upload failed');
     }
@@ -229,8 +234,22 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
         if (doc.file_url.startsWith('http')) {
           window.open(doc.file_url, '_blank');
         } else {
-          const url = await getSignedUrl('vehicle-documents', doc.file_url);
-          if (url) window.open(url, '_blank');
+          // Download as blob to avoid ad-blockers blocking supabase.co domain
+          try {
+            const { data: fileData, error } = await supabase.storage
+              .from('vehicle-documents')
+              .download(doc.file_url);
+            if (error || !fileData) {
+              toast.error('Could not open file');
+              return;
+            }
+            const blobUrl = URL.createObjectURL(fileData);
+            window.open(blobUrl, '_blank');
+            // Clean up blob URL after a delay
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+          } catch {
+            toast.error('Could not open file');
+          }
         }
       }
     }, [doc.file_url, doc.external_url]);
@@ -362,6 +381,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           setNewDoc({ title: '', description: '', doc_type: 'manual', external_url: '' });
           setSelectedFile(null);
           setPreviewUrl(null);
+          setUserSetDocType(false);
         }
       }}>
         <DialogContent className="max-w-md">
@@ -371,7 +391,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs">Type</Label>
-              <Select value={newDoc.doc_type} onValueChange={v => setNewDoc(p => ({ ...p, doc_type: v }))}>
+              <Select value={newDoc.doc_type} onValueChange={v => { setNewDoc(p => ({ ...p, doc_type: v })); setUserSetDocType(true); }}>
                 <SelectTrigger className="bg-popover"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DOC_TYPES.map(dt => (
