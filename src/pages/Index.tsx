@@ -499,6 +499,18 @@ export default function Dashboard() {
           <Badge variant="secondary" className="shrink-0 text-[10px]">Coming Soon</Badge>
         </CardContent>
       </Card>
+
+      {/* Maintenance Catch-Up Wizard */}
+      {catchUpVehicle && (
+        <MaintenanceCatchUpWizard
+          open={!!catchUpVehicle}
+          onOpenChange={(open) => { if (!open) setCatchUpVehicle(null); }}
+          vehicleId={catchUpVehicle.id}
+          vehicleLabel={catchUpVehicle.label}
+          vehicleMileage={catchUpVehicle.mileage}
+          services={catchUpVehicle.services}
+        />
+      )}
     </div>
   );
 }
