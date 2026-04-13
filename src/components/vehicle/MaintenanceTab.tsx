@@ -320,17 +320,38 @@ function MaintenanceCard({
         </div>
 
         {isExpanded && (
-          <div className="mt-4 pt-3 border-t border-border space-y-2 text-sm" onClick={e => e.stopPropagation()}>
+          <div className="mt-4 pt-3 border-t border-border space-y-3 text-sm" onClick={e => e.stopPropagation()}>
+            {/* Key details grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-accent/50 p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Date Performed</p>
+                <p className="text-sm font-medium">{format(new Date(log.date), 'MMMM d, yyyy')}</p>
+              </div>
+              <div className="rounded-lg bg-accent/50 p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Mileage</p>
+                <p className="text-sm font-medium">{log.mileage ? `${log.mileage.toLocaleString()} mi` : '—'}</p>
+              </div>
+              <div className="rounded-lg bg-accent/50 p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Cost</p>
+                <p className="text-sm font-medium">{log.cost != null && Number(log.cost) > 0 ? `$${Number(log.cost).toLocaleString()}` : '—'}</p>
+              </div>
+              <div className="rounded-lg bg-accent/50 p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Shop / DIY</p>
+                <p className="text-sm font-medium">{log.shop || '—'}</p>
+              </div>
+            </div>
+
             {log.notes && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">Notes</p>
+              <div className="rounded-lg bg-accent/50 p-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
                 <p className="text-sm">{log.notes}</p>
               </div>
             )}
+
             {(log.next_due_date || log.next_due_mileage) && (
-              <div className="rounded-lg bg-accent/50 p-3">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Next Due</p>
-                <div className="flex gap-4 text-xs">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1">Next Service Due</p>
+                <div className="flex gap-4 text-sm">
                   {log.next_due_date && (
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
@@ -343,6 +364,7 @@ function MaintenanceCard({
                 </div>
               </div>
             )}
+
             <div className="flex justify-end pt-1">
               <Button
                 variant="ghost"

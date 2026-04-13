@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -83,9 +83,11 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
 
   const markedCount = entries.filter(e => e.status !== null).length;
   const doneEntries = entries.filter(e => e.status === 'done_recently' && e.date);
+  const neverEntries = entries.filter(e => e.status === 'never_done');
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Insert "done recently" entries with user-provided dates
       const toInsert = entries
         .filter(e => e.status === 'done_recently' && e.date)
         .map(e => ({
@@ -103,14 +105,36 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
         if (error) throw error;
       }
 
-      return toInsert.length;
+      // For "never done" items — insert a backdated placeholder so they show as overdue
+      // This creates a record dated far enough back that the service will flag as overdue
+      const neverItems = entries
+        .filter(e => e.status === 'never_done')
+        .map(e => ({
+          vehicle_id: vehicleId,
+          service: e.service_name,
+          date: '2000-01-01', // sentinel date — clearly overdue
+          mileage: 0,
+          cost: null as number | null,
+          shop: null as string | null,
+          notes: 'Never done — flagged for attention',
+        }));
+
+      if (neverItems.length > 0) {
+        const { error } = await supabase.from('maintenance_logs').insert(neverItems);
+        if (error) throw error;
+      }
+
+      return { done: toInsert.length, flagged: neverItems.length };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ done, flagged }) => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['all-maintenance-logs-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] });
       queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
-      toast.success(`Logged ${count} service${count !== 1 ? 's' : ''} — your health score will update`);
+      const parts = [];
+      if (done > 0) parts.push(`${done} logged`);
+      if (flagged > 0) parts.push(`${flagged} flagged as overdue`);
+      toast.success(`${parts.join(', ')} — health score will update`);
       onOpenChange(false);
     },
     onError: (e) => toast.error(e.message),
@@ -137,7 +161,7 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-3">
           <DialogTitle className="text-lg">Catch Up on Maintenance</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
@@ -154,7 +178,7 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 min-h-0">
+        <div className="flex-1 overflow-y-auto px-6 min-h-0">
           <div className="space-y-5 pb-4">
             {grouped.map(([category, items]) => {
               const CatIcon = CATEGORY_ICONS[category] || Wrench;
@@ -181,18 +205,18 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="p-4 border-t border-border space-y-2 shrink-0">
           <Button
             className="w-full"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || doneEntries.length === 0}
+            disabled={saveMutation.isPending || (doneEntries.length === 0 && neverEntries.length === 0)}
           >
             {saveMutation.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</>
             ) : (
-              `Save ${doneEntries.length} service${doneEntries.length !== 1 ? 's' : ''}`
+              <>Save {doneEntries.length > 0 ? `${doneEntries.length} logged` : ''}{doneEntries.length > 0 && neverEntries.length > 0 ? ' + ' : ''}{neverEntries.length > 0 ? `${neverEntries.length} flagged` : ''}</>
             )}
           </Button>
           <button

@@ -1,11 +1,10 @@
 import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus, Home, Grid3X3, Search } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import RatchetFAB from '@/components/RatchetFAB';
 import { toast } from 'sonner';
@@ -116,38 +115,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-60 border-r border-sidebar-border bg-sidebar fixed inset-y-0 left-0 z-30">
         <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2">
             <Wrench className="h-6 w-6 text-primary" />
             <span className="text-xl font-bold text-primary">Ratchet</span>
           </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center justify-between rounded-lg border border-border bg-popover px-3 py-2 text-sm hover:border-primary/50 transition-colors">
-                <span className="truncate text-left">
-                  {activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Select vehicle'}
-                </span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              {vehicles?.map((v) => (
-                <DropdownMenuItem key={v.id} onClick={() => {
-                  setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
-                  if (location.pathname.startsWith('/garage/')) {
-                    navigate(`/garage/${v.id}`);
-                  }
-                }}>
-                  <span className="truncate">{v.nickname || `${v.year} ${v.make} ${v.model}`}</span>
-                </DropdownMenuItem>
-              ))}
-              {(!vehicles || vehicles.length === 0) && (
-                <DropdownMenuItem onClick={() => navigate('/garage')} className="text-muted-foreground">
-                  Go to Garage to add a vehicle
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
