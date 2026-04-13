@@ -603,6 +603,7 @@ function ChatContent() {
     const { data, error } = await supabase.from('chat_sessions').insert(insertData).select('id').single();
     if (error) throw error;
     setActiveSessionId(data.id);
+    setFreshOpen(false);
     queryClient.invalidateQueries({ queryKey: ['ratchet-sessions'] });
     queryClient.invalidateQueries({ queryKey: ['vehicle-chat-sessions', insertData.vehicle_id] });
     queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
