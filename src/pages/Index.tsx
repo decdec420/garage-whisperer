@@ -188,7 +188,7 @@ export default function Dashboard() {
   const totalDTCs = activeDTCs?.length ?? 0;
 
   // Needs attention items
-  const attentionItems: { type: string; label: string; sublabel: string; icon: React.ElementType; color: string; action: () => void }[] = [];
+  const attentionItems: { type: string; label: string; sublabel: string; icon: React.ElementType; color: string; action: () => void; actionLabel: string }[] = [];
 
   for (const vh of vehicleHealth) {
     if (vh.overdue > 0) {
