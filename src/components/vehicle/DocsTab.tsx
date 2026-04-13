@@ -131,11 +131,34 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
       }).select('id').single();
       if (error) throw error;
 
-      // Trigger text extraction in the background for PDFs and images
+      // Trigger text extraction + DTC auto-parse in the background
       if (insertData?.id && fileUrl && (mimeType?.startsWith('image/') || mimeType === 'application/pdf')) {
-        invokeWithAuth('extract-doc-text', { documentId: insertData.id }).catch(e => {
-          console.error('Doc text extraction failed (non-blocking):', e);
-        });
+        invokeWithAuth<{ dtcsParsed?: number; newDTCs?: number; dtcCodes?: string[] }>('extract-doc-text', { documentId: insertData.id })
+          .then(({ data }) => {
+            if (data?.newDTCs && data.newDTCs > 0) {
+              queryClient.invalidateQueries({ queryKey: ['dtc-records', vehicleId] });
+              toast.success(
+                `Found ${data.newDTCs} new DTC${data.newDTCs > 1 ? 's' : ''}: ${data.dtcCodes?.join(', ')}`,
+                {
+                  description: 'Codes added to your Diagnose tab automatically.',
+                  duration: 8000,
+                  action: {
+                    label: 'Start Diagnosis',
+                    onClick: () => {
+                      // Navigate to diagnose tab — the tab switching is handled by the parent
+                      const diagnoseTabBtn = document.querySelector('[data-tab-value="diagnose"]') as HTMLButtonElement;
+                      if (diagnoseTabBtn) diagnoseTabBtn.click();
+                    },
+                  },
+                }
+              );
+            } else if (data?.dtcsParsed && data.dtcsParsed > 0 && data.newDTCs === 0) {
+              toast.info(`${data.dtcsParsed} DTC${data.dtcsParsed > 1 ? 's' : ''} found — all already tracked.`);
+            }
+          })
+          .catch(e => {
+            console.error('Doc text extraction failed (non-blocking):', e);
+          });
       }
 
       queryClient.invalidateQueries({ queryKey: ['vehicle-documents', vehicleId] });
