@@ -543,11 +543,21 @@ function ChatContent() {
     }
   }, [ratchetActiveSessionId, isRatchetOpen]);
 
+  // Auto-load the most recent session ONLY if user manually selected one (not a fresh open)
   useEffect(() => {
-    if (!isDiagnosisMode && sessions?.length && !activeSessionId && !messages.length) {
+    if (!isDiagnosisMode && sessions?.length && !activeSessionId && !messages.length && !freshOpen) {
       setActiveSessionId(sessions[0].id);
     }
   }, [sessions]);
+
+  // Reset to fresh state when panel closes
+  useEffect(() => {
+    if (!isRatchetOpen) {
+      setActiveSessionId(null);
+      setMessages([]);
+      setFreshOpen(true);
+    }
+  }, [isRatchetOpen]);
 
   useEffect(() => {
     if (!activeSessionId) { setMessages([]); return; }
