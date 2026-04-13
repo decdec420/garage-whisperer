@@ -234,8 +234,22 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
         if (doc.file_url.startsWith('http')) {
           window.open(doc.file_url, '_blank');
         } else {
-          const url = await getSignedUrl('vehicle-documents', doc.file_url);
-          if (url) window.open(url, '_blank');
+          // Download as blob to avoid ad-blockers blocking supabase.co domain
+          try {
+            const { data: fileData, error } = await supabase.storage
+              .from('vehicle-documents')
+              .download(doc.file_url);
+            if (error || !fileData) {
+              toast.error('Could not open file');
+              return;
+            }
+            const blobUrl = URL.createObjectURL(fileData);
+            window.open(blobUrl, '_blank');
+            // Clean up blob URL after a delay
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+          } catch {
+            toast.error('Could not open file');
+          }
         }
       }
     }, [doc.file_url, doc.external_url]);
