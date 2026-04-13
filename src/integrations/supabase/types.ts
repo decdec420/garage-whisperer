@@ -1069,6 +1069,50 @@ export type Database = {
           },
         ]
       }
+      vehicle_service_schedules: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          interval_miles: number | null
+          interval_months: number | null
+          notes: string | null
+          priority: string
+          service_name: string
+          vehicle_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          interval_miles?: number | null
+          interval_months?: number | null
+          notes?: string | null
+          priority?: string
+          service_name: string
+          vehicle_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          interval_miles?: number | null
+          interval_months?: number | null
+          notes?: string | null
+          priority?: string
+          service_name?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_service_schedules_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           body_style: string | null

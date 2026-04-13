@@ -2,11 +2,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Car, Wrench, DollarSign, Clock, MessageCircle, Plus, Cpu, FolderOpen, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import {
+  Car, Plus, AlertTriangle, CheckCircle2, Clock, Wrench,
+  ChevronRight, Cpu, FolderOpen, DollarSign, Activity,
+  Droplets, Zap, ShieldAlert, Bluetooth
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getServiceStatus } from '@/lib/service-schedules';
+import { usePopulateServiceSchedules } from '@/hooks/usePopulateServiceSchedules';
+import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -17,52 +26,209 @@ export default function Dashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
+  // ── Data queries ──────────────────────────────────────────────
   const { data: vehicles, isLoading: vehiclesLoading } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, mileage, nickname');
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('id, year, make, model, mileage, nickname, engine, trim, drivetrain')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
   });
 
-  const { data: repairStats } = useQuery({
-    queryKey: ['repair-stats'],
+  // Auto-populate service schedules for new vehicles
+  usePopulateServiceSchedules(vehicles ?? undefined);
+
+  const { data: serviceSchedules } = useQuery({
+    queryKey: ['all-service-schedules'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('repair_logs').select('diy_cost, shop_quote');
+      const { data, error } = await supabase
+        .from('vehicle_service_schedules')
+        .select('*');
       if (error) throw error;
-      const totalRepairs = data.length;
-      const totalSavings = data.reduce((acc, r) => acc + ((Number(r.shop_quote) || 0) - (Number(r.diy_cost) || 0)), 0);
-      return { totalRepairs, totalSavings: Math.max(0, totalSavings) };
+      return data;
     },
+    enabled: !!vehicles && vehicles.length > 0,
   });
 
-  const { data: nextMaintenance } = useQuery({
-    queryKey: ['next-maintenance'],
+  const { data: maintenanceLogs } = useQuery({
+    queryKey: ['all-maintenance-logs-dashboard'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('maintenance_logs').select('service, next_due_date, next_due_mileage').not('next_due_date', 'is', null).order('next_due_date', { ascending: true }).limit(1);
+      const { data, error } = await supabase
+        .from('maintenance_logs')
+        .select('vehicle_id, service, date, mileage')
+        .order('date', { ascending: false });
       if (error) throw error;
-      return data?.[0] ?? null;
+      return data;
     },
+    enabled: !!vehicles && vehicles.length > 0,
   });
 
-  // Get most recent active project for "Resume" action
-  const { data: activeProject } = useQuery({
-    queryKey: ['most-recent-active-project'],
+  const { data: activeProjects } = useQuery({
+    queryKey: ['dashboard-active-projects'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, vehicle_id')
-        .eq('status', 'active')
+        .select('id, title, vehicle_id, status, updated_at, estimated_minutes, actual_minutes')
+        .in('status', ['active', 'planning'])
         .order('updated_at', { ascending: false })
-        .limit(1);
+        .limit(5);
       if (error) throw error;
-      return data?.[0] ?? null;
+      return data;
     },
   });
 
-  const activeProjectVehicle = activeProject && vehicles?.find(v => v.id === activeProject.vehicle_id);
+  const { data: projectStepCounts } = useQuery({
+    queryKey: ['dashboard-project-step-counts'],
+    queryFn: async () => {
+      if (!activeProjects?.length) return {};
+      const ids = activeProjects.map(p => p.id);
+      const { data, error } = await supabase
+        .from('project_steps')
+        .select('project_id, status');
+      if (error) throw error;
+      const counts: Record<string, { total: number; done: number; nextStep?: string }> = {};
+      for (const s of data ?? []) {
+        if (!ids.includes(s.project_id)) continue;
+        if (!counts[s.project_id]) counts[s.project_id] = { total: 0, done: 0 };
+        counts[s.project_id].total++;
+        if (s.status === 'done') counts[s.project_id].done++;
+      }
+      return counts;
+    },
+    enabled: !!activeProjects && activeProjects.length > 0,
+  });
 
+  const { data: activeDTCs } = useQuery({
+    queryKey: ['dashboard-active-dtcs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dtc_records')
+        .select('id, vehicle_id, code, description, severity')
+        .eq('status', 'active');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: vehicleExpenses } = useQuery({
+    queryKey: ['dashboard-vehicle-expenses'],
+    queryFn: async () => {
+      // Aggregate from repair_logs + maintenance_logs
+      const [repairRes, maintRes] = await Promise.all([
+        supabase.from('repair_logs').select('vehicle_id, diy_cost, total_cost'),
+        supabase.from('maintenance_logs').select('vehicle_id, cost'),
+      ]);
+      const expenses: Record<string, number> = {};
+      for (const r of repairRes.data ?? []) {
+        const cost = Number(r.total_cost) || Number(r.diy_cost) || 0;
+        expenses[r.vehicle_id] = (expenses[r.vehicle_id] || 0) + cost;
+      }
+      for (const m of maintRes.data ?? []) {
+        const cost = Number(m.cost) || 0;
+        expenses[m.vehicle_id] = (expenses[m.vehicle_id] || 0) + cost;
+      }
+      return expenses;
+    },
+    enabled: !!vehicles && vehicles.length > 0,
+  });
+
+  // ── Derived data ──────────────────────────────────────────────
+
+  // Predictive maintenance status per vehicle
+  const vehicleHealth = (vehicles ?? []).map(v => {
+    const schedules = (serviceSchedules ?? []).filter(s => s.vehicle_id === v.id);
+    const logs = (maintenanceLogs ?? []).filter(l => l.vehicle_id === v.id);
+
+    let overdue = 0;
+    let dueSoon = 0;
+    let ok = 0;
+    let unknown = 0;
+
+    const serviceStatuses = schedules.map(sched => {
+      // Find the most recent log matching this service
+      const lastLog = logs.find(l =>
+        l.service.toLowerCase().includes(sched.service_name.toLowerCase()) ||
+        sched.service_name.toLowerCase().includes(l.service.toLowerCase())
+      );
+      const status = getServiceStatus(
+        sched,
+        lastLog ? { date: lastLog.date, mileage: lastLog.mileage } : null,
+        v.mileage,
+      );
+      if (status === 'overdue') overdue++;
+      else if (status === 'due_soon') dueSoon++;
+      else if (status === 'ok') ok++;
+      else unknown++;
+
+      return { ...sched, status, lastLog };
+    });
+
+    const totalChecked = overdue + dueSoon + ok;
+    const healthScore = totalChecked > 0 ? Math.round(((ok + dueSoon * 0.5) / totalChecked) * 100) : null;
+
+    return {
+      vehicle: v,
+      overdue,
+      dueSoon,
+      ok,
+      unknown,
+      healthScore,
+      serviceStatuses,
+      expenses: vehicleExpenses?.[v.id] ?? 0,
+      dtcs: (activeDTCs ?? []).filter(d => d.vehicle_id === v.id),
+    };
+  });
+
+  const totalOverdue = vehicleHealth.reduce((a, v) => a + v.overdue, 0);
+  const totalDueSoon = vehicleHealth.reduce((a, v) => a + v.dueSoon, 0);
+  const totalDTCs = activeDTCs?.length ?? 0;
+
+  // Needs attention items
+  const attentionItems: { type: string; label: string; sublabel: string; icon: React.ElementType; color: string; action: () => void }[] = [];
+
+  for (const vh of vehicleHealth) {
+    if (vh.overdue > 0) {
+      const overdueServices = vh.serviceStatuses.filter(s => s.status === 'overdue').map(s => s.service_name);
+      attentionItems.push({
+        type: 'overdue',
+        label: `${vh.overdue} overdue service${vh.overdue > 1 ? 's' : ''}`,
+        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — ${overdueServices.slice(0, 2).join(', ')}${overdueServices.length > 2 ? '...' : ''}`,
+        icon: AlertTriangle,
+        color: 'text-destructive',
+        action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
+      });
+    }
+    if (vh.dtcs.length > 0) {
+      attentionItems.push({
+        type: 'dtc',
+        label: `${vh.dtcs.length} active DTC${vh.dtcs.length > 1 ? 's' : ''}: ${vh.dtcs.map(d => d.code).join(', ')}`,
+        sublabel: vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`,
+        icon: Cpu,
+        color: 'text-warning',
+        action: () => navigate(`/garage/${vh.vehicle.id}?tab=diagnose`),
+      });
+    }
+    if (vh.unknown > 3) {
+      attentionItems.push({
+        type: 'no-history',
+        label: `${vh.unknown} services with no history`,
+        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — Log past maintenance to unlock predictions`,
+        icon: Clock,
+        color: 'text-muted-foreground',
+        action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
+      });
+    }
+  }
+
+  // Sort: overdue first, then DTCs, then no-history
+  const priorityOrder: Record<string, number> = { overdue: 0, dtc: 1, 'no-history': 2 };
+  attentionItems.sort((a, b) => (priorityOrder[a.type] ?? 99) - (priorityOrder[b.type] ?? 99));
+
+  // ── Empty state ───────────────────────────────────────────────
   if (!vehiclesLoading && (!vehicles || vehicles.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center">
@@ -70,7 +236,9 @@ export default function Dashboard() {
           <Car className="h-12 w-12 text-primary" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Your garage is empty</h1>
-        <p className="text-muted-foreground mb-6 max-w-sm">Add your first ride and I'll help you keep it running smooth — diagnostics, maintenance, the whole deal.</p>
+        <p className="text-muted-foreground mb-6 max-w-sm">
+          Add your first ride and Ratchet will start tracking maintenance, diagnostics, and expenses automatically.
+        </p>
         <Button size="lg" onClick={() => setAddVehicleModalOpen(true)}>
           <Plus className="h-5 w-5 mr-2" /> Add your first vehicle
         </Button>
@@ -78,88 +246,240 @@ export default function Dashboard() {
     );
   }
 
+  // ── Loading state ─────────────────────────────────────────────
+  if (vehiclesLoading) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        </div>
+        <Skeleton className="h-40 rounded-xl" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-bold">{greeting}, {profileName}</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {totalOverdue > 0
+            ? `${totalOverdue} service${totalOverdue > 1 ? 's' : ''} overdue across your vehicles`
+            : totalDueSoon > 0
+              ? `${totalDueSoon} service${totalDueSoon > 1 ? 's' : ''} coming up soon`
+              : 'All systems looking good'}
+        </p>
+      </div>
+
+      {/* ── Needs Attention ─────────────────────────────────────── */}
+      {attentionItems.length > 0 && (
         <div>
-          <h1 className="text-2xl font-bold">{greeting}, {profileName}</h1>
-          {activeVehicle && (
-            <p className="text-muted-foreground text-sm mt-1">
-              Active: {activeVehicle.year} {activeVehicle.make} {activeVehicle.model}
-            </p>
-          )}
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Needs Attention</h2>
+          <div className="space-y-2">
+            {attentionItems.slice(0, 5).map((item, i) => (
+              <button
+                key={i}
+                onClick={item.action}
+                className="w-full flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary/30 hover:bg-accent/50 transition-colors text-left"
+              >
+                <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center shrink-0', item.type === 'overdue' ? 'bg-destructive/10' : item.type === 'dtc' ? 'bg-warning/10' : 'bg-muted')}>
+                  <item.icon className={cn('h-4 w-4', item.color)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.sublabel}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Vehicle Health Cards ────────────────────────────────── */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vehicle Health</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {vehicleHealth.map(vh => (
+            <Card
+              key={vh.vehicle.id}
+              className="cursor-pointer hover:border-primary/30 transition-colors"
+              onClick={() => navigate(`/garage/${vh.vehicle.id}`)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`}
+                    </p>
+                    {vh.vehicle.mileage && (
+                      <p className="text-xs text-muted-foreground">{vh.vehicle.mileage.toLocaleString()} mi</p>
+                    )}
+                  </div>
+                  {vh.healthScore !== null ? (
+                    <div className={cn(
+                      'text-lg font-bold',
+                      vh.healthScore >= 80 ? 'text-success' : vh.healthScore >= 50 ? 'text-warning' : 'text-destructive'
+                    )}>
+                      {vh.healthScore}%
+                    </div>
+                  ) : (
+                    <Badge variant="secondary" className="text-[10px]">No data</Badge>
+                  )}
+                </div>
+
+                {vh.healthScore !== null && (
+                  <Progress
+                    value={vh.healthScore}
+                    className="h-1.5 mb-3"
+                  />
+                )}
+
+                <div className="flex items-center gap-3 text-xs">
+                  {vh.overdue > 0 && (
+                    <span className="flex items-center gap-1 text-destructive">
+                      <AlertTriangle className="h-3 w-3" /> {vh.overdue} overdue
+                    </span>
+                  )}
+                  {vh.dueSoon > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <Clock className="h-3 w-3" /> {vh.dueSoon} due soon
+                    </span>
+                  )}
+                  {vh.overdue === 0 && vh.dueSoon === 0 && vh.ok > 0 && (
+                    <span className="flex items-center gap-1 text-success">
+                      <CheckCircle2 className="h-3 w-3" /> All up to date
+                    </span>
+                  )}
+                  {vh.dtcs.length > 0 && (
+                    <span className="flex items-center gap-1 text-warning">
+                      <Cpu className="h-3 w-3" /> {vh.dtcs.length} DTC{vh.dtcs.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {vh.expenses > 0 && (
+                    <span className="flex items-center gap-1 text-muted-foreground ml-auto">
+                      <DollarSign className="h-3 w-3" /> ${vh.expenses.toLocaleString()} spent
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Vehicles', value: vehicles?.length ?? 0, icon: Car, color: 'text-primary' },
-          { label: 'Repairs', value: repairStats?.totalRepairs ?? 0, icon: Wrench, color: 'text-primary' },
-          { label: 'DIY Savings', value: `$${(repairStats?.totalSavings ?? 0).toLocaleString()}`, icon: DollarSign, color: 'text-success' },
-          { label: 'Next Service', value: nextMaintenance?.service ?? 'None', icon: Clock, color: 'text-warning' },
-        ].map((stat) => (
-          <Card key={stat.label} className="border-border hover:border-primary/30 transition-colors">
+      {/* ── Active Projects ─────────────────────────────────────── */}
+      {activeProjects && activeProjects.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Active Projects</h2>
+            <button onClick={() => navigate('/active-work')} className="text-xs text-primary hover:underline">View all</button>
+          </div>
+          <div className="space-y-2">
+            {activeProjects.slice(0, 3).map(p => {
+              const v = vehicles?.find(veh => veh.id === p.vehicle_id);
+              const steps = projectStepCounts?.[p.id];
+              const progress = steps && steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => navigate(`/garage/${p.vehicle_id}/projects/${p.id}`)}
+                  className="w-full flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary/30 hover:bg-accent/50 transition-colors text-left"
+                >
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary shrink-0">
+                    <FolderOpen className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {v ? `${v.year} ${v.make} ${v.model}` : ''} {steps ? `• ${steps.done}/${steps.total} steps` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {steps && steps.total > 0 && (
+                      <div className="w-16">
+                        <Progress value={progress} className="h-1.5" />
+                      </div>
+                    )}
+                    <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Vehicle Expenses Summary ───────────────────────────── */}
+      {vehicleExpenses && Object.keys(vehicleExpenses).length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vehicle Expenses</h2>
+          <Card>
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                <span className="text-xs text-muted-foreground">{stat.label}</span>
+              <div className="space-y-3">
+                {vehicleHealth.filter(vh => vh.expenses > 0).map(vh => (
+                  <div key={vh.vehicle.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Car className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold">${vh.expenses.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="border-t border-border pt-2 flex items-center justify-between">
+                  <span className="text-sm font-medium">Total</span>
+                  <span className="text-sm font-bold">
+                    ${Object.values(vehicleExpenses).reduce((a, b) => a + b, 0).toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <p className="text-xl font-bold">{vehiclesLoading ? <Skeleton className="h-7 w-16" /> : stat.value}</p>
             </CardContent>
           </Card>
-        ))}
+        </div>
+      )}
+
+      {/* ── Quick Intelligence ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => openRatchetPanel('What maintenance does my car need soon?')}
+          className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[90px] justify-center"
+        >
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+            <Activity className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-medium text-center">Ask Ratchet</span>
+        </button>
+        <button
+          onClick={() => openRatchetPanel('I have a symptom to diagnose')}
+          className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[90px] justify-center"
+        >
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
+            <ShieldAlert className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-medium text-center">Diagnose Issue</span>
+        </button>
       </div>
 
-      {/* Quick actions */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {activeProject ? (
-            <button
-              onClick={() => navigate(`/garage/${activeProject.vehicle_id}/projects/${activeProject.id}`)}
-              className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4 hover:border-primary/50 transition-colors min-h-[100px] justify-center col-span-2 md:col-span-1"
-            >
-              <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-                <FolderOpen className="h-5 w-5" />
-              </div>
-              <span className="text-xs font-medium text-center">Resume: {activeProject.title}</span>
-              {activeProjectVehicle && (
-                <span className="text-[10px] text-muted-foreground">{activeProjectVehicle.year} {activeProjectVehicle.make} {activeProjectVehicle.model}</span>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate('/active-work')}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
-            >
-              <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-                <FolderOpen className="h-5 w-5" />
-              </div>
-              <span className="text-xs font-medium text-center">Start a project</span>
-            </button>
-          )}
-          <button
-            onClick={() => navigate('/garage')}
-            className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
-          >
-            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-accent text-accent-foreground">
-              <Car className="h-5 w-5" />
-            </div>
-            <span className="text-xs font-medium text-center">View my garage</span>
-          </button>
-          <button
-            onClick={() => openRatchetPanel('Diagnose a symptom')}
-            className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[100px] justify-center"
-          >
-            <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
-              <MessageCircle className="h-5 w-5" />
-            </div>
-            <span className="text-xs font-medium text-center">Diagnose a problem</span>
-          </button>
-        </div>
-      </div>
+      {/* ── OBD2 Future Teaser ─────────────────────────────────── */}
+      <Card className="border-dashed border-primary/20 bg-primary/[0.02]">
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary shrink-0">
+            <Bluetooth className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">OBD2 Live Monitoring</p>
+            <p className="text-xs text-muted-foreground">
+              Connect a Bluetooth OBD2 adapter to let Ratchet read live data, fault codes, and oil life directly from your car.
+            </p>
+          </div>
+          <Badge variant="secondary" className="shrink-0 text-[10px]">Coming Soon</Badge>
+        </CardContent>
+      </Card>
     </div>
   );
 }
