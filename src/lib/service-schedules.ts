@@ -20,7 +20,7 @@ const UNIVERSAL_SCHEDULES: ServiceTemplate[] = [
   { service_name: 'Cabin Air Filter', interval_miles: 20000, interval_months: 24, priority: 'low', category: 'filters' },
   { service_name: 'Brake Fluid Flush', interval_miles: 30000, interval_months: 36, priority: 'high', category: 'fluids' },
   { service_name: 'Coolant Flush', interval_miles: 50000, interval_months: 60, priority: 'high', category: 'fluids' },
-  { service_name: 'Transmission Fluid', interval_miles: 60000, interval_months: 60, priority: 'high', category: 'fluids', notes: 'CVTs may differ — check owner's manual' },
+  { service_name: 'Transmission Fluid', interval_miles: 60000, interval_months: 60, priority: 'high', category: 'fluids', notes: 'CVTs may differ - check owners manual' },
   { service_name: 'Spark Plugs', interval_miles: 60000, interval_months: 72, priority: 'normal', category: 'ignition', notes: 'Iridium/Platinum plugs may last 100k mi' },
   { service_name: 'Serpentine Belt', interval_miles: 60000, interval_months: 60, priority: 'normal', category: 'general' },
   { service_name: 'Battery Inspection', interval_miles: null, interval_months: 12, priority: 'normal', category: 'electrical' },
