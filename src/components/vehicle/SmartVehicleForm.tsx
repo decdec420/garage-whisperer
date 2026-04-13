@@ -34,7 +34,11 @@ interface Props {
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 40 }, (_, i) => String(currentYear + 1 - i));
 
-async function fetchNHTSA<T>(url: string): Promise<T[]> {
+interface NHTSAResult {
+  [key: string]: string | number | null;
+}
+
+async function fetchNHTSA(url: string): Promise<NHTSAResult[]> {
   try {
     const res = await fetch(url);
     const json = await res.json();
@@ -44,9 +48,64 @@ async function fetchNHTSA<T>(url: string): Promise<T[]> {
   }
 }
 
+interface VehicleOptions {
+  trims: string[];
+  engines: string[];
+  transmissions: string[];
+  drivetrains: string[];
+  bodyStyles: string[];
+}
+
+async function fetchVehicleOptions(year: string, make: string, model: string): Promise<VehicleOptions> {
+  // Use DecodeVinValues with partial info - NHTSA supports year/make/model decode
+  const url = `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/?format=json&modelyear=${year}&make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
+  const results = await fetchNHTSA(url);
+
+  // Also try the extended decode for more data
+  const url2 = `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(make)}/modelyear/${year}/vehicletype/passenger car?format=json`;
+  
+  // Collect unique values from results
+  const trims = new Set<string>();
+  const engines = new Set<string>();
+  const transmissions = new Set<string>();
+  const drivetrains = new Set<string>();
+  const bodyStyles = new Set<string>();
+
+  for (const r of results) {
+    if (r.Trim && typeof r.Trim === 'string') trims.add(r.Trim);
+    if (r.DisplacementL && r.EngineCylinders) {
+      engines.add(`${r.DisplacementL}L ${r.EngineCylinders}cyl`);
+    }
+    if (r.TransmissionStyle && typeof r.TransmissionStyle === 'string') transmissions.add(r.TransmissionStyle);
+    if (r.DriveType && typeof r.DriveType === 'string') drivetrains.add(r.DriveType);
+    if (r.BodyClass && typeof r.BodyClass === 'string') bodyStyles.add(r.BodyClass);
+  }
+
+  // Add common options as fallbacks
+  if (transmissions.size === 0) {
+    transmissions.add('Automatic');
+    transmissions.add('Manual');
+  }
+  if (drivetrains.size === 0) {
+    drivetrains.add('FWD');
+    drivetrains.add('RWD');
+    drivetrains.add('AWD');
+    drivetrains.add('4WD');
+  }
+
+  return {
+    trims: [...trims].sort(),
+    engines: [...engines].sort(),
+    transmissions: [...transmissions].sort(),
+    drivetrains: [...drivetrains].sort(),
+    bodyStyles: [...bodyStyles].sort(),
+  };
+}
+
 export default function SmartVehicleForm({ form, onChange, smartSuggest = true }: Props) {
   const [makes, setMakes] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);
+  const [options, setOptions] = useState<VehicleOptions | null>(null);
   const [loadingMakes, setLoadingMakes] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -63,15 +122,14 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
     }
     let cancelled = false;
     setLoadingMakes(true);
-    fetchNHTSA<{ MakeName: string }>(
+    fetchNHTSA(
       `https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleType/car?format=json`
     ).then((results) => {
       if (cancelled) return;
       const names = results
-        .map((r) => r.MakeName)
+        .map((r) => String(r.MakeName ?? ''))
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b));
-      // Deduplicate and title-case
       const unique = [...new Set(names.map((n) => n.toUpperCase()))].map(
         (n) => n.charAt(0) + n.slice(1).toLowerCase()
       );
@@ -89,44 +147,42 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
     }
     let cancelled = false;
     setLoadingModels(true);
-    fetchNHTSA<{ Model_Name: string }>(
+    fetchNHTSA(
       `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(form.make)}/modelyear/${form.year}?format=json`
     ).then((results) => {
       if (cancelled) return;
-      const names = results.map((r) => r.Model_Name).filter(Boolean).sort();
+      const names = results.map((r) => String(r.Model_Name ?? '')).filter(Boolean).sort();
       setModels([...new Set(names)]);
       setLoadingModels(false);
     });
     return () => { cancelled = true; };
   }, [form.year, form.make, smartSuggest]);
 
-  // Auto-fill details when model is selected via VIN decode style lookup
+  // Fetch trim/engine/etc when model is selected
   const handleModelSelect = useCallback(async (model: string) => {
     onChange({ ...form, model, trim: '', engine: '', transmission: '', drivetrain: '', body_style: '' });
+    setOptions(null);
 
     if (!smartSuggest || !form.year || !form.make) return;
 
     setLoadingDetails(true);
     try {
-      const results = await fetchNHTSA<{ Variable: string; Value: string | null }>(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${encodeURIComponent(form.make)}/modelyear/${form.year}/vehicletype/passenger car?format=json`
-      );
-      // For more details, we can try a model-level decode — but NHTSA doesn't have a direct endpoint.
-      // We'll leave trim/engine as manual for now since NHTSA model endpoint doesn't return those.
+      const opts = await fetchVehicleOptions(form.year, form.make, model);
+      setOptions(opts);
     } catch {
       // ignore
     }
     setLoadingDetails(false);
   }, [form, onChange, smartSuggest]);
 
-  // When year changes, reset make/model/downstream
   const handleYearChange = useCallback((year: string) => {
     onChange({ ...form, year, make: '', model: '', trim: '', engine: '', transmission: '', drivetrain: '', body_style: '' });
+    setOptions(null);
   }, [form, onChange]);
 
-  // When make changes, reset model/downstream
   const handleMakeChange = useCallback((make: string) => {
     onChange({ ...form, make, model: '', trim: '', engine: '', transmission: '', drivetrain: '', body_style: '' });
+    setOptions(null);
   }, [form, onChange]);
 
   return (
@@ -189,35 +245,75 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
       {/* Trim */}
       <div className="space-y-1">
         <Label className="text-xs">Trim</Label>
-        <Input value={form.trim} onChange={(e) => set('trim', e.target.value)} placeholder="XLT" className="bg-popover" />
+        {smartSuggest && options && options.trims.length > 0 ? (
+          <Select value={form.trim} onValueChange={(v) => set('trim', v)}>
+            <SelectTrigger className="bg-popover">
+              <SelectValue placeholder={loadingDetails ? "Loading..." : "Select trim"} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.trims.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input value={form.trim} onChange={(e) => set('trim', e.target.value)} placeholder="XLT" className="bg-popover" />
+        )}
       </div>
 
       {/* Engine */}
       <div className="col-span-2 space-y-1">
         <Label className="text-xs">Engine</Label>
-        <Input value={form.engine} onChange={(e) => set('engine', e.target.value)} placeholder="2.5L 4cyl" className="bg-popover" />
+        {smartSuggest && options && options.engines.length > 0 ? (
+          <Select value={form.engine} onValueChange={(v) => set('engine', v)}>
+            <SelectTrigger className="bg-popover">
+              <SelectValue placeholder="Select engine" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.engines.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input value={form.engine} onChange={(e) => set('engine', e.target.value)} placeholder="2.5L 4cyl" className="bg-popover" />
+        )}
       </div>
 
       {/* Transmission */}
       <div className="space-y-1">
         <Label className="text-xs">Transmission</Label>
-        <Select value={form.transmission} onValueChange={(v) => set('transmission', v)}>
-          <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            {['Automatic', 'Manual', 'CVT', 'DCT'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {smartSuggest && options && options.transmissions.length > 0 ? (
+          <Select value={form.transmission} onValueChange={(v) => set('transmission', v)}>
+            <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {options.transmissions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select value={form.transmission} onValueChange={(v) => set('transmission', v)}>
+            <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {['Automatic', 'Manual', 'CVT', 'DCT'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Drivetrain */}
       <div className="space-y-1">
         <Label className="text-xs">Drivetrain</Label>
-        <Select value={form.drivetrain} onValueChange={(v) => set('drivetrain', v)}>
-          <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            {['FWD', 'RWD', 'AWD', '4WD'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {smartSuggest && options && options.drivetrains.length > 0 ? (
+          <Select value={form.drivetrain} onValueChange={(v) => set('drivetrain', v)}>
+            <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {options.drivetrains.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select value={form.drivetrain} onValueChange={(v) => set('drivetrain', v)}>
+            <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectContent>
+              {['FWD', 'RWD', 'AWD', '4WD'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Nickname */}
@@ -237,6 +333,13 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
         <Label className="text-xs">Color</Label>
         <Input value={form.color} onChange={(e) => set('color', e.target.value)} placeholder="Oxford White" className="bg-popover" />
       </div>
+
+      {loadingDetails && (
+        <div className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Fetching vehicle details...
+        </div>
+      )}
     </div>
   );
 }
