@@ -137,7 +137,7 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-3">
           <DialogTitle className="text-lg">Catch Up on Maintenance</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
@@ -154,7 +154,7 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 min-h-0">
+        <div className="flex-1 overflow-y-auto px-6 min-h-0">
           <div className="space-y-5 pb-4">
             {grouped.map(([category, items]) => {
               const CatIcon = CATEGORY_ICONS[category] || Wrench;
@@ -181,7 +181,7 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="p-4 border-t border-border space-y-2 shrink-0">
           <Button
