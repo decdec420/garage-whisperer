@@ -136,10 +136,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <span className="truncate">{v.nickname || `${v.year} ${v.make} ${v.model}`}</span>
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setAddVehicleModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" /> Add vehicle
-              </DropdownMenuItem>
+              {(!vehicles || vehicles.length === 0) && (
+                <DropdownMenuItem onClick={() => navigate('/garage')} className="text-muted-foreground">
+                  Go to Garage to add a vehicle
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
