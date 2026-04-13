@@ -22,6 +22,7 @@ interface Props {
 
 const DOC_TYPES = [
   { value: 'manual', label: 'Manual', icon: BookOpen },
+  { value: 'obd2', label: 'OBD2 Report', icon: FileText },
   { value: 'photo', label: 'Photo', icon: Image },
   { value: 'reference', label: 'Reference Link', icon: Link2 },
   { value: 'wiring', label: 'Wiring Diagram', icon: FileText },
