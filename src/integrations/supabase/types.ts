@@ -467,6 +467,7 @@ export type Database = {
           parts: Json | null
           service: string
           shop: string | null
+          status: string
           vehicle_id: string
         }
         Insert: {
@@ -481,6 +482,7 @@ export type Database = {
           parts?: Json | null
           service: string
           shop?: string | null
+          status?: string
           vehicle_id: string
         }
         Update: {
@@ -495,6 +497,7 @@ export type Database = {
           parts?: Json | null
           service?: string
           shop?: string | null
+          status?: string
           vehicle_id?: string
         }
         Relationships: [
