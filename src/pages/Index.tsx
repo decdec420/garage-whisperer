@@ -23,6 +23,12 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { activeVehicle, setAddVehicleModalOpen, openRatchetPanel } = useAppStore();
   const navigate = useNavigate();
+  const [catchUpVehicle, setCatchUpVehicle] = useState<{
+    id: string;
+    label: string;
+    mileage: number | null;
+    services: { service_name: string; category: string }[];
+  } | null>(null);
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
   const hour = new Date().getHours();
