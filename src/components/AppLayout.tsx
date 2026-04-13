@@ -132,7 +132,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
               {vehicles?.map((v) => (
-                <DropdownMenuItem key={v.id} onClick={() => setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage })}>
+                <DropdownMenuItem key={v.id} onClick={() => {
+                  setActiveVehicle({ id: v.id, year: v.year, make: v.make, model: v.model, trim: v.trim, nickname: v.nickname, engine: v.engine, mileage: v.mileage });
+                  if (location.pathname.startsWith('/garage/')) {
+                    navigate(`/garage/${v.id}`);
+                  }
+                }}>
                   <span className="truncate">{v.nickname || `${v.year} ${v.make} ${v.model}`}</span>
                 </DropdownMenuItem>
               ))}
