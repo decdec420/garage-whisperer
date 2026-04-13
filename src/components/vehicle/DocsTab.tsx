@@ -410,21 +410,27 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
               )}
             </div>
 
-            {/* OR external link */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or add a link</span></div>
-            </div>
+            {/* OR external link — hide when a file is already selected */}
+            {!selectedFile && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-popover px-2 text-muted-foreground">or add a link</span>
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">External URL</Label>
-              <Input
-                value={newDoc.external_url}
-                onChange={e => setNewDoc(p => ({ ...p, external_url: e.target.value }))}
-                placeholder="https://..."
-                className="bg-popover"
-              />
-            </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">External URL</Label>
+                  <Input
+                    value={newDoc.external_url}
+                    onChange={e => setNewDoc(p => ({ ...p, external_url: e.target.value }))}
+                    placeholder="https://..."
+                    className="bg-popover"
+                  />
+                </div>
+              </>
+            )}
 
             <Button className="w-full" onClick={handleUpload} disabled={uploading}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
