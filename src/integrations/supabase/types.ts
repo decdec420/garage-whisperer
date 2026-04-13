@@ -925,6 +925,7 @@ export type Database = {
           description: string | null
           doc_type: string
           external_url: string | null
+          extracted_text: string | null
           file_size: number | null
           file_url: string | null
           id: string
@@ -941,6 +942,7 @@ export type Database = {
           description?: string | null
           doc_type?: string
           external_url?: string | null
+          extracted_text?: string | null
           file_size?: number | null
           file_url?: string | null
           id?: string
@@ -957,6 +959,7 @@ export type Database = {
           description?: string | null
           doc_type?: string
           external_url?: string | null
+          extracted_text?: string | null
           file_size?: number | null
           file_url?: string | null
           id?: string

@@ -890,7 +890,34 @@ serve(async (req) => {
       }
     }
 
-    // --- Inject charm.li factory data if relevant ---
+    // --- Inject vehicle documents content for context ---
+    let vehicleDocsBlock = "";
+    if (vehicleId && userId) {
+      try {
+        const { data: vehicleDocs } = await supabase
+          .from("vehicle_documents")
+          .select("title, doc_type, description, extracted_text")
+          .eq("vehicle_id", vehicleId)
+          .eq("user_id", userId)
+          .not("extracted_text", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (vehicleDocs && vehicleDocs.length > 0) {
+          vehicleDocsBlock = "\n\n## Vehicle Documents on File\nThe owner has uploaded these documents for this vehicle. Reference them naturally when relevant — you can read their contents.\n";
+          for (const doc of vehicleDocs) {
+            const typeLabel = doc.doc_type === 'manual' ? '📖 Manual' : doc.doc_type === 'photo' ? '📸 Photo' : doc.doc_type === 'wiring' ? '🔌 Wiring Diagram' : doc.doc_type === 'tsb' ? '📋 TSB' : '📄 Document';
+            // Truncate to prevent prompt overflow — keep most important 3000 chars per doc
+            const content = doc.extracted_text?.slice(0, 3000) || '';
+            vehicleDocsBlock += `\n### ${typeLabel}: ${doc.title}\n${content}\n`;
+          }
+          vehicleDocsBlock += "\nWhen the user asks about data in their docs (OBD2 readings, codes, specs), reference the actual values from above. Don't say 'I can see you uploaded a document' — just use the data directly.";
+        }
+      } catch (e) {
+        console.error("Vehicle docs fetch error (non-fatal):", e);
+      }
+    }
+
     let charmBlock = "";
     if (vehicleId) {
       try {
@@ -939,7 +966,7 @@ serve(async (req) => {
       }
     }
 
-    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + charmBlock;
+    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + vehicleDocsBlock + charmBlock;
     if (vehicleContext) {
       systemContent += `\n\n${vehicleContext}\n\nAll advice must be specific to this exact vehicle.`;
     }

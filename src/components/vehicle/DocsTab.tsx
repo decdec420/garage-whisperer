@@ -22,6 +22,7 @@ interface Props {
 
 const DOC_TYPES = [
   { value: 'manual', label: 'Manual', icon: BookOpen },
+  { value: 'obd2', label: 'OBD2 Report', icon: FileText },
   { value: 'photo', label: 'Photo', icon: Image },
   { value: 'reference', label: 'Reference Link', icon: Link2 },
   { value: 'wiring', label: 'Wiring Diagram', icon: FileText },
@@ -116,7 +117,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
         fileSize = selectedFile.size;
       }
 
-      const { error } = await supabase.from('vehicle_documents').insert({
+      const { data: insertData, error } = await supabase.from('vehicle_documents').insert({
         vehicle_id: vehicleId,
         user_id: user.id,
         title: newDoc.title,
@@ -127,8 +128,15 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
         file_size: fileSize,
         mime_type: mimeType,
         source: 'user',
-      });
+      }).select('id').single();
       if (error) throw error;
+
+      // Trigger text extraction in the background for PDFs and images
+      if (insertData?.id && fileUrl && (mimeType?.startsWith('image/') || mimeType === 'application/pdf')) {
+        invokeWithAuth('extract-doc-text', { documentId: insertData.id }).catch(e => {
+          console.error('Doc text extraction failed (non-blocking):', e);
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ['vehicle-documents', vehicleId] });
       toast.success('Document added');
