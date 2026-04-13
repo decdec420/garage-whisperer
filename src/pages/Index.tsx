@@ -294,7 +294,7 @@ export default function Dashboard() {
                   <p className="text-sm font-medium truncate">{item.label}</p>
                   <p className="text-xs text-muted-foreground truncate">{item.sublabel}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-[10px] font-medium text-primary shrink-0 px-2 py-1 rounded-md bg-primary/10">{item.actionLabel}</span>
               </button>
             ))}
           </div>
