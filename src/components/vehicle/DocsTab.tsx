@@ -171,6 +171,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
       setNewDoc({ title: '', description: '', doc_type: 'manual', external_url: '' });
       setSelectedFile(null);
       setPreviewUrl(null);
+      setUserSetDocType(false);
     } catch (e: any) {
       toast.error(e.message || 'Upload failed');
     }
@@ -366,6 +367,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           setNewDoc({ title: '', description: '', doc_type: 'manual', external_url: '' });
           setSelectedFile(null);
           setPreviewUrl(null);
+          setUserSetDocType(false);
         }
       }}>
         <DialogContent className="max-w-md">
@@ -375,7 +377,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs">Type</Label>
-              <Select value={newDoc.doc_type} onValueChange={v => setNewDoc(p => ({ ...p, doc_type: v }))}>
+              <Select value={newDoc.doc_type} onValueChange={v => { setNewDoc(p => ({ ...p, doc_type: v })); setUserSetDocType(true); }}>
                 <SelectTrigger className="bg-popover"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DOC_TYPES.map(dt => (
