@@ -1,11 +1,10 @@
 import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Settings, LogOut, ChevronDown, Plus, Home, Grid3X3, Search } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import RatchetFAB from '@/components/RatchetFAB';
 import { toast } from 'sonner';
