@@ -41,6 +41,7 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
+  const [userSetDocType, setUserSetDocType] = useState(false);
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ['vehicle-documents', vehicleId],
@@ -85,10 +86,13 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
     if (!newDoc.title) {
       setNewDoc(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, '') }));
     }
-    if (file.type.startsWith('image/')) {
-      setNewDoc(prev => ({ ...prev, doc_type: 'photo' }));
-    } else if (file.type === 'application/pdf') {
-      setNewDoc(prev => ({ ...prev, doc_type: 'manual' }));
+    // Only auto-detect doc_type if user hasn't manually chosen one
+    if (!userSetDocType) {
+      if (file.type.startsWith('image/')) {
+        setNewDoc(prev => ({ ...prev, doc_type: 'photo' }));
+      } else if (file.type === 'application/pdf') {
+        setNewDoc(prev => ({ ...prev, doc_type: 'manual' }));
+      }
     }
   };
 
