@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
-  Plus, Wrench, Calendar, DollarSign, Trash2, ChevronDown, ChevronRight,
+  Plus, Wrench, Calendar, DollarSign, Trash2, ChevronDown, ChevronRight, Pencil,
   Droplets, RotateCcw, Disc, Wind, Thermometer, Zap, Eye, Fuel, Shield, Gauge, Car,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -97,17 +97,22 @@ function categorizeService(service: string): string {
   return 'other';
 }
 
+type MaintenanceStatus = 'logged' | 'scheduled' | 'completed' | 'needs_attention';
+
 export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<any | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [view, setView] = useState<'category' | 'timeline'>('category');
+  const [statusFilter, setStatusFilter] = useState<MaintenanceStatus | 'all'>('all');
+  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ['maintenance', vehicleId],
     queryFn: async () => {
       const { data, error } = await supabase.from('maintenance_logs')
-        .select('id, service, date, mileage, cost, shop, notes, next_due_date, next_due_mileage')
+        .select('id, service, date, mileage, cost, shop, notes, next_due_date, next_due_mileage, status')
         .eq('vehicle_id', vehicleId)
         .order('date', { ascending: false });
       if (error) throw error;
@@ -124,17 +129,42 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['recent-maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['all-maintenance-logs-dashboard'] });
       toast.success('Deleted');
     },
   });
 
-  const totalSpend = logs?.reduce((a, l) => a + (Number(l.cost) || 0), 0) ?? 0;
+  const toggleCategory = (key: string) => {
+    setOpenCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Filter logs by status
+  const filteredLogs = (logs ?? []).filter(l => {
+    if (statusFilter === 'all') return true;
+    return (l.status || 'logged') === statusFilter;
+  });
+
+  const totalSpend = filteredLogs.reduce((a, l) => a + (Number(l.cost) || 0), 0);
+
+  // Status counts for tabs
+  const statusCounts = {
+    all: logs?.length ?? 0,
+    logged: (logs ?? []).filter(l => (l.status || 'logged') === 'logged').length,
+    scheduled: (logs ?? []).filter(l => l.status === 'scheduled').length,
+    completed: (logs ?? []).filter(l => l.status === 'completed').length,
+    needs_attention: (logs ?? []).filter(l => l.status === 'needs_attention').length,
+  };
 
   // Group by category
   const grouped = (() => {
-    if (!logs?.length) return [];
-    const map = new Map<string, typeof logs>();
-    logs.forEach(l => {
+    if (!filteredLogs.length) return [];
+    const map = new Map<string, typeof filteredLogs>();
+    filteredLogs.forEach(l => {
       const cat = categorizeService(l.service);
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(l);
@@ -156,9 +186,33 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
     <div className="space-y-6 mt-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Maintenance History</h2>
-        <Button size="sm" onClick={() => setModalOpen(true)}>
+        <Button size="sm" onClick={() => { setEditingLog(null); setModalOpen(true); }}>
           <Plus className="h-4 w-4 mr-1" /> Log Service
         </Button>
+      </div>
+
+      {/* Status filter tabs */}
+      <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-full overflow-x-auto">
+        {([
+          { key: 'all', label: 'All' },
+          { key: 'logged', label: 'Logged' },
+          { key: 'scheduled', label: 'Scheduled' },
+          { key: 'completed', label: 'Completed' },
+          { key: 'needs_attention', label: 'Needs Attention' },
+        ] as { key: MaintenanceStatus | 'all'; label: string }[]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn("px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5",
+              statusFilter === tab.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {tab.label}
+            {statusCounts[tab.key] > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{statusCounts[tab.key]}</Badge>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Stats */}
@@ -168,8 +222,8 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
           <p className="text-lg font-bold">${totalSpend.toLocaleString()}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Services Logged</p>
-          <p className="text-lg font-bold">{logs?.length ?? 0}</p>
+          <p className="text-xs text-muted-foreground">Services Shown</p>
+          <p className="text-lg font-bold">{filteredLogs.length}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground">Categories</p>
@@ -178,7 +232,7 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
       </div>
 
       {/* View toggle */}
-      {(logs?.length ?? 0) > 0 && (
+      {filteredLogs.length > 0 && (
         <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-fit">
           <button
             onClick={() => setView('category')}
@@ -197,19 +251,24 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
 
       {isLoading ? (
         <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-      ) : !logs?.length ? (
+      ) : !filteredLogs.length ? (
         <div className="flex flex-col items-center py-12 text-center">
           <Wrench className="h-10 w-10 text-muted-foreground mb-3" />
-          <p className="font-medium">No service history yet</p>
-          <p className="text-sm text-muted-foreground mb-4">Start tracking your maintenance to get reminders</p>
-          <Button onClick={() => setModalOpen(true)}><Plus className="h-4 w-4 mr-1" /> Log your first service</Button>
+          <p className="font-medium">{statusFilter === 'all' ? 'No service history yet' : `No ${statusFilter.replace('_', ' ')} services`}</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {statusFilter === 'all' ? 'Start tracking your maintenance to get reminders' : 'Services will appear here as their status changes'}
+          </p>
+          {statusFilter === 'all' && (
+            <Button onClick={() => { setEditingLog(null); setModalOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Log your first service</Button>
+          )}
         </div>
       ) : view === 'category' ? (
         <div className="space-y-3">
           {grouped.map(group => {
             const Icon = group.icon;
+            const isOpen = openCategories.has(group.key);
             return (
-              <Collapsible key={group.key} defaultOpen>
+              <Collapsible key={group.key} open={isOpen} onOpenChange={() => toggleCategory(group.key)}>
                 <CollapsibleTrigger className="w-full">
                   <Card className="border-border hover:border-primary/20 transition-colors">
                     <CardContent className="p-4 flex items-center justify-between">
@@ -226,7 +285,7 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
-                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
                       </div>
                     </CardContent>
                   </Card>
@@ -240,6 +299,8 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
                         isExpanded={expandedId === log.id}
                         onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
                         onDelete={() => deleteMutation.mutate(log.id)}
+                        onEdit={() => { setEditingLog(log); setModalOpen(true); }}
+                        vehicleId={vehicleId}
                       />
                     ))}
                   </div>
@@ -250,21 +311,42 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
-          {logs.map(log => (
+          {filteredLogs.map(log => (
             <MaintenanceCard
               key={log.id}
               log={log}
               isExpanded={expandedId === log.id}
               onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
               onDelete={() => deleteMutation.mutate(log.id)}
+              onEdit={() => { setEditingLog(log); setModalOpen(true); }}
+              vehicleId={vehicleId}
             />
           ))}
         </div>
       )}
 
-      <AddMaintenanceModal open={modalOpen} onOpenChange={setModalOpen} vehicleId={vehicleId} vehicleMileage={vehicleMileage} />
+      <MaintenanceFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        vehicleId={vehicleId}
+        vehicleMileage={vehicleMileage}
+        editingLog={editingLog}
+        onClose={() => { setEditingLog(null); setModalOpen(false); }}
+      />
     </div>
   );
+}
+
+// ── Status badge ──
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+    logged: { label: 'Logged', variant: 'secondary' },
+    scheduled: { label: 'Scheduled', variant: 'outline' },
+    completed: { label: 'Completed', variant: 'default' },
+    needs_attention: { label: 'Needs Attention', variant: 'destructive' },
+  };
+  const c = config[status] || config.logged;
+  return <Badge variant={c.variant} className="text-[10px] py-0">{c.label}</Badge>;
 }
 
 // ── Clickable / Expandable Card ──
@@ -273,21 +355,41 @@ function MaintenanceCard({
   isExpanded,
   onToggle,
   onDelete,
+  onEdit,
+  vehicleId,
 }: {
   log: any;
   isExpanded: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onEdit: () => void;
+  vehicleId: string;
 }) {
+  const queryClient = useQueryClient();
   const cat = categorizeService(log.service);
   const meta = CATEGORY_META[cat];
   const Icon = meta?.icon || Wrench;
+  const isSentinel = log.date === '2000-01-01';
+  const logStatus = log.status || 'logged';
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (newStatus: string) => {
+      const { error } = await supabase.from('maintenance_logs').update({ status: newStatus }).eq('id', log.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
+      queryClient.invalidateQueries({ queryKey: ['all-maintenance-logs-dashboard'] });
+      toast.success('Status updated');
+    },
+  });
 
   return (
     <Card
       className={cn(
         "border-border transition-colors cursor-pointer",
-        isExpanded ? "border-primary/30 bg-primary/5" : "hover:border-primary/20"
+        isExpanded ? "border-primary/30 bg-primary/5" : "hover:border-primary/20",
+        logStatus === 'needs_attention' && "border-destructive/30"
       )}
       onClick={onToggle}
     >
@@ -298,13 +400,18 @@ function MaintenanceCard({
               <Icon className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="font-medium text-sm">{log.service}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{log.service}</p>
+                <StatusBadge status={logStatus} />
+              </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {format(new Date(log.date), 'MMM d, yyyy')}
-                </span>
-                {log.mileage && <span>{log.mileage.toLocaleString()} mi</span>}
+                {!isSentinel && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(log.date), 'MMM d, yyyy')}
+                  </span>
+                )}
+                {log.mileage > 0 && <span>{log.mileage.toLocaleString()} mi</span>}
                 {log.cost != null && Number(log.cost) > 0 && (
                   <span className="flex items-center gap-1">
                     <DollarSign className="h-3 w-3" />{Number(log.cost).toFixed(0)}
@@ -325,11 +432,11 @@ function MaintenanceCard({
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-accent/50 p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Date Performed</p>
-                <p className="text-sm font-medium">{format(new Date(log.date), 'MMMM d, yyyy')}</p>
+                <p className="text-sm font-medium">{isSentinel ? 'Not yet performed' : format(new Date(log.date), 'MMMM d, yyyy')}</p>
               </div>
               <div className="rounded-lg bg-accent/50 p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Mileage</p>
-                <p className="text-sm font-medium">{log.mileage ? `${log.mileage.toLocaleString()} mi` : '—'}</p>
+                <p className="text-sm font-medium">{log.mileage && log.mileage > 0 ? `${log.mileage.toLocaleString()} mi` : '—'}</p>
               </div>
               <div className="rounded-lg bg-accent/50 p-3">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Cost</p>
@@ -365,7 +472,35 @@ function MaintenanceCard({
               </div>
             )}
 
-            <div className="flex justify-end pt-1">
+            {/* Status actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-muted-foreground">Move to:</p>
+              {logStatus !== 'completed' && (
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => updateStatusMutation.mutate('completed')}>
+                  ✓ Completed
+                </Button>
+              )}
+              {logStatus !== 'scheduled' && (
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => updateStatusMutation.mutate('scheduled')}>
+                  📅 Scheduled
+                </Button>
+              )}
+              {logStatus !== 'logged' && logStatus !== 'needs_attention' && (
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => updateStatusMutation.mutate('logged')}>
+                  📝 Logged
+                </Button>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={onEdit}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -382,25 +517,49 @@ function MaintenanceCard({
   );
 }
 
-// ── Add Service Modal with Presets ──
-function AddMaintenanceModal({
+// ── Add/Edit Service Modal with Presets ──
+function MaintenanceFormModal({
   open,
   onOpenChange,
   vehicleId,
   vehicleMileage,
+  editingLog,
+  onClose,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   vehicleId: string;
   vehicleMileage?: number | null;
+  editingLog: any | null;
+  onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const isEditing = !!editingLog;
+
   const [form, setForm] = useState({
     service: '', date: '', mileage: '', cost: '', shop: '', notes: '',
-    nextDueDate: '', nextDueMileage: '',
+    nextDueDate: '', nextDueMileage: '', status: 'logged',
   });
-  const [showPresets, setShowPresets] = useState(true);
+  const [showPresets, setShowPresets] = useState(!isEditing);
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  // Sync form when editingLog changes
+  const [lastEditId, setLastEditId] = useState<string | null>(null);
+  if (editingLog && editingLog.id !== lastEditId) {
+    setLastEditId(editingLog.id);
+    setForm({
+      service: editingLog.service || '',
+      date: editingLog.date || '',
+      mileage: editingLog.mileage && editingLog.mileage > 0 ? String(editingLog.mileage) : '',
+      cost: editingLog.cost != null && Number(editingLog.cost) > 0 ? String(Number(editingLog.cost)) : '',
+      shop: editingLog.shop || '',
+      notes: editingLog.notes || '',
+      nextDueDate: editingLog.next_due_date || '',
+      nextDueMileage: editingLog.next_due_mileage ? String(editingLog.next_due_mileage) : '',
+      status: editingLog.status || 'logged',
+    });
+    setShowPresets(false);
+  }
 
   const selectPreset = (preset: typeof SERVICE_PRESETS[0]) => {
     const today = new Date().toISOString().split('T')[0];
@@ -419,13 +578,15 @@ function AddMaintenanceModal({
       notes: '',
       nextDueDate: nextDate,
       nextDueMileage: nextMi,
+      status: 'logged',
     });
     setShowPresets(false);
   };
 
   const resetForm = () => {
-    setForm({ service: '', date: '', mileage: '', cost: '', shop: '', notes: '', nextDueDate: '', nextDueMileage: '' });
+    setForm({ service: '', date: '', mileage: '', cost: '', shop: '', notes: '', nextDueDate: '', nextDueMileage: '', status: 'logged' });
     setShowPresets(true);
+    setLastEditId(null);
   };
 
   const mutation = useMutation({
@@ -438,7 +599,7 @@ function AddMaintenanceModal({
       if (cost !== null && cost < 0) throw new Error('Cost cannot be negative');
       if (nextDueMileage !== null && nextDueMileage < 0) throw new Error('Next due mileage cannot be negative');
 
-      const { error } = await supabase.from('maintenance_logs').insert({
+      const payload = {
         vehicle_id: vehicleId,
         service: form.service,
         date: form.date,
@@ -448,15 +609,24 @@ function AddMaintenanceModal({
         notes: form.notes || null,
         next_due_date: form.nextDueDate || null,
         next_due_mileage: nextDueMileage,
-      });
-      if (error) throw error;
+        status: form.status,
+      };
+
+      if (isEditing) {
+        const { error } = await supabase.from('maintenance_logs').update(payload).eq('id', editingLog.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('maintenance_logs').insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['recent-maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
-      toast.success('Service logged');
-      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ['all-maintenance-logs-dashboard'] });
+      toast.success(isEditing ? 'Service updated' : 'Service logged');
+      onClose();
       resetForm();
     },
     onError: (e) => toast.error(e.message),
@@ -478,11 +648,11 @@ function AddMaintenanceModal({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { onClose(); resetForm(); } }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Log Service</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isEditing ? 'Edit Service' : 'Log Service'}</DialogTitle></DialogHeader>
 
-        {showPresets ? (
+        {showPresets && !isEditing ? (
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">Choose a service or enter custom:</p>
             <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
@@ -520,9 +690,11 @@ function AddMaintenanceModal({
           </div>
         ) : (
           <div className="space-y-3 mt-2">
-            <Button variant="ghost" size="sm" className="text-xs -ml-2" onClick={() => setShowPresets(true)}>
-              ← Pick from common services
-            </Button>
+            {!isEditing && (
+              <Button variant="ghost" size="sm" className="text-xs -ml-2" onClick={() => setShowPresets(true)}>
+                ← Pick from common services
+              </Button>
+            )}
             <div>
               <Label className="text-xs">Service *</Label>
               <Input value={form.service} onChange={e => set('service', e.target.value)} placeholder="Oil Change" className="bg-popover" />
@@ -560,6 +732,21 @@ function AddMaintenanceModal({
               </div>
             </div>
 
+            {/* Status */}
+            <div>
+              <Label className="text-xs">Status</Label>
+              <Select value={form.status} onValueChange={v => set('status', v)}>
+                <SelectTrigger className="bg-popover">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="logged">Logged</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Next Due Section */}
             <div className="rounded-lg border border-border p-3 space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">Next Service Due (for reminders)</p>
@@ -586,7 +773,7 @@ function AddMaintenanceModal({
               <Textarea value={form.notes} onChange={e => set('notes', e.target.value)} className="bg-popover" rows={2} />
             </div>
             <Button className="w-full" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving...' : 'Log Service'}
+              {mutation.isPending ? 'Saving...' : isEditing ? 'Update Service' : 'Log Service'}
             </Button>
           </div>
         )}
