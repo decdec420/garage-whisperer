@@ -83,9 +83,11 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
 
   const markedCount = entries.filter(e => e.status !== null).length;
   const doneEntries = entries.filter(e => e.status === 'done_recently' && e.date);
+  const neverEntries = entries.filter(e => e.status === 'never_done');
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Insert "done recently" entries with user-provided dates
       const toInsert = entries
         .filter(e => e.status === 'done_recently' && e.date)
         .map(e => ({
@@ -103,14 +105,36 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
         if (error) throw error;
       }
 
-      return toInsert.length;
+      // For "never done" items — insert a backdated placeholder so they show as overdue
+      // This creates a record dated far enough back that the service will flag as overdue
+      const neverItems = entries
+        .filter(e => e.status === 'never_done')
+        .map(e => ({
+          vehicle_id: vehicleId,
+          service: e.service_name,
+          date: '2000-01-01', // sentinel date — clearly overdue
+          mileage: 0,
+          cost: null as number | null,
+          shop: null as string | null,
+          notes: 'Never done — flagged for attention',
+        }));
+
+      if (neverItems.length > 0) {
+        const { error } = await supabase.from('maintenance_logs').insert(neverItems);
+        if (error) throw error;
+      }
+
+      return { done: toInsert.length, flagged: neverItems.length };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ done, flagged }) => {
       queryClient.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       queryClient.invalidateQueries({ queryKey: ['all-maintenance-logs-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['recent-maintenance'] });
       queryClient.invalidateQueries({ queryKey: ['next-maintenance'] });
-      toast.success(`Logged ${count} service${count !== 1 ? 's' : ''} — your health score will update`);
+      const parts = [];
+      if (done > 0) parts.push(`${done} logged`);
+      if (flagged > 0) parts.push(`${flagged} flagged as overdue`);
+      toast.success(`${parts.join(', ')} — health score will update`);
       onOpenChange(false);
     },
     onError: (e) => toast.error(e.message),
@@ -187,12 +211,12 @@ export default function MaintenanceCatchUpWizard({ open, onOpenChange, vehicleId
           <Button
             className="w-full"
             onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || doneEntries.length === 0}
+            disabled={saveMutation.isPending || (doneEntries.length === 0 && neverEntries.length === 0)}
           >
             {saveMutation.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</>
             ) : (
-              `Save ${doneEntries.length} service${doneEntries.length !== 1 ? 's' : ''}`
+              <>Save {doneEntries.length > 0 ? `${doneEntries.length} logged` : ''}{doneEntries.length > 0 && neverEntries.length > 0 ? ' + ' : ''}{neverEntries.length > 0 ? `${neverEntries.length} flagged` : ''}</>
             )}
           </Button>
           <button
