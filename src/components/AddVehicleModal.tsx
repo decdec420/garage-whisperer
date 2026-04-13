@@ -3,8 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeWithAuth } from '@/integrations/supabase/functions';
@@ -12,40 +10,33 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
+import SmartVehicleForm, { emptyForm, type VehicleFormData } from '@/components/vehicle/SmartVehicleForm';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface VehicleForm {
-  year: string;
-  make: string;
-  model: string;
-  trim: string;
-  engine: string;
-  transmission: string;
-  drivetrain: string;
-  body_style: string;
-  nickname: string;
-  mileage: string;
-  color: string;
-  vin: string;
-}
-
-const empty: VehicleForm = { year: '', make: '', model: '', trim: '', engine: '', transmission: '', drivetrain: '', body_style: '', nickname: '', mileage: '', color: '', vin: '' };
-
 export default function AddVehicleModal({ open, onOpenChange }: Props) {
   const { user } = useAuth();
   const { openRatchetPanel } = useAppStore();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<VehicleForm>(empty);
+  const [form, setForm] = useState<VehicleFormData>({ ...emptyForm });
   const [vinInput, setVinInput] = useState('');
   const [decoding, setDecoding] = useState(false);
   const [decoded, setDecoded] = useState(false);
   const [nhtsaData, setNhtsaData] = useState<any>(null);
 
-  const set = (k: keyof VehicleForm, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  // Reset everything when modal closes
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setForm({ ...emptyForm });
+      setVinInput('');
+      setDecoded(false);
+      setNhtsaData(null);
+    }
+    onOpenChange(isOpen);
+  };
 
   const decodeVin = async () => {
     if (vinInput.length !== 17) { toast.error('VIN must be 17 characters'); return; }
@@ -110,13 +101,8 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
       queryClient.invalidateQueries({ queryKey: ['vehicles-list'] });
       toast.success('Vehicle added!');
-      onOpenChange(false);
-      setForm(empty);
-      setVinInput('');
-      setDecoded(false);
-      setNhtsaData(null);
+      handleOpenChange(false);
 
-      // Auto-search for manuals in the background
       invokeWithAuth('search-manuals', {
         vehicleId: inserted.id,
         year: inserted.year,
@@ -128,7 +114,6 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
         toast.success('Found manual references for your vehicle', { duration: 3000 });
       }).catch(() => {});
 
-      // Open Ratchet with onboarding questions
       setTimeout(() => {
         openRatchetPanel(
           `I just added my ${inserted.year} ${inserted.make} ${inserted.model}${inserted.trim ? ` ${inserted.trim}` : ''} to the garage! ` +
@@ -141,7 +126,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Vehicle</DialogTitle>
@@ -160,7 +145,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
                 {decoding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Decode'}
               </Button>
             </div>
-            {decoded && <VehicleFormFields form={form} set={set} />}
+            {decoded && <SmartVehicleForm form={form} onChange={setForm} smartSuggest={false} />}
             {decoded && (
               <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? 'Adding...' : 'Add to Garage'}
@@ -169,7 +154,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
           </TabsContent>
 
           <TabsContent value="manual" className="space-y-4 mt-4">
-            <VehicleFormFields form={form} set={set} />
+            <SmartVehicleForm form={form} onChange={setForm} smartSuggest={true} />
             <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? 'Adding...' : 'Add to Garage'}
             </Button>
@@ -177,62 +162,5 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
         </Tabs>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function VehicleFormFields({ form, set }: { form: VehicleForm; set: (k: keyof VehicleForm, v: string) => void }) {
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="space-y-1">
-        <Label className="text-xs">Year *</Label>
-        <Input value={form.year} onChange={(e) => set('year', e.target.value)} placeholder="2024" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Make *</Label>
-        <Input value={form.make} onChange={(e) => set('make', e.target.value)} placeholder="Honda" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Model *</Label>
-        <Input value={form.model} onChange={(e) => set('model', e.target.value)} placeholder="Accord" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Trim</Label>
-        <Input value={form.trim} onChange={(e) => set('trim', e.target.value)} placeholder="EX-L" className="bg-popover" />
-      </div>
-      <div className="col-span-2 space-y-1">
-        <Label className="text-xs">Engine</Label>
-        <Input value={form.engine} onChange={(e) => set('engine', e.target.value)} placeholder="2.4L i-VTEC K24" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Transmission</Label>
-        <Select value={form.transmission} onValueChange={(v) => set('transmission', v)}>
-          <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            {['Automatic', 'Manual', 'CVT', 'DCT'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Drivetrain</Label>
-        <Select value={form.drivetrain} onValueChange={(v) => set('drivetrain', v)}>
-          <SelectTrigger className="bg-popover"><SelectValue placeholder="Select" /></SelectTrigger>
-          <SelectContent>
-            {['FWD', 'RWD', 'AWD', '4WD'].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Nickname</Label>
-        <Input value={form.nickname} onChange={(e) => set('nickname', e.target.value)} placeholder="Daily Driver" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Mileage</Label>
-        <Input value={form.mileage} onChange={(e) => set('mileage', e.target.value)} placeholder="45000" type="number" className="bg-popover" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Color</Label>
-        <Input value={form.color} onChange={(e) => set('color', e.target.value)} placeholder="Crystal Black" className="bg-popover" />
-      </div>
-    </div>
   );
 }
