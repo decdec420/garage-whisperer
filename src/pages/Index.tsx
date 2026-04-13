@@ -124,11 +124,11 @@ export default function Dashboard() {
       ]);
       const expenses: Record<string, number> = {};
       for (const r of repairRes.data ?? []) {
-        const cost = Number(r.total_cost) || Number(r.diy_cost) || 0;
+        const cost = Math.max(0, Number(r.total_cost) || Number(r.diy_cost) || 0);
         expenses[r.vehicle_id] = (expenses[r.vehicle_id] || 0) + cost;
       }
       for (const m of maintRes.data ?? []) {
-        const cost = Number(m.cost) || 0;
+        const cost = Math.max(0, Number(m.cost) || 0);
         expenses[m.vehicle_id] = (expenses[m.vehicle_id] || 0) + cost;
       }
       return expenses;
@@ -200,6 +200,7 @@ export default function Dashboard() {
         icon: AlertTriangle,
         color: 'text-destructive',
         action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
+        actionLabel: 'Log service to clear',
       });
     }
     if (vh.dtcs.length > 0) {
@@ -210,6 +211,7 @@ export default function Dashboard() {
         icon: Cpu,
         color: 'text-warning',
         action: () => navigate(`/garage/${vh.vehicle.id}?tab=diagnose`),
+        actionLabel: 'Diagnose',
       });
     }
     if (vh.unknown > 3) {
@@ -220,6 +222,7 @@ export default function Dashboard() {
         icon: Clock,
         color: 'text-muted-foreground',
         action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
+        actionLabel: 'Log history',
       });
     }
   }
