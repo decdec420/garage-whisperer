@@ -58,7 +58,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { data: vehicles } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage, drivetrain').order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
