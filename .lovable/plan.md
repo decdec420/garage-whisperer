@@ -1,47 +1,61 @@
 
 
-## Recommended: Chat History on Vehicle Detail Page
+## Plan: Redesign Diagnose Tab + Fix Build Error
 
-### Why This Structure
+### 1. Fix Build Error (chat edge function)
+Line 743 in `supabase/functions/chat/index.ts` has an escaped exclamation mark (`\!user`) that should be `!user`. Simple character fix.
 
-You think in terms of vehicles, not chat sessions. "What did Ratchet say about my Accord's starter?" — you'd go to your Accord, not to a generic chat page. So chat history should live on the Vehicle Detail page as a tab.
+### 2. Redesign Diagnose Tab with Stepped Wizard + Progressive Disclosure
 
-### What Changes
+The current DiagnoseTab dumps everything on one screen: When/Where/Sound chips, 5 symptom categories (all expanded), a textarea, attachment controls, and past diagnoses. This will be restructured into two clear zones with a stepped flow.
 
-**1. New "Chats" tab on Vehicle Detail page** (`src/pages/VehicleDetail.tsx`)
-- Add tab after "Docs" in the tab bar
-- Icon: MessageCircle
-- Shows all `chat_sessions` where `vehicle_id` matches
+**New Layout:**
 
-**2. New ChatsTab component** (`src/components/vehicle/ChatsTab.tsx`)
-- Two sections: **Project Conversations** and **General Conversations**
-- Project conversations show project title badge, link to project
-- Each row: title, date, message count preview
-- Tap a conversation → opens it in the Ratchet panel (reuses existing infrastructure)
-- Empty state: "No conversations yet — tap the Ratchet button to start chatting"
+```text
+┌─────────────────────────────────────┐
+│  DIAGNOSIS HISTORY (default view)   │
+│  ┌─────────────────────────────────┐│
+│  │ Past diagnosis cards (compact)  ││
+│  └─────────────────────────────────┘│
+│                                     │
+│  [ + New Diagnosis ] button         │
+└─────────────────────────────────────┘
 
-**3. Keep Ratchet panel session drawer as-is**
-- It's the quick switcher for recent threads while chatting
-- No changes needed
+When "New Diagnosis" is clicked:
+┌─────────────────────────────────────┐
+│  Step 1: What's happening?          │
+│  - Symptom category chips (collapsed│
+│    accordions, one open at a time)  │
+│  - Free-text textarea              │
+│  [ Next → ]                        │
+├─────────────────────────────────────┤
+│  Step 2: Context                    │
+│  - When chips                       │
+│  - Where chips                      │
+│  - Sound chips (if relevant)        │
+│  [ ← Back ] [ Next → ]            │
+├─────────────────────────────────────┤
+│  Step 3: Evidence (optional)        │
+│  - Photo/video/doc/link attachments │
+│  [ ← Back ] [ Start Diagnosis ]   │
+└─────────────────────────────────────┘
+```
 
-**4. Remove /chat route** (optional, could keep as redirect)
-- It's redundant once history lives on the vehicle page
-- Redirect `/chat` → `/garage`
+**Key Changes to `src/components/vehicle/DiagnoseTab.tsx`:**
+
+- **Default view**: Show past diagnoses first with a prominent "New Diagnosis" button. If no history, show a clean empty state with the button.
+- **3-step wizard** with a progress indicator (step dots or bar):
+  - **Step 1 - Symptoms**: Category chips (only one accordion open at a time) + textarea. This is the core input.
+  - **Step 2 - Context**: When/Where/Sound chips. Sound row auto-shows if noise-related chips were selected in Step 1.
+  - **Step 3 - Evidence** (optional): Media attachments. Users can skip this.
+- **Step navigation**: Back/Next buttons with validation (Step 1 requires at least one chip or text).
+- **Visual cleanup**: Better spacing, step indicator at top, card-based steps instead of one giant form.
+- Past diagnosis cards stay the same but move to the top as the primary content.
 
 ### Technical Details
 
-- Query: `chat_sessions` joined with message count, filtered by `vehicle_id`, ordered by `updated_at`
-- Tapping a session: calls `openRatchetPanel()` and sets `activeSessionId` via a new store action
-- Project conversations: filter where `project_id IS NOT NULL`, show project title
-- General conversations: filter where `project_id IS NULL`
-
-### Files to Create/Edit
-
-| File | Action |
-|------|--------|
-| `src/components/vehicle/ChatsTab.tsx` | Create — chat history list component |
-| `src/pages/VehicleDetail.tsx` | Edit — add "Chats" tab |
-| `src/stores/app-store.ts` | Edit — add `openRatchetWithSession(sessionId)` action |
-| `src/components/RatchetPanel.tsx` | Edit — respect pre-set session ID from store |
-| `src/App.tsx` | Edit — redirect `/chat` to `/garage` (optional) |
+- All state and logic (chip selection, file handling, `startDiagnosis`) stays the same -- just reorganized into steps via a `wizardStep` state variable (0 = history view, 1/2/3 = wizard steps).
+- No database changes needed.
+- No new dependencies.
+- The build error fix is a one-character change in the edge function.
 
