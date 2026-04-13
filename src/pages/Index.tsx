@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -15,12 +16,19 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getServiceStatus } from '@/lib/service-schedules';
 import { usePopulateServiceSchedules } from '@/hooks/usePopulateServiceSchedules';
+import MaintenanceCatchUpWizard from '@/components/vehicle/MaintenanceCatchUpWizard';
 import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { activeVehicle, setAddVehicleModalOpen, openRatchetPanel } = useAppStore();
   const navigate = useNavigate();
+  const [catchUpVehicle, setCatchUpVehicle] = useState<{
+    id: string;
+    label: string;
+    mileage: number | null;
+    services: { service_name: string; category: string }[];
+  } | null>(null);
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
   const hour = new Date().getHours();
@@ -215,14 +223,22 @@ export default function Dashboard() {
       });
     }
     if (vh.unknown > 3) {
+      const unknownServices = vh.serviceStatuses
+        .filter(s => s.status === 'unknown')
+        .map(s => ({ service_name: s.service_name, category: s.category }));
       attentionItems.push({
         type: 'no-history',
         label: `${vh.unknown} services with no history`,
-        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — Log past maintenance to unlock predictions`,
+        sublabel: `${vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`} — Quick catch-up takes ~60 seconds`,
         icon: Clock,
         color: 'text-muted-foreground',
-        action: () => navigate(`/garage/${vh.vehicle.id}?tab=maintenance`),
-        actionLabel: 'Log history',
+        action: () => setCatchUpVehicle({
+          id: vh.vehicle.id,
+          label: vh.vehicle.nickname || `${vh.vehicle.year} ${vh.vehicle.make} ${vh.vehicle.model}`,
+          mileage: vh.vehicle.mileage,
+          services: unknownServices,
+        }),
+        actionLabel: 'Catch up',
       });
     }
   }
@@ -483,6 +499,18 @@ export default function Dashboard() {
           <Badge variant="secondary" className="shrink-0 text-[10px]">Coming Soon</Badge>
         </CardContent>
       </Card>
+
+      {/* Maintenance Catch-Up Wizard */}
+      {catchUpVehicle && (
+        <MaintenanceCatchUpWizard
+          open={!!catchUpVehicle}
+          onOpenChange={(open) => { if (!open) setCatchUpVehicle(null); }}
+          vehicleId={catchUpVehicle.id}
+          vehicleLabel={catchUpVehicle.label}
+          vehicleMileage={catchUpVehicle.mileage}
+          services={catchUpVehicle.services}
+        />
+      )}
     </div>
   );
 }
