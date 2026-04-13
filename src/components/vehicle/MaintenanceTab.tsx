@@ -137,8 +137,16 @@ export default function MaintenanceTab({ vehicleId, vehicleMileage }: Props) {
   const toggleCategory = (key: string) => {
     setOpenCategories(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+        // Collapse any expanded cards within this category
+        const categoryLogs = grouped.find(g => g.key === key)?.items ?? [];
+        if (categoryLogs.some(l => l.id === expandedId)) {
+          setExpandedId(null);
+        }
+      } else {
+        next.add(key);
+      }
       return next;
     });
   };
