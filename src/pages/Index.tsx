@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getServiceStatus } from '@/lib/service-schedules';
 import { usePopulateServiceSchedules } from '@/hooks/usePopulateServiceSchedules';
+import MaintenanceCatchUpWizard from '@/components/vehicle/MaintenanceCatchUpWizard';
 import { cn } from '@/lib/utils';
 
 export default function Dashboard() {
