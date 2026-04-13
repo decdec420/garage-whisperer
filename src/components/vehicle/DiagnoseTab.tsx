@@ -7,12 +7,13 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Search, ChevronRight, CheckCircle2, AlertCircle, Clock, Wrench,
   Camera, Video, FileText, Link as LinkIcon, X, Plus, ChevronDown,
+  ArrowLeft, ArrowRight, Stethoscope,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -63,16 +64,80 @@ interface DiagnoseTabProps {
   vehicle: any;
 }
 
+// ─── Step indicator ───
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6">
+      {Array.from({ length: total }, (_, i) => {
+        const step = i + 1;
+        const isActive = step === current;
+        const isDone = step < current;
+        return (
+          <div key={step} className="flex items-center gap-2">
+            <div className={cn(
+              "h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all",
+              isActive ? "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2 ring-offset-background" :
+              isDone ? "bg-primary/20 text-primary" :
+              "bg-muted text-muted-foreground"
+            )}>
+              {isDone ? <CheckCircle2 className="h-4 w-4" /> : step}
+            </div>
+            {i < total - 1 && (
+              <div className={cn("h-0.5 w-8 rounded-full transition-colors", step < current ? "bg-primary/40" : "bg-border")} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Chip row helper ───
+function ChipRow({ chips, selected, onToggle, label }: {
+  chips: string[] | { label: string; desc: string }[];
+  selected: string[];
+  onToggle: (chip: string) => void;
+  label?: string;
+}) {
+  return (
+    <div className="mb-4">
+      {label && <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">{label}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        {chips.map((chip) => {
+          const chipLabel = typeof chip === 'string' ? chip : chip.label;
+          const chipDesc = typeof chip === 'string' ? undefined : chip.desc;
+          const isSelected = selected.includes(chipLabel);
+          return (
+            <button key={chipLabel} onClick={() => onToggle(chipLabel)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
+                isSelected
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
+              )}>
+              <span className="font-medium">{chipLabel}</span>
+              {chipDesc && <span className="text-muted-foreground ml-1 hidden sm:inline">— {chipDesc}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Wizard: 0 = history, 1 = symptoms, 2 = context, 3 = evidence
+  const [wizardStep, setWizardStep] = useState(0);
+
   const [symptom, setSymptom] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [whenChips, setWhenChips] = useState<string[]>([]);
   const [whereChips, setWhereChips] = useState<string[]>([]);
   const [soundChips, setSoundChips] = useState<string[]>([]);
-  const [showSoundRow, setShowSoundRow] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,11 +145,14 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const docInputRef = useRef<HTMLInputElement>(null);
   const [linkInput, setLinkInput] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
 
-  // Build full symptom from chips + text
+  // Sound row auto-show based on noise chips
+  const noiseRelated = selectedChips.some(c =>
+    SOUND_KEYWORDS.some(k => c.toLowerCase().includes(k))
+  ) || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
+
   const buildFullSymptom = useCallback(() => {
     const chipText = selectedChips.join(', ');
     let s = symptom.trim() ? symptom.trim() : chipText;
@@ -94,17 +162,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     if (soundChips.length) s = `${s} — sounds like ${soundChips.join(', ').toLowerCase()}`;
     return s;
   }, [symptom, selectedChips, whenChips, whereChips, soundChips]);
-
-  // Should sound row show?
-  const soundVisible = showSoundRow || SOUND_KEYWORDS.some(k => symptom.toLowerCase().includes(k));
-
-  // Placeholder
-  const getPlaceholder = () => {
-    if (soundChips.length) return `When exactly does the ${soundChips.join('/').toLowerCase()} happen?`;
-    if (whereChips.length) return `What does it feel like from ${whereChips.join(', ').toLowerCase()}?`;
-    if (whenChips.length) return `What specifically happens ${whenChips.join(', ').toLowerCase()}?`;
-    return "Describe what's happening...";
-  };
 
   // Past diagnoses
   const { data: diagnosisSessions } = useQuery({
@@ -122,7 +179,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     enabled: !!vehicleId,
   });
 
-  // Get step counts for past sessions that have project_ids
   const projectIds = (diagnosisSessions || []).filter((s: any) => s.project_id).map((s: any) => s.project_id);
   const { data: stepCounts } = useQuery({
     queryKey: ['diagnosis-step-counts', projectIds],
@@ -151,14 +207,12 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     setAttachments(prev => [...prev, ...valid.map(f => ({
       type: 'photo' as const, file: f, name: f.name, thumbnailUrl: URL.createObjectURL(f),
     }))]);
-    setShowAttachMenu(false);
   };
 
   const handleVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { toast.error('Video must be under 50MB'); return; }
-    // Check duration
     const video = document.createElement('video');
     video.preload = 'metadata';
     const url = URL.createObjectURL(file);
@@ -169,7 +223,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         URL.revokeObjectURL(url);
         return;
       }
-      // Extract first frame
       video.currentTime = 0.5;
       video.onseeked = () => {
         const canvas = document.createElement('canvas');
@@ -184,7 +237,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         URL.revokeObjectURL(url);
       };
     };
-    setShowAttachMenu(false);
   };
 
   const handleDocs = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,7 +245,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     setAttachments(prev => [...prev, ...valid.map(f => ({
       type: 'doc' as const, file: f, name: f.name,
     }))]);
-    setShowAttachMenu(false);
   };
 
   const addLink = () => {
@@ -206,11 +257,22 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
       setLinkInput('');
       setShowLinkInput(false);
     } catch { toast.error('Invalid URL'); }
-    setShowAttachMenu(false);
   };
 
   const removeAttachment = (idx: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const resetWizard = () => {
+    setWizardStep(0);
+    setSymptom('');
+    setSelectedChips([]);
+    setWhenChips([]);
+    setWhereChips([]);
+    setSoundChips([]);
+    setAttachments([]);
+    setLinkInput('');
+    setShowLinkInput(false);
   };
 
   const startDiagnosis = async () => {
@@ -236,7 +298,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
       toast.info('Ratchet is building your diagnostic plan...');
 
-      // Build media context for the edge function
       const photoBase64s: string[] = [];
       const contextParts: string[] = [];
 
@@ -279,7 +340,6 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
         return;
       }
 
-      // Upload media files to storage and collect URLs
       const mediaUrls: { type: string; url: string; name: string; duration?: number }[] = [];
       for (const att of attachments) {
         if ((att.type === 'photo' || att.type === 'video' || att.type === 'doc') && att.file) {
@@ -312,6 +372,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
 
       queryClient.invalidateQueries({ queryKey: ['diagnosis-sessions', vehicleId] });
       toast.success('Diagnostic plan ready!');
+      resetWizard();
       navigate(`/garage/${vehicleId}/diagnose/${(diagSession as any).id}`);
     } catch (e) {
       console.error(e);
@@ -326,283 +387,342 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     unresolved: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Unresolved' },
   };
 
-  return (
-    <div className="space-y-8 mt-4">
-      {/* Symptom Input */}
-      <Card className="border-primary/20 overflow-hidden">
-        <CardContent className="p-5 md:p-8">
-          <div className="flex flex-col items-center text-center mb-5">
-            <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-              <Search className="h-7 w-7 text-primary" />
+  const canProceedStep1 = symptom.trim().length > 0 || selectedChips.length > 0;
+
+  // ─── RENDER ───
+
+  // Step 0: History view (default)
+  if (wizardStep === 0) {
+    const hasSessions = diagnosisSessions && diagnosisSessions.length > 0;
+    return (
+      <div className="space-y-6 mt-4">
+        {/* New Diagnosis CTA */}
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Stethoscope className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-xl font-bold text-foreground">What's going on?</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Describe what you're experiencing with your {vehicleName}
-            </p>
-          </div>
-
-          {/* WHEN chips */}
-          <div className="mb-3">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">When</p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
-              {WHEN_CHIPS.map(chip => (
-                <button key={chip} onClick={() => setWhenChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
-                  className={cn(
-                    "shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
-                    whenChips.includes(chip)
-                      ? "bg-primary/10 border-primary/40 text-primary"
-                      : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  )}>
-                  {chip}
-                </button>
-              ))}
+            <div className="flex-1 text-center sm:text-left">
+              <h2 className="text-lg font-semibold text-foreground">Diagnose an Issue</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Describe what's going on and Ratchet will build a step-by-step diagnostic plan for your {vehicleName}.
+              </p>
             </div>
-          </div>
+            <Button onClick={() => setWizardStep(1)} size="lg" className="shrink-0 gap-2">
+              <Plus className="h-4 w-4" /> New Diagnosis
+            </Button>
+          </CardContent>
+        </Card>
 
-          {/* WHERE chips */}
-          <div className="mb-3">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Where</p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
-              {WHERE_CHIPS.map(chip => (
-                <button key={chip} onClick={() => setWhereChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])}
-                  className={cn(
-                    "shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors whitespace-nowrap",
-                    whereChips.includes(chip)
-                      ? "bg-primary/10 border-primary/40 text-primary"
-                      : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  )}>
-                  {chip}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* SOUND chips */}
-          {soundVisible && (
-            <div className="mb-3">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Sound</p>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none" style={{ overscrollBehaviorX: 'contain' }}>
-                {SOUND_CHIPS.map(chip => (
-                  <button key={chip.label}
-                    onClick={() => setSoundChips(prev => prev.includes(chip.label) ? prev.filter(c => c !== chip.label) : [...prev, chip.label])}
-                    className={cn(
-                      "shrink-0 px-3 py-1.5 rounded-lg text-xs border transition-colors whitespace-nowrap",
-                      soundChips.includes(chip.label)
-                        ? "bg-primary/10 border-primary/40 text-primary"
-                        : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    )}>
-                    <span className="font-medium">{chip.label}</span>
-                    <span className="text-muted-foreground ml-1">— {chip.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {!soundVisible && (
-            <button onClick={() => setShowSoundRow(true)}
-              className="text-xs text-primary hover:underline mb-3 block">
-              + Add sound description
-            </button>
-          )}
-
-          {/* Textarea */}
-          <textarea
-            value={symptom}
-            onChange={e => setSymptom(e.target.value)}
-            placeholder={getPlaceholder()}
-            className="w-full min-h-[100px] bg-muted border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary transition-colors"
-          />
-
-          {/* Symptom categories */}
-          <div className="mt-4 mb-4 space-y-2">
-            {SYMPTOM_CATEGORIES.map(cat => (
-              <Collapsible key={cat.label} defaultOpen>
-                <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider w-full text-left py-1">
-                  <ChevronDown className="h-3 w-3 transition-transform" />
-                  {cat.label}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {cat.chips.map(chip => (
-                      <button key={chip} onClick={() => setSelectedChips(prev =>
-                        prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]
+        {/* Past Diagnoses */}
+        {hasSessions ? (
+          <div>
+            <h3 className="text-base font-semibold text-foreground mb-3">Past Diagnoses</h3>
+            <div className="space-y-2">
+              {diagnosisSessions.map((session: any) => {
+                const config = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.active;
+                const StatusIcon = config.icon;
+                const linkedProject = session.projects;
+                const sc = session.project_id && stepCounts ? stepCounts[session.project_id] : null;
+                return (
+                  <Card key={session.id}
+                    className="border-border hover:border-primary/30 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/garage/${vehicleId}/diagnose/${session.id}`)}>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", config.bg)}>
+                        <StatusIcon className={cn("h-4 w-4", config.color)} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{session.symptom}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(session.created_at).toLocaleDateString()}
+                          </span>
+                          {session.confirmed_cause && (
+                            <Badge className="text-[10px] h-5 bg-primary/10 text-primary border-primary/30">
+                              → {session.confirmed_cause}
+                            </Badge>
+                          )}
+                          {!session.confirmed_cause && session.conclusion && (
+                            <Badge variant="outline" className="text-[10px] h-5">→ {session.conclusion}</Badge>
+                          )}
+                          {sc && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground">{sc.completed}/{sc.total} steps</span>
+                              <Progress value={(sc.completed / sc.total) * 100} className="h-1 w-12" />
+                            </div>
+                          )}
+                          {linkedProject && (
+                            <Badge variant="secondary" className="text-[10px] h-5">
+                              <Wrench className="h-2.5 w-2.5 mr-1" />Repair project
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {session.status === 'active' ? (
+                        <Button size="sm" variant="default" className="shrink-0 text-xs"
+                          onClick={e => { e.stopPropagation(); navigate(`/garage/${vehicleId}/diagnose/${session.id}`); }}>
+                          Resume
+                        </Button>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       )}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-xs border transition-colors",
-                          selectedChips.includes(chip)
-                            ? "bg-primary/10 border-primary/40 text-primary"
-                            : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                        )}>
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
           </div>
+        ) : (
+          <div className="text-center py-12">
+            <Stethoscope className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">No diagnoses yet</p>
+            <p className="text-muted-foreground/60 text-xs mt-1">Start one when something doesn't feel right.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-          {/* Media attachment */}
-          <div className="mb-4 relative">
-            <button onClick={() => setShowAttachMenu(!showAttachMenu)}
-              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <Plus className="h-3.5 w-3.5" />
-              Add photos, video, or docs to help Ratchet understand the problem
-            </button>
-            <p className="text-[10px] text-muted-foreground/60 mt-0.5 ml-5">
-              The more context now, the more targeted your plan.
-            </p>
+  // ─── Wizard steps 1-3 ───
+  return (
+    <div className="mt-4 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => setWizardStep(prev => prev === 1 ? 0 : prev - 1)}
+          className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <h2 className="text-lg font-semibold text-foreground flex-1">New Diagnosis</h2>
+        <button onClick={resetWizard} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Cancel
+        </button>
+      </div>
 
-            {showAttachMenu && (
-              <div className="absolute left-0 top-full mt-1 z-20 bg-popover border border-border rounded-xl shadow-lg p-2 space-y-1 min-w-[220px]">
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors text-left">
-                  <Camera className="h-4 w-4 text-primary" /> Photos
-                </button>
-                <button onClick={() => videoInputRef.current?.click()}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors text-left">
-                  <Video className="h-4 w-4 text-primary" /> Short video (≤15s)
-                </button>
-                <button onClick={() => docInputRef.current?.click()}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors text-left">
-                  <FileText className="h-4 w-4 text-primary" /> Documents
-                </button>
-                <button onClick={() => { setShowLinkInput(true); setShowAttachMenu(false); }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors text-left">
-                  <LinkIcon className="h-4 w-4 text-primary" /> Links
-                </button>
+      <StepIndicator current={wizardStep} total={3} />
+
+      {/* Step 1: Symptoms */}
+      {wizardStep === 1 && (
+        <Card className="border-primary/20">
+          <CardContent className="p-5 md:p-6">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-foreground">What's happening?</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">Select symptoms or describe the issue below.</p>
+            </div>
+
+            {/* Symptom categories as accordion (one at a time) */}
+            <Accordion type="single" collapsible className="mb-4">
+              {SYMPTOM_CATEGORIES.map(cat => (
+                <AccordionItem key={cat.label} value={cat.label} className="border-border/50">
+                  <AccordionTrigger className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-2.5 hover:no-underline">
+                    <span className="flex items-center gap-2">
+                      {cat.label}
+                      {cat.chips.some(c => selectedChips.includes(c)) && (
+                        <Badge className="text-[10px] h-4 bg-primary/10 text-primary border-0 px-1.5">
+                          {cat.chips.filter(c => selectedChips.includes(c)).length}
+                        </Badge>
+                      )}
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex flex-wrap gap-1.5 pb-1">
+                      {cat.chips.map(chip => (
+                        <button key={chip} onClick={() => setSelectedChips(prev =>
+                          prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]
+                        )}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-xs border transition-colors",
+                            selectedChips.includes(chip)
+                              ? "bg-primary/10 border-primary/40 text-primary"
+                              : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                          )}>
+                          {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+
+            {/* Selected chips summary */}
+            {selectedChips.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {selectedChips.map(chip => (
+                  <span key={chip} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary border border-primary/30">
+                    {chip}
+                    <button onClick={() => setSelectedChips(prev => prev.filter(c => c !== chip))}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
               </div>
             )}
 
-            {/* Hidden file inputs */}
+            {/* Free-text */}
+            <textarea
+              value={symptom}
+              onChange={e => setSymptom(e.target.value)}
+              placeholder="Describe what's happening in your own words..."
+              className="w-full min-h-[100px] bg-muted border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary transition-colors"
+            />
+
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setWizardStep(2)} disabled={!canProceedStep1} className="gap-2">
+                Next <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 2: Context */}
+      {wizardStep === 2 && (
+        <Card className="border-primary/20">
+          <CardContent className="p-5 md:p-6">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-foreground">When & where?</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">Help narrow down the issue with context.</p>
+            </div>
+
+            <ChipRow label="When does it happen?" chips={WHEN_CHIPS} selected={whenChips}
+              onToggle={chip => setWhenChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])} />
+
+            <ChipRow label="Where is it coming from?" chips={WHERE_CHIPS} selected={whereChips}
+              onToggle={chip => setWhereChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])} />
+
+            {noiseRelated && (
+              <ChipRow label="What does it sound like?" chips={SOUND_CHIPS} selected={soundChips}
+                onToggle={chip => setSoundChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip])} />
+            )}
+
+            <div className="flex justify-between mt-4">
+              <Button variant="ghost" onClick={() => setWizardStep(1)} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button onClick={() => setWizardStep(3)} className="gap-2">
+                Next <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: Evidence */}
+      {wizardStep === 3 && (
+        <Card className="border-primary/20">
+          <CardContent className="p-5 md:p-6">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-foreground">Add evidence</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Optional — photos, short videos, or docs help Ratchet build a better plan.
+              </p>
+            </div>
+
+            {/* Attachment buttons */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border hover:border-primary/30 bg-card text-sm transition-colors">
+                <Camera className="h-4 w-4 text-primary" /> Photos
+              </button>
+              <button onClick={() => videoInputRef.current?.click()}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border hover:border-primary/30 bg-card text-sm transition-colors">
+                <Video className="h-4 w-4 text-primary" /> Video (≤15s)
+              </button>
+              <button onClick={() => docInputRef.current?.click()}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border hover:border-primary/30 bg-card text-sm transition-colors">
+                <FileText className="h-4 w-4 text-primary" /> Documents
+              </button>
+              <button onClick={() => setShowLinkInput(true)}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border hover:border-primary/30 bg-card text-sm transition-colors">
+                <LinkIcon className="h-4 w-4 text-primary" /> Link
+              </button>
+            </div>
+
+            {/* Hidden inputs */}
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotos} />
             <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime" className="hidden" onChange={handleVideo} />
             <input ref={docInputRef} type="file" accept=".pdf,.txt" multiple className="hidden" onChange={handleDocs} />
-          </div>
 
-          {/* Link input */}
-          {showLinkInput && (
-            <div className="flex gap-2 mb-3">
-              <input value={linkInput} onChange={e => setLinkInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addLink(); }}
-                placeholder="Paste a URL..."
-                className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-              <Button size="sm" onClick={addLink}>Add</Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowLinkInput(false)}>
-                <X className="h-3 w-3" />
+            {/* Link input */}
+            {showLinkInput && (
+              <div className="flex gap-2 mb-3">
+                <input value={linkInput} onChange={e => setLinkInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addLink(); }}
+                  placeholder="Paste a URL..."
+                  className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
+                <Button size="sm" onClick={addLink}>Add</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowLinkInput(false)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+
+            {/* Attachment thumbnails */}
+            {attachments.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-3" style={{ overscrollBehaviorX: 'contain' }}>
+                {attachments.map((att, i) => (
+                  <div key={i} className="relative shrink-0 group">
+                    {att.type === 'photo' && att.thumbnailUrl && (
+                      <img src={att.thumbnailUrl} alt="" className="h-16 w-16 rounded-lg object-cover border border-border" />
+                    )}
+                    {att.type === 'video' && att.thumbnailUrl && (
+                      <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-border">
+                        <img src={att.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                        <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-[10px] text-white px-1 rounded">
+                          {att.duration}s
+                        </span>
+                      </div>
+                    )}
+                    {att.type === 'doc' && (
+                      <div className="h-16 w-16 rounded-lg border border-border bg-muted flex flex-col items-center justify-center">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-[9px] text-muted-foreground mt-0.5 truncate max-w-[56px]">{att.name}</span>
+                      </div>
+                    )}
+                    {att.type === 'link' && (
+                      <div className="h-16 px-3 rounded-lg border border-border bg-muted flex items-center gap-1.5">
+                        <LinkIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-muted-foreground truncate max-w-[80px]">{att.name}</span>
+                      </div>
+                    )}
+                    <button onClick={() => removeAttachment(i)}
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Summary of what will be diagnosed */}
+            <div className="bg-muted rounded-xl p-3 mb-4 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground text-sm mb-1">Summary</p>
+              <p className="line-clamp-3">{buildFullSymptom() || 'No symptoms selected'}</p>
+              {attachments.length > 0 && (
+                <p className="mt-1 text-primary">{attachments.length} attachment{attachments.length !== 1 ? 's' : ''} added</p>
+              )}
+            </div>
+
+            <div className="flex justify-between">
+              <Button variant="ghost" onClick={() => setWizardStep(2)} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button onClick={startDiagnosis}
+                disabled={(!symptom.trim() && selectedChips.length === 0) || isCreating}
+                className="gap-2">
+                {isCreating ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                    Building plan...
+                  </div>
+                ) : (
+                  <><Search className="h-4 w-4" /> Start Diagnosis</>
+                )}
               </Button>
             </div>
-          )}
-
-          {/* Attachment thumbnails */}
-          {attachments.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 -mx-1 px-1" style={{ overscrollBehaviorX: 'contain' }}>
-              {attachments.map((att, i) => (
-                <div key={i} className="relative shrink-0 group">
-                  {att.type === 'photo' && att.thumbnailUrl && (
-                    <img src={att.thumbnailUrl} alt="" className="h-16 w-16 rounded-lg object-cover border border-border" />
-                  )}
-                  {att.type === 'video' && att.thumbnailUrl && (
-                    <div className="relative h-16 w-16 rounded-lg overflow-hidden border border-border">
-                      <img src={att.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                      <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-[10px] text-white px-1 rounded">
-                        {att.duration}s
-                      </span>
-                    </div>
-                  )}
-                  {att.type === 'doc' && (
-                    <div className="h-16 w-16 rounded-lg border border-border bg-muted flex flex-col items-center justify-center">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[9px] text-muted-foreground mt-0.5 truncate max-w-[56px]">{att.name}</span>
-                    </div>
-                  )}
-                  {att.type === 'link' && (
-                    <div className="h-16 px-3 rounded-lg border border-border bg-muted flex items-center gap-1.5">
-                      <LinkIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-xs text-muted-foreground truncate max-w-[80px]">{att.name}</span>
-                    </div>
-                  )}
-                  <button onClick={() => removeAttachment(i)}
-                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <Button onClick={startDiagnosis} disabled={(!symptom.trim() && selectedChips.length === 0) || isCreating} className="w-full h-12 text-base font-semibold">
-            {isCreating ? (
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                <span>Building diagnostic plan...</span>
-              </div>
-            ) : (
-              <><Search className="h-4 w-4 mr-2" />Start Diagnosis</>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Past Diagnoses */}
-      {diagnosisSessions && diagnosisSessions.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Past Diagnoses</h3>
-          <div className="space-y-2">
-            {diagnosisSessions.map((session: any) => {
-              const config = statusConfig[session.status as keyof typeof statusConfig] || statusConfig.active;
-              const StatusIcon = config.icon;
-              const linkedProject = session.projects;
-              const sc = session.project_id && stepCounts ? stepCounts[session.project_id] : null;
-              return (
-                <Card key={session.id}
-                  className="border-border hover:border-primary/30 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/garage/${vehicleId}/diagnose/${session.id}`)}>
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", config.bg)}>
-                      <StatusIcon className={cn("h-4 w-4", config.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{session.symptom}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(session.created_at).toLocaleDateString()}
-                        </span>
-                        {session.confirmed_cause && (
-                          <Badge className="text-[10px] h-5 bg-primary/10 text-primary border-primary/30">
-                            → {session.confirmed_cause}
-                          </Badge>
-                        )}
-                        {!session.confirmed_cause && session.conclusion && (
-                          <Badge variant="outline" className="text-[10px] h-5">→ {session.conclusion}</Badge>
-                        )}
-                        {sc && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground">{sc.completed}/{sc.total} steps</span>
-                            <Progress value={(sc.completed / sc.total) * 100} className="h-1 w-12" />
-                          </div>
-                        )}
-                        {linkedProject && (
-                          <Badge variant="secondary" className="text-[10px] h-5">
-                            <Wrench className="h-2.5 w-2.5 mr-1" />Repair project
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    {session.status === 'active' ? (
-                      <Button size="sm" variant="default" className="shrink-0 text-xs"
-                        onClick={e => { e.stopPropagation(); navigate(`/garage/${vehicleId}/diagnose/${session.id}`); }}>
-                        Resume
-                      </Button>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
