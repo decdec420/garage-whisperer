@@ -396,6 +396,7 @@ function ChatContent() {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [freshOpen, setFreshOpen] = useState(true); // true = just opened, don't auto-load last session
   const [showSessions, setShowSessions] = useState(false);
   const [showVehiclePicker, setShowVehiclePicker] = useState(false);
   const [isListening, setIsListening] = useState(false);
