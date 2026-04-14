@@ -59,7 +59,7 @@ export default function VehicleDetail() {
     }
   }, [vehicle?.id]);
 
-
+  const { data: activeProjects } = useQuery({
     queryKey: ['active-projects', vehicleId],
     queryFn: async () => {
       const { data, error } = await supabase
