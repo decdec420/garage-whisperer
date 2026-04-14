@@ -4,6 +4,7 @@
 const ALLOWED_ORIGINS = [
   "https://getratchet.lovable.app",
   "https://id-preview--840bffc0-c3bf-4c34-9a32-101fbcab7f55.lovable.app",
+  "https://840bffc0-c3bf-4c34-9a32-101fbcab7f55.lovableproject.com",
 ];
 
 export function getCorsHeaders(req: Request): Record<string, string> {
