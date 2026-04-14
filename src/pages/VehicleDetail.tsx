@@ -20,7 +20,7 @@ export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setActiveVehicle } = useAppStore();
   const defaultTab = searchParams.get('tab') || 'overview';
 
   const { data: vehicle, isLoading } = useQuery({
