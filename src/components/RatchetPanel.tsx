@@ -225,7 +225,7 @@ function RatchetMarkdown({ content }: { content: string }) {
   };
 
   return (
-    <div className="max-w-none">
+    <div className="max-w-full overflow-hidden break-words">
       <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
   );
@@ -997,9 +997,9 @@ How to help:
               )}
             >
               {m.role === 'assistant' && <RatchetAvatar />}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0 overflow-hidden">
                 <div className={cn(
-                  'px-4 py-3 text-sm',
+                  'px-4 py-3 text-sm overflow-hidden break-words',
                   m.role === 'user'
                     ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm max-w-[80%]'
                     : 'bg-card border border-border text-foreground rounded-2xl rounded-bl-sm max-w-[85%]'
