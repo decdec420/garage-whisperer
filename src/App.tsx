@@ -65,9 +65,11 @@ const App = () => (
         <PageviewTracker />
         <AuthProvider>
           <Suspense fallback={<RouteFallback />}>
+          <ErrorBoundary>
             <Routes>
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/garage" element={<ProtectedRoute><Garage /></ProtectedRoute>} />
               <Route path="/garage/:vehicleId" element={<ProtectedRoute><VehicleDetail /></ProtectedRoute>} />
@@ -82,6 +84,7 @@ const App = () => (
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+          </ErrorBoundary>
           </Suspense>
         </AuthProvider>
       </BrowserRouter>
