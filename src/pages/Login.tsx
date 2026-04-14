@@ -26,6 +26,23 @@ export default function Login() {
     setLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error('Please enter your email address first');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Check your email for a password reset link');
+    }
+    setLoading(false);
+  };
+
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -70,9 +87,18 @@ export default function Login() {
                 className="bg-popover"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign in'}
-            </Button>
+            <div className="flex items-center justify-between">
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign in'}
+              </Button>
+            </div>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              Forgot your password?
+            </button>
           </form>
 
           <div className="relative">

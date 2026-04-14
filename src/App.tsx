@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
@@ -18,6 +19,7 @@ const DiagnosisSession = lazy(() => import("./pages/DiagnosisSession"));
 const Projects = lazy(() => import("./pages/Projects"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,9 +66,11 @@ const App = () => (
         <PageviewTracker />
         <AuthProvider>
           <Suspense fallback={<RouteFallback />}>
+          <ErrorBoundary>
             <Routes>
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/garage" element={<ProtectedRoute><Garage /></ProtectedRoute>} />
               <Route path="/garage/:vehicleId" element={<ProtectedRoute><VehicleDetail /></ProtectedRoute>} />
@@ -81,6 +85,7 @@ const App = () => (
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+          </ErrorBoundary>
           </Suspense>
         </AuthProvider>
       </BrowserRouter>

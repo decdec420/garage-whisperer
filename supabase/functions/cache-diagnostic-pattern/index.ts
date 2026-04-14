@@ -1,23 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+
 
 /**
  * Called when a user confirms a diagnosis-linked repair worked.
  * Caches or updates the diagnostic pattern for future reuse.
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -31,7 +29,7 @@ serve(async (req) => {
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const userId = claimsData.claims.sub as string;
@@ -41,7 +39,7 @@ serve(async (req) => {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!diagnosisSessionId || !UUID_RE.test(diagnosisSessionId)) {
       return new Response(JSON.stringify({ error: "Invalid diagnosisSessionId" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -57,7 +55,7 @@ serve(async (req) => {
 
     if (sessionErr || !session) {
       return new Response(JSON.stringify({ error: "Session not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -70,7 +68,7 @@ serve(async (req) => {
 
     if (!vehicle) {
       return new Response(JSON.stringify({ error: "Vehicle not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -115,14 +113,14 @@ serve(async (req) => {
         .eq("id", match.id);
 
       return new Response(JSON.stringify({ action: "updated", patternId: match.id, confidence: newConfidence }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     // Only create new patterns from positive feedback
     if (!isPositive) {
       return new Response(JSON.stringify({ action: "skipped", reason: "negative feedback without existing pattern" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -182,17 +180,17 @@ serve(async (req) => {
     if (insertErr) {
       console.error("Pattern insert error:", insertErr);
       return new Response(JSON.stringify({ error: "Failed to cache pattern" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ action: "created", patternId: pattern.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("cache-diagnostic-pattern error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

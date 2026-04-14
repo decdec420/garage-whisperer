@@ -1,239 +1,86 @@
-# Larry Audit Report
+# Ratchet — Launch Readiness Audit Report
 
-_Last updated: 2026-04-08_
+_Last updated: 2026-04-14_
 
 ## Executive summary
 
-**Current state:** materially improved and much safer than the imported baseline.
+Ratchet is a React + Supabase vehicle maintenance app with AI-powered diagnosis, project planning, and chat. This audit validates launch readiness across security, stability, and developer experience.
 
-**Owner-use readiness:** close to usable once the new Supabase migration/config changes are applied to the real project.
-
-**Public-launch readiness:** **not yet**. The largest remaining gaps are operational maturity, test coverage, lint/type debt, and verifying the live Supabase project matches the hardened code in this repo.
+**Verdict:** Invite-only beta GO. Public launch recommended after E2E test pass.
 
 ---
 
-## What was fixed immediately
+## 1. Authentication & Authorization
 
-### 1) Edge Functions now require JWTs
-**Risk:** critical
+| Item | Status |
+|---|---|
+| Email/password sign-up & sign-in | ✅ Working |
+| Google OAuth | ✅ Configured with correct `redirectTo` |
+| Password reset flow | ✅ `/reset-password` page with `resetPasswordForEmail` |
+| JWT validation in edge functions | ✅ All 10 functions validate via `getClaims()` or `getUser()` in code |
+| `verify_jwt` in config.toml | ⚠️ Set to `false` for all functions (by design — signing-keys system requires in-code validation) |
+| RLS on all tables | ✅ Enabled with owner-scoped policies |
 
-The repo had every Supabase Edge Function configured with `verify_jwt = false`, which would allow unauthenticated access to sensitive function endpoints.
+## 2. Security Posture
 
-**Action taken:**
-- Updated `supabase/config.toml` to set all listed functions to `verify_jwt = true`.
-- Added explicit authenticated invocation helper on the frontend:
-  - `src/integrations/supabase/functions.ts`
-- Updated frontend call sites to send bearer tokens reliably.
+| Item | Status |
+|---|---|
+| CORS origin restriction | ✅ All edge functions use origin allowlist (`getratchet.lovable.app` + preview domain) |
+| Input validation in edge functions | ✅ UUID regex, string length limits, type checks |
+| No raw SQL execution | ✅ All queries use typed Supabase client |
+| No `dangerouslySetInnerHTML` | ✅ Only in shadcn internals |
+| Storage RLS (repair-photos, vehicle-documents) | ✅ Owner-scoped path-prefix policies |
+| API key in delete-account call | ✅ `apikey` header included |
+| No secrets in client code | ✅ Only publishable anon key |
 
-### 2) Dev server exposure reduced
-**Risk:** moderate/high in careless environments
+## 3. Error Handling & Observability
 
-The Vite dev server was binding to all interfaces (`::`), which is a common accidental exposure path.
+| Item | Status |
+|---|---|
+| ErrorBoundary wrapping app root | ✅ Wraps `<Routes>` in App.tsx |
+| Sentry integration | ✅ Env-gated via `VITE_SENTRY_DSN` |
+| PostHog analytics | ✅ Env-gated via `VITE_POSTHOG_KEY` |
+| Edge function error responses | ✅ All return structured JSON with CORS headers |
 
-**Action taken:**
-- Changed default dev bind address to `127.0.0.1`
-- Enabled `strictPort`
+## 4. PWA & Installability
 
-### 3) Dependency risk reduced to zero known audit findings
-**Risk:** high initially
+| Item | Status |
+|---|---|
+| manifest.json | ✅ Complete with name, icons, theme |
+| Raster icons (192px, 512px) | ✅ PNG icons generated from SVG |
+| Icon purpose split | ✅ Separate `any` and `maskable` entries |
+| Service worker | ❌ Not implemented (not needed for installability) |
 
-Initial audit: **15 vulnerabilities (9 high)**
+## 5. Code Quality
 
-**Action taken:**
-- Applied non-breaking audit fixes
-- Upgraded toolchain:
-  - `vite` → `^8.0.7`
-  - `@vitejs/plugin-react-swc` → `^4.3.0`
-  - `vitest` → `^4.1.3`
-  - `jsdom` → `^29.0.2`
-- Removed `lovable-tagger`, which was blocking the final dependency cleanup
+| Item | Status |
+|---|---|
+| TypeScript strict mode | ⚠️ `strict: false` — recommended to enable incrementally |
+| ESLint | ✅ Passes (some rules disabled for pragmatic reasons) |
+| Build | ✅ Clean Vite production build |
+| Unit tests | ✅ Passing (app-store, blueprint-support, charm-url) |
+| E2E tests | ⚠️ Playwright config exists but no specs yet |
+| No stray `console.log`/`console.error` | ✅ Cleaned |
 
-**Result:**
-- `npm audit` now reports **0 vulnerabilities**
+## 6. CI/CD
 
-### 4) Cross-user diagnosis linkage hardened
-**Risk:** high data integrity / multi-tenant safety
+| Item | Status |
+|---|---|
+| GitHub Actions CI | ✅ Runs lint, typecheck, test, build |
+| Dependency audit in CI | ⚠️ `continue-on-error: true` (non-blocking) |
+| Edge function auto-deploy | ✅ Deployed on push |
 
-`generate-project` and `generate-diagnosis` accepted `diagnosisId` and updated diagnosis sessions without proving that the session belonged to the authenticated user + vehicle.
+## 7. Developer Experience
 
-**Action taken:**
-- Added ownership checks before updates
-- Scoped updates with `user_id` and `vehicle_id`
+| Item | Status |
+|---|---|
+| `.env.example` | ✅ Created with placeholder values |
+| README setup instructions | ✅ Consistent with repo artifacts |
 
-### 5) Legacy multi-user RLS gap identified and patched in migration
-**Risk:** high
+## 8. Remaining Recommendations (Post-Beta)
 
-`vehicle_projects` and `vehicle_project_tasks` had policies but **RLS was never actually enabled** in the original migration.
-
-**Action taken:**
-- Added migration: `supabase/migrations/20260408003600_security_hardening_rls_and_privacy.sql`
-- This enables RLS on both tables
-
-### 6) Shared-cache privacy tightened
-**Risk:** medium/high
-
-`diagnostic_patterns` and `charm_cache` had authenticated read policies broader than necessary. `diagnostic_patterns` stores fields like `source_user_id` / `source_diagnosis_id`, which are not appropriate for broad client reads in a multi-user product.
-
-**Action taken:**
-- New migration drops broad authenticated read policies
-- Service-role access remains for server-side functions
-
-### 7) Performance improved via route-based code splitting
-**Risk:** product quality/performance
-
-The app was effectively shipping as a large monolithic frontend bundle.
-
-**Action taken:**
-- Converted route components in `src/App.tsx` to lazy-loaded chunks
-
-**Result:**
-- Bundle split into route-level chunks
-- Better first-load performance and lower launch friction
-
-### 8) CI added
-**Risk:** operational quality
-
-There was no visible CI guardrail.
-
-**Action taken:**
-- Added `.github/workflows/ci.yml`
-- CI runs:
-  - `npm ci`
-  - `npm run build`
-  - `npm test`
-  - `npm audit --audit-level=high`
-
-### 9) Environment setup clarified
-**Risk:** setup fragility
-
-**Action taken:**
-- Added `.env.example`
-- Added frontend env guard in `src/integrations/supabase/client.ts`
-- Expanded README setup notes
-
----
-
-## Validation performed
-
-### Build
-- `npm run build` ✅
-
-### Tests
-- `npm test` ✅
-
-### Dependency audit
-- `npm audit` ✅ (0 vulnerabilities)
-
----
-
-## Remaining material risks / weaknesses
-
-### A) Lint / type-quality debt is still heavy
-**Severity:** medium
-
-The repo still has a large number of ESLint issues, especially:
-- pervasive `any`
-- empty blocks
-- hook dependency warnings
-- misc maintainability issues
-
-**Impact:**
-- not an immediate blocker for owner-only use
-- absolutely a blocker for calling the codebase “diamond tier” or scaling a team around it
-
-### B) Test coverage is extremely thin
-**Severity:** high for launch confidence
-
-Current visible automated coverage is minimal (effectively a smoke test, not behavior coverage).
-
-**Missing:**
-- auth flow tests
-- vehicle CRUD tests
-- docs/manual search tests
-- diagnosis/project generation contract tests
-- permission boundary tests
-- e2e happy paths and failure paths
-
-### C) Live Supabase state may not match the repo yet
-**Severity:** high
-
-The repo is hardened, but if the live Supabase project has not had the new migration/config changes applied, the real app may still be weaker than the code suggests.
-
-**Must verify on the actual project:**
-- Edge Functions deployed with JWT verification enabled
-- latest migration applied
-- storage policies reflect private-per-user access
-- no stale permissive policies remain in remote DB
-
-### D) Frontend bundle is improved but still chunky
-**Severity:** medium
-
-Route splitting helped a lot, but there are still sizable chunks.
-
-**Future improvement ideas:**
-- lazy load heavy panels/components within `VehicleDetail` and `ProjectDetail`
-- split chart/docs/project-generator logic further
-- consider moving to `@vitejs/plugin-react` if you want to follow Vite’s current recommendation
-
-### E) Operational maturity still needs work
-**Severity:** medium/high depending on launch scope
-
-Still recommended before real public launch:
-- error monitoring (Sentry or equivalent)
-- structured logs
-- product analytics / funnel tracking
-- rate limiting / abuse controls on AI-heavy functions
-- deploy checklist / rollback procedure
-
----
-
-## Launch view
-
-### If used only by Tommy right now
-**Reasonable after live Supabase hardening is applied and smoke-tested.**
-
-### If opening to outside users next week
-**Not recommended yet as a public launch.**
-
-### If doing an invite-only beta next week
-**Realistic**, if the next priorities are:
-1. apply/verify live Supabase migrations and function config
-2. add critical happy-path e2e coverage
-3. smoke test auth + diagnosis + project generation + docs/manual flow
-4. add monitoring
-
----
-
-## Recommended next sprint priorities
-
-### P0
-1. Apply the new migration to the live Supabase project
-2. Deploy the Edge Function auth/config changes
-3. Verify every affected flow works under JWT-required functions
-4. Run an end-to-end owner smoke test
-
-### P1
-5. Add Playwright coverage for:
-   - signup/login
-   - add vehicle
-   - search manuals
-   - start diagnosis
-   - create project
-6. Add error monitoring
-7. Create a production deployment checklist
-
-### P2
-8. Reduce ESLint/type debt in core screens first:
-   - `DiagnosisSession.tsx`
-   - `ProjectDetail.tsx`
-   - `RatchetPanel.tsx`
-   - `BlueprintTab.tsx`
-9. Further split large client chunks
-
----
-
-## Bottom line
-
-This codebase is now on a **meaningfully safer and more professional trajectory**.
-
-It is **not yet public-launch polished**, but it is no longer in the “unsafe imported prototype” state it started in. The biggest wins were function auth, dependency cleanup, multi-tenant hardening, CI, and performance splitting.
+1. **E2E test coverage** — Add Playwright specs for signup, login, add vehicle, diagnosis, project creation, file upload
+2. **TypeScript strictness** — Incrementally enable `strict: true` on core paths
+3. **CI blocking gates** — Make dependency audit blocking; add post-deploy smoke tests
+4. **Alerting** — Define thresholds for auth failures, edge function 5xx rates, client crash spikes
+5. **Incident runbook** — Document rollback procedures and escalation paths
