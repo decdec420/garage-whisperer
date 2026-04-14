@@ -19,6 +19,7 @@ const DiagnosisSession = lazy(() => import("./pages/DiagnosisSession"));
 const Projects = lazy(() => import("./pages/Projects"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
