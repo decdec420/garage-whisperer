@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+
 
 const SYSTEM_PROMPT = `You are Ratchet — your mechanic buddy.
 
@@ -381,13 +378,13 @@ async function fetchCharmData(supabase: any, vehicle: any, jobDescription: strin
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -396,7 +393,7 @@ serve(async (req) => {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
       return new Response(JSON.stringify({ error: "Invalid or missing vehicleId" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -413,7 +410,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const userId = user.id;
@@ -423,7 +420,7 @@ serve(async (req) => {
 
     if (vErr || !vehicle) {
       return new Response(JSON.stringify({ error: "Vehicle not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -437,7 +434,7 @@ serve(async (req) => {
       .gt("created_at", oneDayAgo);
     if ((recentProjects ?? 0) >= 10) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Max 10 AI-generated projects per day." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 429, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -453,7 +450,7 @@ serve(async (req) => {
       if (!diagnosisSession) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
     }
@@ -464,13 +461,13 @@ serve(async (req) => {
         jobDescription = `Replace/repair ${diagnosisContext.confirmedCause} on ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine || ''}`.trim();
       } else {
         return new Response(JSON.stringify({ error: "jobDescription must be 1-500 characters" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
     }
     if (typeof jobDescription !== 'string' || jobDescription.trim().length === 0 || jobDescription.length > 1000) {
       return new Response(JSON.stringify({ error: "jobDescription must be 1-1000 characters" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -610,7 +607,7 @@ Generate the complete project plan for this exact vehicle and job.`;
       const status = aiResponse.status;
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
       throw new Error(`Anthropic API error: ${status}`);
@@ -626,7 +623,7 @@ Generate the complete project plan for this exact vehicle and job.`;
     } catch {
       return new Response(
         JSON.stringify({ error: "Project generation failed — please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -725,13 +722,13 @@ Generate the complete project plan for this exact vehicle and job.`;
           manualPagesCrawled: manualData?.pagesCrawled || [],
         } : null,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
     );
   } catch (e) {
     console.error("generate-project error:", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

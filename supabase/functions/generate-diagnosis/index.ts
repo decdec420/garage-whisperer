@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+
 
 const SYSTEM_PROMPT = `You are Ratchet — your mechanic buddy.
 
@@ -528,7 +525,7 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
 
   try {
     // --- JWT Authentication ---
@@ -536,7 +533,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -547,19 +544,19 @@ serve(async (req) => {
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
       return new Response(JSON.stringify({ error: "Invalid or missing vehicleId" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
     if (!symptom || typeof symptom !== "string" || symptom.trim().length === 0 || symptom.length > 500) {
       return new Response(JSON.stringify({ error: "symptom must be 1-500 characters" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
     if (diagnosisId && !UUID_RE.test(diagnosisId)) {
       return new Response(JSON.stringify({ error: "Invalid diagnosisId format" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -572,7 +569,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
     const userId = user.id;
@@ -587,7 +584,7 @@ serve(async (req) => {
     if (vErr || !vehicle) {
       return new Response(JSON.stringify({ error: "Vehicle not found" }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -600,7 +597,7 @@ serve(async (req) => {
       .gt("created_at", oneDayAgo);
     if ((recentDiagnoses ?? 0) >= 20) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Max 20 diagnoses per day." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 429, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -616,7 +613,7 @@ serve(async (req) => {
       if (!diagnosisSession) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
     }
@@ -784,7 +781,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited" }), {
           status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
       throw new Error(`Anthropic API error: ${status}`);
@@ -803,7 +800,7 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
     } catch {
       return new Response(
         JSON.stringify({ error: "Diagnosis generation failed — please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -939,13 +936,13 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
             }
           : null,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("generate-diagnosis error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });

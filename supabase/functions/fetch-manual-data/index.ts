@@ -1,11 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+
 
 const CLOUDFLARE_BASE = "https://ratchet-accord-manual.pages.dev";
 const CHARM_BASE = "https://charm.li/Honda/2012/Accord%20L4-2.4L/Repair%20and%20Diagnosis";
@@ -199,14 +196,14 @@ async function fetchPage(url: string, timeout = 6000): Promise<string | null> {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
 
   try {
     // --- JWT Authentication ---
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -218,7 +215,7 @@ serve(async (req) => {
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -226,20 +223,20 @@ serve(async (req) => {
 
     if (!jobKeyword) {
       return new Response(JSON.stringify({ error: "jobKeyword required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     if (vehicleYear && (vehicleYear < 1982 || vehicleYear > 2013)) {
       return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside manual coverage (1982-2013)" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     const basePath = matchKeyword(jobKeyword);
     if (!basePath) {
       return new Response(JSON.stringify({ found: false, reason: "No matching procedure for this job keyword" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -270,7 +267,7 @@ serve(async (req) => {
           sourceUrl: `${CHARM_BASE}/${basePath}/`,
           pagesCrawled: cached.sub_pages_crawled || [],
           cached: true,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
       }
     }
 
@@ -332,7 +329,7 @@ serve(async (req) => {
 
     if (crawledPages.length === 0) {
       return new Response(JSON.stringify({ found: false, reason: "No pages found at manual URL" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -397,12 +394,12 @@ serve(async (req) => {
       sourceUrl: `${CHARM_BASE}/${basePath}/`,
       pagesCrawled: crawledPages,
       cached: false,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
 
   } catch (e) {
     console.error("fetch-manual-data error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });
