@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '@/stores/app-store';
@@ -20,7 +21,7 @@ export default function VehicleDetail() {
   const { vehicleId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { openRatchetPanel } = useAppStore();
+  const { openRatchetPanel, setActiveVehicle } = useAppStore();
   const defaultTab = searchParams.get('tab') || 'overview';
 
   const { data: vehicle, isLoading } = useQuery({
@@ -47,6 +48,16 @@ export default function VehicleDetail() {
     enabled: !!vehicle,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Sync activeVehicle with the vehicle page being viewed
+  useEffect(() => {
+    if (vehicle) {
+      setActiveVehicle({
+        id: vehicle.id, year: vehicle.year, make: vehicle.make, model: vehicle.model,
+        trim: vehicle.trim, nickname: vehicle.nickname, engine: vehicle.engine, mileage: vehicle.mileage,
+      });
+    }
+  }, [vehicle?.id]);
 
   const { data: activeProjects } = useQuery({
     queryKey: ['active-projects', vehicleId],
