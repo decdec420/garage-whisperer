@@ -322,6 +322,7 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
     setAttachments([]);
     setLinkInput('');
     setShowLinkInput(false);
+    setObdSource(null);
   };
 
   const startDiagnosis = async () => {
