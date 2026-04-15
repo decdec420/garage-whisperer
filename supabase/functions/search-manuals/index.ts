@@ -36,6 +36,10 @@ serve(async (req) => {
 
     const { vehicleId, year, make, model, trim } = await req.json();
 
+    // Also accept drivetrain and engine for building the manual URL
+    const body = { vehicleId, year, make, model, trim };
+    // Re-parse to get optional fields (already destructured above, re-read from body)
+
     // --- Input validation ---
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
@@ -56,6 +60,66 @@ serve(async (req) => {
     if (!model || typeof model !== 'string' || model.length > 50) {
       return new Response(JSON.stringify({ error: "Invalid model" }), {
         status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Auto-add LEMON Manuals reference document ---
+    // Fetch the vehicle record to get drivetrain & engine for URL building
+    const { data: vehicleFull } = await supabase
+      .from("vehicles")
+      .select("engine, drivetrain")
+      .eq("id", vehicleId)
+      .eq("user_id", userId)
+      .single();
+
+    const manualMake = make.length <= 3 ? make.toUpperCase() : make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
+
+    // Build model string with drivetrain like lemon-manuals expects
+    let manualModel = model;
+    const dt = vehicleFull?.drivetrain?.toUpperCase?.()?.replace(/[\s-]/g, '') || null;
+    const normalizedDt = dt === 'FWD' || dt === 'RWD' || dt === 'AWD' || dt === '4WD' || dt === '2WD' ? dt : null;
+
+    // Parse engine for URL
+    const engineStr = vehicleFull?.engine || null;
+    if (engineStr) {
+      const dispMatch = engineStr.match(/(\d+\.?\d*)\s*L/i);
+      const rawDisp = dispMatch ? parseFloat(dispMatch[1]) : null;
+      const STANDARD = [1.0,1.2,1.3,1.4,1.5,1.6,1.7,1.8,2.0,2.2,2.3,2.4,2.5,2.7,2.8,3.0,3.2,3.3,3.5,3.6,3.7,3.8,4.0,4.2,4.3,4.6,4.7,5.0,5.3,5.4,5.7,6.0,6.2,6.4,6.6,6.7,7.0,7.3];
+      const disp = rawDisp ? STANDARD.reduce((p, c) => Math.abs(c - rawDisp) < Math.abs(p - rawDisp) ? c : p).toFixed(1) : null;
+      let cylConfig = '';
+      if (/V\s*6|V6/i.test(engineStr)) cylConfig = 'V6';
+      else if (/V\s*8|V8/i.test(engineStr)) cylConfig = 'V8';
+      else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engineStr)) cylConfig = 'L4';
+      else if (/I\s*6|L6|inline[\s-]?6/i.test(engineStr)) cylConfig = 'L6';
+      
+      const parts = [model];
+      if (normalizedDt) parts.push(normalizedDt);
+      if (disp && cylConfig) parts.push(`${cylConfig}-${disp}L`);
+      else if (disp) parts.push(`${disp}L`);
+      manualModel = parts.join(' ');
+    } else if (normalizedDt) {
+      manualModel = `${model} ${normalizedDt}`;
+    }
+
+    const lemonBaseUrl = `https://lemon-manuals.la/${encodeURIComponent(manualMake)}/${year}/${encodeURIComponent(manualModel)}/`;
+
+    // Check if we already have a lemon manual doc for this vehicle
+    const { data: existingLemon } = await supabase
+      .from("vehicle_documents")
+      .select("id")
+      .eq("vehicle_id", vehicleId)
+      .eq("source", "lemon_manual")
+      .limit(1);
+
+    if (!existingLemon?.length) {
+      await supabase.from("vehicle_documents").insert({
+        vehicle_id: vehicleId,
+        user_id: userId,
+        title: `${year} ${make} ${model} — Factory Service Manual`,
+        description: `Full factory service manual from LEMON Manuals. Covers repair procedures, wiring diagrams, torque specs, and diagnostic info for the ${year} ${make} ${model}.`,
+        doc_type: "manual",
+        external_url: lemonBaseUrl,
+        source: "lemon_manual",
       });
     }
 
