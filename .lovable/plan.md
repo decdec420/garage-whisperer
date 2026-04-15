@@ -1,82 +1,96 @@
 
 
-## App Store & Public Launch Readiness Plan
+## Diamond-Tier Launch Plan
 
-### Current State
-The app is **well-built** — clean auth, solid RLS across all 22 tables + 2 storage buckets, CORS hardened, ErrorBoundary in place, password reset flow working, PWA manifest correct. Security scan shows only 1 warning (leaked password protection). No RLS violations.
-
-But there are **8 concrete gaps** that would cause rejection or poor first impressions if you shipped today.
+Two concrete deliverables plus five strategic ideas to take Ratchet from "functional app" to "fundable product."
 
 ---
 
-### What Needs Fixing
+### A. Settings Page Redesign
 
-**1. Missing Privacy Policy & Terms of Service (App Store BLOCKER)**
-Apple and Google both reject apps without linked legal pages. There are zero references to privacy/terms anywhere in the codebase.
-- Create `/privacy` and `/terms` routes with basic policy pages
-- Add footer links on Login and Signup pages
-- Add link in Settings page
+The current Settings page is three plain cards stacked vertically. Here's the upgrade:
 
-**2. Missing `viewport-fit=cover` for iOS notch/Dynamic Island**
-The `index.html` viewport meta tag lacks `viewport-fit=cover`. On modern iPhones, content will render behind the notch/status bar or leave ugly gaps.
-- Update viewport meta tag: `<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">`
-- The `safe-area-bottom` class on the bottom nav already exists, which is good
+**Layout**: Tabbed interface with three sections -- Account, Preferences, Data & Privacy.
 
-**3. Missing `apple-touch-icon` in index.html**
-iOS Safari uses `apple-touch-icon` for Add to Home Screen, not the manifest. Without it, users get a screenshot thumbnail instead of the app icon.
-- Add `<link rel="apple-touch-icon" href="/icon-192.png">` to `index.html`
+**Account tab**:
+- Profile card with large avatar circle (initials-based, colored by name hash), name, email, member-since date
+- Editable name field with inline save
+- Change password section (current password + new password + confirm)
+- Connected accounts indicator (shows Google if linked)
 
-**4. Enable Leaked Password Protection (Security scan warning)**
-The only security finding. Supabase offers built-in HIBP checking — it's a toggle in the dashboard. Users signing up with compromised passwords is a liability.
-- Enable in Supabase Dashboard > Authentication > Settings
+**Preferences tab**:
+- Notification preferences (maintenance reminders on/off, project updates on/off) -- stored in localStorage for now, DB later
+- Units preference (miles/km) -- localStorage
+- Ratchet personality toggle (concise vs detailed responses) -- localStorage
 
-**5. Signup password minimum mismatch**
-`Signup.tsx` enforces 6-character minimum, but `ResetPassword.tsx` enforces 8-character minimum. Inconsistent — a user could set a 6-char password at signup, then be unable to "reset" to the same password.
-- Standardize to 8-character minimum everywhere
+**Data & Privacy tab**:
+- Data export with file size estimate ("~2.3 MB across 47 records")
+- Clear AI memories button (wipes `ratchet_memory` table)
+- Account deletion (existing flow, stays here)
+- Links to Privacy Policy and Terms
 
-**6. Missing `safe-area-bottom` CSS utility**
-`AppLayout.tsx` uses `safe-area-bottom` class but it's never defined in CSS. This means the bottom nav may overlap the home indicator on iPhones.
-- Add CSS: `.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }`
-
-**7. Data export 1000-row limit risk**
-`SettingsPage.tsx` exports data with `supabase.from('table').select('*')` — Supabase defaults to 1000 rows max. Power users could silently lose data in exports.
-- Add `.limit(10000)` or paginated fetching for export queries
-
-**8. Regenerate `AUDIT_REPORT.md`**
-The current report is stale — it still references the pre-hardening state. Should reflect current findings for investor/reviewer confidence.
-- Update to match current scan results and codebase state
+**Files**: `src/pages/SettingsPage.tsx` (rewrite), no new dependencies needed -- uses existing Tabs component from shadcn.
 
 ---
 
-### What Is Already Good (No Action Needed)
-- RLS on all 22 tables with proper owner-scoped policies
-- 8 storage policies correctly scoped by `auth.uid()` path prefix
-- CORS hardened to production origin allowlist
-- ErrorBoundary wraps root `<Routes>`
-- Password reset flow complete (Login link + `/reset-password` page)
-- JWT validated in-code in all 10 edge functions
-- `apikey` header present on delete-account call
-- PWA manifest with proper raster icons (192px, 512px, split purpose)
-- Google OAuth with correct `redirectTo`
-- Offline detection banner
-- Data export and account deletion working
-- CI pipeline (lint, typecheck, test, build)
+### B. Public Landing Page (Marketing Front Door)
+
+Right now, unauthenticated visitors see a login form. That's a dead end for marketing, SEO, App Store links, and investor demos.
+
+**New `/welcome` route** (or make `/` the landing when logged out):
+
+- Hero section: "Your AI mechanic buddy" headline, subheadline about what Ratchet does, CTA buttons (Get Started / Sign In)
+- Three feature cards: AI Diagnostics, Maintenance Tracking, Guided Projects
+- How it works: 3-step visual (Add vehicle -> Track everything -> Ask Ratchet)
+- Social proof placeholder section (testimonial slots, "Used by X car owners")
+- Footer with Privacy/Terms links
+
+**Implementation**: Change `PublicRoute` logic so `/` renders a `LandingPage` component when logged out (instead of redirecting to `/login`). Login and Signup become linked from the landing page. No backend changes.
+
+**Files**: New `src/pages/LandingPage.tsx`, edit `src/App.tsx` (route change).
 
 ---
 
-### Technical Details
+### C. Five Out-of-the-Box Ideas
 
-| # | Files Affected | Complexity |
-|---|---|---|
-| 1 | New `src/pages/Privacy.tsx`, `src/pages/Terms.tsx`, `src/App.tsx`, `src/pages/Login.tsx`, `src/pages/Signup.tsx`, `src/pages/SettingsPage.tsx` | Medium |
-| 2 | `index.html` | Trivial |
-| 3 | `index.html` | Trivial |
-| 4 | Supabase Dashboard (manual) | Trivial |
-| 5 | `src/pages/Signup.tsx` | Trivial |
-| 6 | `src/index.css` | Trivial |
-| 7 | `src/pages/SettingsPage.tsx` | Low |
-| 8 | `AUDIT_REPORT.md` | Low |
+**1. Shareable Vehicle Health Report (viral loop)**
+Let users generate a one-page PDF or shareable link of their vehicle's health score, maintenance history, and upcoming services. Use case: selling a car, showing a mechanic, or just bragging. Creates organic sharing and word-of-mouth.
+- New "Share Report" button on vehicle detail page
+- Generates a styled HTML-to-canvas summary or a public read-only link (short-lived, token-gated)
+
+**2. "Ask Ratchet" Widget for External Embedding**
+A lightweight embeddable chat widget (like Intercom but for car help) that partners -- auto parts stores, car forums, dealerships -- could embed on their sites. Opens a massive distribution channel beyond the app itself.
+- Separate build target, iframe-based
+- Monetization via API calls or partner licensing
+
+**3. Mechanic Collaboration Mode**
+Let users invite their mechanic (via email link) to view a specific vehicle's diagnostics and chat history. The mechanic gets a read-only (or annotate) view without needing a full account. Bridges DIY and professional -- makes Ratchet the communication layer.
+- New `shared_access` table with token + expiry
+- Read-only route `/shared/:token`
+
+**4. Maintenance Cost Predictor**
+Using the data Ratchet already has (vehicle age, mileage, service history, common failure patterns), show users a 12-month cost forecast: "Based on your 2012 Accord at 87k miles, expect ~$1,200 in maintenance this year." This is the kind of insight that makes users never leave.
+- New dashboard widget
+- Edge function that queries historical data + known service intervals
+
+**5. OBD-II Bluetooth Integration (iOS/Android)**
+Connect to a $15 ELM327 adapter via Web Bluetooth API. Pull live DTCs, clear codes, read sensor data -- all inside Ratchet. This turns the app from "tracker" to "scanner" and is the single biggest differentiator vs. competitors. Web Bluetooth works on Chrome Android today; for iOS App Store, would use Capacitor's BLE plugin.
+- New "Connect Scanner" flow in vehicle detail
+- Real-time sensor dashboard
+
+---
+
+### Implementation Scope (What I'll Build Now)
+
+| Item | Files | Effort |
+|------|-------|--------|
+| Settings page redesign | `SettingsPage.tsx` rewrite | Medium |
+| Public landing page | New `LandingPage.tsx`, `App.tsx` route | Medium |
+
+The five ideas above are strategic -- each would be its own sprint. I'll document them in the codebase as a `ROADMAP.md` so they're captured for planning.
 
 ### Execution Order
-Steps 2, 3, 5, 6 first (one-line fixes). Then 1 (legal pages). Then 7 (export fix). Then 8 (audit doc). Step 4 is a manual dashboard toggle you'll do yourself.
+1. Settings page redesign (self-contained, no routing changes)
+2. Landing page + route change
+3. Write `ROADMAP.md` with the five strategic ideas
 
