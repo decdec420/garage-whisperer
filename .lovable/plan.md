@@ -1,74 +1,75 @@
 
 
-# Profile Link Fix + Aesthetic Micro-Interactions
+# Audit: Step Photos System — Findings
 
-## The Problem
-The sidebar profile area at the bottom is just a `navigate('/settings')` hyperlink — feels lazy. User wants it to feel intentional, not "you clicked a link and ended up somewhere."
+## Current State: Not Implemented
 
-## The Fun Question
-"How do I add personality without changing the layout?" — micro-interactions, hover effects, contextual flourishes. A "personality layer" on top of the existing clean dark UI.
+The `project_steps` table has a `photo_urls` column (text array), and the `Camera` icon is imported in ProjectDetail.tsx — but **neither upload nor display is wired up**. Here's what's missing:
 
----
+### What exists
+- DB column `photo_urls` on `project_steps` — ready to store paths
+- `repair-photos` storage bucket (private, RLS-enabled)
+- `uploadFile()` and `getSignedUrl()` helpers in `src/lib/storage-helpers.ts`
+- The `Camera` icon is imported but never rendered in step cards
 
-## Changes
+### What's missing (the full gap list)
 
-### 1. Profile Click → Settings with Profile Tab Auto-Selected
-**Files:** `src/components/AppLayout.tsx`, `src/pages/SettingsPage.tsx`
+1. **No upload button on steps** — No camera/attach button inside expanded step cards. Users can't add photos to document their work.
 
-Instead of just dumping the user on Settings, navigate to `/settings?tab=account` and auto-scroll to the profile card. The sidebar profile button gets a subtle tooltip-style label on hover: "Your profile" instead of just being a silent clickable row.
+2. **No photo display on steps** — Even if `photo_urls` were populated, there's no rendering logic. The column is completely ignored in the step UI.
 
-- Add `?tab=account` to the profile navigation in AppLayout
-- In SettingsPage, read `tab` from URL params to set the default tab
-- Feels purposeful — "I clicked my name and it took me to MY profile"
+3. **No signed URL resolution** — `repair-photos` is a private bucket. Photos need `getSignedUrl()` before display. No such logic exists for step photos (only chat has it).
 
-### 2. Aesthetic Micro-Interactions (The Fun Layer)
+4. **No image compression** — Chat in RatchetPanel resizes images before upload. Step photos would need the same treatment to avoid 10MB raw camera shots.
 
-**A. Sidebar nav items — hover magnetic effect**
-`src/components/AppLayout.tsx`
-- Add a subtle background glow that follows the hovered item (a `bg-gradient-to-r from-primary/5 to-transparent` that appears on hover)
-- Active item gets a soft pulse on the left accent bar when first entering the page
+5. **No lightbox for user photos** — Factory photos get a lightbox via `FactoryPhotoLightbox`. User step photos have no viewer at all.
 
-**B. Dashboard greeting — time-aware emoji + typewriter feel**
-`src/pages/Index.tsx`
-- Add a contextual emoji to the greeting: 🌅 morning, ☀️ afternoon, 🌙 evening
-- The greeting text gets a subtle `animate-fade-in` with a slight delay so it feels like Ratchet is "saying" it
+6. **No photo deletion** — No way to remove a bad photo from a step.
 
-**C. Vehicle Health Cards — hover lift + glow ring**
-`src/pages/Index.tsx`
-- Cards get the `card-hover` class (already in CSS but not applied)
-- Health gauge gets a subtle colored ring glow matching the score (green = healthy, orange = warning, red = critical)
-
-**D. Garage cards — color accent strip**
-`src/pages/Garage.tsx`
-- Each vehicle card gets a thin 3px left border in the vehicle's stored color (or primary as fallback)
-- Hover reveals a subtle "→" slide animation on the "View" button
-
-**E. Settings profile card — personality touch**
-`src/pages/SettingsPage.tsx`
-- Avatar gets a hover scale-up (1.05) with the glow ring intensifying
-- "Member since" gets a fun micro-copy: "Wrenching since April 2025"
-- The initials avatar has a subtle gradient background instead of flat color
-
-**F. Global — section headings get a fade-in on scroll**
-`src/index.css`
-- Add an `animate-on-scroll` utility using Intersection Observer pattern (CSS-only with `animation-timeline: view()` for modern browsers, graceful fallback)
-
-### 3. Sidebar Profile — Visual Upgrade
-`src/components/AppLayout.tsx`
-- The profile row gets a subtle gradient border (like the `gradient-border` class already in CSS)
-- Logout icon gets a hover rotation (15deg tilt)
-- Profile name shows "Your profile →" on hover as a tooltip-style indicator
+7. **MechanicMode is also blind** — The garage/hands-free mode (`MechanicMode.tsx`) has no photo capture either, despite being the most likely context for snapping photos mid-repair.
 
 ---
 
-## Files to Edit
+## Plan: Build Diamond-Tier Step Photos
+
+### A. Upload mutation + compression
+**File:** `src/pages/ProjectDetail.tsx`
+- Add a `uploadStepPhoto` mutation that:
+  1. Resizes the image (max 1920px, JPEG 0.85 quality — same as chat)
+  2. Uploads to `repair-photos` bucket at `{userId}/steps/{stepId}/{timestamp}.jpg`
+  3. Appends the storage path to `photo_urls` array on the step row
+- Add hidden `<input type="file" accept="image/*" capture="environment">` ref
+
+### B. Camera button in step cards
+**File:** `src/pages/ProjectDetail.tsx`
+- Add a 📷 button in the expanded step area (between sub-steps and the tip section)
+- On mobile: opens camera directly. On desktop: file picker.
+- Shows upload spinner during upload
+- Disabled when step is already done (read-only)
+
+### C. Photo thumbnails + lightbox
+**File:** `src/pages/ProjectDetail.tsx`
+- Below the camera button, render a horizontal thumbnail strip of uploaded photos (similar to factory diagrams gallery)
+- Each thumbnail is clickable → opens in `FactoryPhotoLightbox` (rename/generalize to `PhotoLightbox` or reuse as-is with user photos)
+- Photos resolve via `getSignedUrl('repair-photos', path)` with a React Query cache
+
+### D. Photo deletion
+- Long-press (mobile) or X overlay (desktop) on thumbnails to delete
+- Mutation removes path from `photo_urls` array and deletes from storage bucket
+
+### E. MechanicMode photo capture
+**File:** `src/components/vehicle/MechanicMode.tsx`
+- Add a camera button to the mechanic mode step view
+- Same upload logic, large touch target for gloved hands
+
+---
+
+## Files to edit
 | File | Change |
 |------|--------|
-| `src/components/AppLayout.tsx` | Profile → `/settings?tab=account`, hover effects on nav + profile |
-| `src/pages/SettingsPage.tsx` | Read `tab` from URL params, avatar hover, "Wrenching since" copy |
-| `src/pages/Index.tsx` | Greeting emoji, card-hover on vehicle cards, gauge glow |
-| `src/pages/Garage.tsx` | Color accent strip on cards, hover slide on button |
-| `src/index.css` | Scroll-triggered fade utility, logout hover rotation |
+| `src/pages/ProjectDetail.tsx` | Upload mutation, camera button, thumbnail gallery, deletion |
+| `src/components/vehicle/MechanicMode.tsx` | Camera button for hands-free photo capture |
+| `src/components/vehicle/FactoryPhotoLightbox.tsx` | Minor: accept user photos (remove "Honda FSM" hardcoded attribution when source isn't charm.li) |
 
-All additive — nothing removed, nothing restructured. Just personality sprinkled on top.
+No DB migrations needed — `photo_urls` column and `repair-photos` bucket already exist with correct RLS.
 
