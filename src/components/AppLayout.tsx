@@ -1,6 +1,6 @@
 import { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3 } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -147,16 +147,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative',
+                  'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative group/nav',
                   active
                     ? 'bg-primary/10 text-primary'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    : 'text-sidebar-foreground hover:bg-gradient-to-r hover:from-primary/[0.07] hover:to-transparent hover:text-sidebar-accent-foreground',
                 )}
               >
                 {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary animate-scale-pop" />
                 )}
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-5 w-5 transition-transform duration-200 group-hover/nav:scale-110" />
                 {item.label}
               </button>
             );
@@ -167,29 +167,34 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button
             onClick={() => navigate('/settings')}
             className={cn(
-              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative',
+              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative group/nav',
               isActive('/settings')
                 ? 'bg-primary/10 text-primary'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                : 'text-sidebar-foreground hover:bg-gradient-to-r hover:from-primary/[0.07] hover:to-transparent hover:text-sidebar-accent-foreground',
             )}
           >
             {isActive('/settings') && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary animate-scale-pop" />
             )}
-            <Settings className="h-5 w-5" />
+            <Settings className="h-5 w-5 transition-transform duration-200 group-hover/nav:scale-110" />
             Settings
           </button>
           <button
-            onClick={() => navigate('/settings')}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-sidebar-accent/40 mt-2 hover:bg-sidebar-accent/60 transition-colors cursor-pointer group"
+            onClick={() => navigate('/settings?tab=account')}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-sidebar-accent/40 mt-2 hover:bg-sidebar-accent/60 transition-all cursor-pointer group/profile gradient-border"
           >
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold avatar-glow group-hover:bg-primary/30 transition-colors">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-primary text-sm font-bold avatar-glow group-hover/profile:scale-105 transition-transform">
               {profileName[0]?.toUpperCase()}
             </div>
-            <span className="text-sm font-medium truncate flex-1 text-left group-hover:text-primary transition-colors">{profileName}</span>
+            <div className="flex-1 min-w-0 text-left">
+              <span className="text-sm font-medium truncate block group-hover/profile:text-primary transition-colors">{profileName}</span>
+              <span className="text-[10px] text-muted-foreground opacity-0 group-hover/profile:opacity-100 transition-opacity flex items-center gap-0.5">
+                Your profile <ChevronRight className="h-2.5 w-2.5" />
+              </span>
+            </div>
             <button
               onClick={(e) => { e.stopPropagation(); signOut(); }}
-              className="text-muted-foreground hover:text-destructive transition-colors"
+              className="text-muted-foreground hover:text-destructive hover:rotate-[-12deg] transition-all"
             >
               <LogOut className="h-4 w-4" />
             </button>

@@ -32,6 +32,7 @@ export default function Dashboard() {
 
   const profileName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'there';
   const hour = new Date().getHours();
+  const greetEmoji = hour < 12 ? '🌅' : hour < 18 ? '☀️' : '🌙';
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   // ── Data queries ──────────────────────────────────────────────
@@ -281,8 +282,8 @@ export default function Dashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">{greeting}, {profileName}</h1>
+      <div className="animate-fade-in">
+        <h1 className="text-2xl font-bold">{greetEmoji} {greeting}, {profileName}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {totalOverdue > 0
             ? `${totalOverdue} service${totalOverdue > 1 ? 's' : ''} overdue across your vehicles`
@@ -323,10 +324,16 @@ export default function Dashboard() {
       <div>
         <h2 className="section-heading text-muted-foreground mb-3">Vehicle Health</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {vehicleHealth.map(vh => (
+          {vehicleHealth.map(vh => {
+            const gaugeColor = vh.healthScore !== null
+              ? vh.healthScore >= 80 ? 'shadow-[0_0_12px_hsl(var(--success)/0.25)]'
+              : vh.healthScore >= 50 ? 'shadow-[0_0_12px_hsl(var(--warning)/0.25)]'
+              : 'shadow-[0_0_12px_hsl(var(--destructive)/0.25)]'
+              : '';
+            return (
             <Card
               key={vh.vehicle.id}
-              className="cursor-pointer hover:border-primary/30 transition-colors"
+              className="cursor-pointer card-hover"
               onClick={() => navigate(`/garage/${vh.vehicle.id}`)}
             >
               <CardContent className="p-4">
@@ -340,7 +347,9 @@ export default function Dashboard() {
                     )}
                   </div>
                   {vh.healthScore !== null ? (
-                    <CircularGauge value={vh.healthScore} size={48} strokeWidth={3.5} />
+                    <div className={cn('rounded-full', gaugeColor)}>
+                      <CircularGauge value={vh.healthScore} size={48} strokeWidth={3.5} />
+                    </div>
                   ) : (
                     <Badge variant="secondary" className="text-[10px]">No data</Badge>
                   )}
@@ -387,7 +396,8 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
 
