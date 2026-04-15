@@ -60,44 +60,10 @@ serve(async (req) => {
     }
 
     // --- Auto-add LEMON Manuals reference document ---
-    // Fetch the vehicle record to get drivetrain & engine for URL building
-    const { data: vehicleFull } = await supabase
-      .from("vehicles")
-      .select("engine, drivetrain")
-      .eq("id", vehicleId)
-      .eq("user_id", userId)
-      .single();
-
+    // Link to make/year index page — lemon-manuals uses inconsistent model path formats,
+    // so linking to the index is the most reliable approach.
     const manualMake = make.length <= 3 ? make.toUpperCase() : make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
-
-    // Build model string with drivetrain like lemon-manuals expects
-    let manualModel = model;
-    const dt = vehicleFull?.drivetrain?.toUpperCase?.()?.replace(/[\s-]/g, '') || null;
-    const normalizedDt = dt === 'FWD' || dt === 'RWD' || dt === 'AWD' || dt === '4WD' || dt === '2WD' ? dt : null;
-
-    // Parse engine for URL
-    const engineStr = vehicleFull?.engine || null;
-    if (engineStr) {
-      const dispMatch = engineStr.match(/(\d+\.?\d*)\s*L/i);
-      const rawDisp = dispMatch ? parseFloat(dispMatch[1]) : null;
-      const STANDARD = [1.0,1.2,1.3,1.4,1.5,1.6,1.7,1.8,2.0,2.2,2.3,2.4,2.5,2.7,2.8,3.0,3.2,3.3,3.5,3.6,3.7,3.8,4.0,4.2,4.3,4.6,4.7,5.0,5.3,5.4,5.7,6.0,6.2,6.4,6.6,6.7,7.0,7.3];
-      const disp = rawDisp ? STANDARD.reduce((p, c) => Math.abs(c - rawDisp) < Math.abs(p - rawDisp) ? c : p).toFixed(1) : null;
-      let cylConfig = '';
-      if (/V\s*6|V6/i.test(engineStr)) cylConfig = 'V6';
-      else if (/V\s*8|V8/i.test(engineStr)) cylConfig = 'V8';
-      else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engineStr)) cylConfig = 'L4';
-      else if (/I\s*6|L6|inline[\s-]?6/i.test(engineStr)) cylConfig = 'L6';
-      
-      const parts = [model];
-      if (normalizedDt) parts.push(normalizedDt);
-      if (disp && cylConfig) parts.push(`${cylConfig}-${disp}L`);
-      else if (disp) parts.push(`${disp}L`);
-      manualModel = parts.join(' ');
-    } else if (normalizedDt) {
-      manualModel = `${model} ${normalizedDt}`;
-    }
-
-    const lemonBaseUrl = `https://lemon-manuals.la/${encodeURIComponent(manualMake)}/${year}/${encodeURIComponent(manualModel)}/`;
+    const lemonBaseUrl = `https://lemon-manuals.la/${encodeURIComponent(manualMake)}/${year}/`;
 
     // Check if we already have a lemon manual doc for this vehicle
     const { data: existingLemon } = await supabase
