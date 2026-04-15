@@ -625,7 +625,7 @@ serve(async (req) => {
     const manualAbortCtrl = new AbortController();
     const manualTimeout = setTimeout(() => manualAbortCtrl.abort(), 25000);
 
-    const [patternsResult, historyResult, charmDataResult, manualDataResult] = await Promise.all([
+    const [patternsResult, historyResult, charmDataResult, manualDataResult, obdScanResult] = await Promise.all([
       // 1. Pattern cache
       supabase
         .from("diagnostic_patterns")
@@ -667,6 +667,17 @@ serve(async (req) => {
       })
         .then(async (r) => { const d = await r.json(); return d?.found ? d : null; })
         .catch(() => null),
+
+      // 5. Recent OBD scan data
+      supabase
+        .from("obd_scan_sessions")
+        .select("scanner_name, dtcs_found, pids_captured, created_at")
+        .eq("vehicle_id", vehicleId)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(3)
+        .then((r: any) => r.data || [])
+        .catch(() => []),
     ]);
 
     clearTimeout(manualTimeout);
