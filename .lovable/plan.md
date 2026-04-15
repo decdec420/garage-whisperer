@@ -1,68 +1,82 @@
 
 
-## Launch Hardening Plan
+## App Store & Public Launch Readiness Plan
 
-### Summary
-Fix the concrete issues that would block a confident public launch. No new features -- just tightening what exists.
+### Current State
+The app is **well-built** — clean auth, solid RLS across all 22 tables + 2 storage buckets, CORS hardened, ErrorBoundary in place, password reset flow working, PWA manifest correct. Security scan shows only 1 warning (leaked password protection). No RLS violations.
 
-### What needs fixing
+But there are **8 concrete gaps** that would cause rejection or poor first impressions if you shipped today.
 
-**1. Missing password reset flow**
-Login page has no "Forgot password?" link, and there is no `/reset-password` page. Users who forget their password are stuck.
-- Add "Forgot password?" link to Login page that calls `supabase.auth.resetPasswordForEmail`
-- Create `/reset-password` route that detects the recovery token and lets users set a new password
+---
 
-**2. Create `.env.example`**
-README references `cp .env.example .env` but the file does not exist. New contributors/CI get confused.
-- Create `.env.example` with placeholder values for the three `VITE_` vars
+### What Needs Fixing
 
-**3. ErrorBoundary not wrapping the app root**
-ErrorBoundary only wraps the page content inside AppLayout. If AppLayout itself or a public route (Login/Signup) throws, the user gets a white screen.
-- Wrap the top-level `<Routes>` in App.tsx with ErrorBoundary
+**1. Missing Privacy Policy & Terms of Service (App Store BLOCKER)**
+Apple and Google both reject apps without linked legal pages. There are zero references to privacy/terms anywhere in the codebase.
+- Create `/privacy` and `/terms` routes with basic policy pages
+- Add footer links on Login and Signup pages
+- Add link in Settings page
 
-**4. Missing `apikey` header in delete-account fetch call**
-`SettingsPage.tsx` calls the `delete-account` edge function via raw `fetch()` without the `apikey` header. Supabase gateway may reject this depending on config.
-- Add `apikey` header (same pattern as `invokeWithAuth`)
+**2. Missing `viewport-fit=cover` for iOS notch/Dynamic Island**
+The `index.html` viewport meta tag lacks `viewport-fit=cover`. On modern iPhones, content will render behind the notch/status bar or leave ugly gaps.
+- Update viewport meta tag: `<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">`
+- The `safe-area-bottom` class on the bottom nav already exists, which is good
 
-**5. PWA manifest needs proper raster icons**
-`manifest.json` only has an SVG icon with `"purpose": "any maskable"`. Most Android/iOS install prompts require a 192x192 and 512x512 PNG. Without them, "Add to Home Screen" will fail or show a blank icon.
-- Generate 192px and 512px PNG icons from the SVG
-- Split `purpose` into separate entries (`any` and `maskable`)
+**3. Missing `apple-touch-icon` in index.html**
+iOS Safari uses `apple-touch-icon` for Add to Home Screen, not the manifest. Without it, users get a screenshot thumbnail instead of the app icon.
+- Add `<link rel="apple-touch-icon" href="/icon-192.png">` to `index.html`
 
-**6. NotFound page has a stray `console.error`**
-Line 8 of NotFound.tsx logs to console on every 404. Remove it (Sentry/PostHog already cover this via pageview tracking).
+**4. Enable Leaked Password Protection (Security scan warning)**
+The only security finding. Supabase offers built-in HIBP checking — it's a toggle in the dashboard. Users signing up with compromised passwords is a liability.
+- Enable in Supabase Dashboard > Authentication > Settings
 
-**7. CORS origin hardening for production**
-All 10 edge functions use `Access-Control-Allow-Origin: "*"`. For launch, restrict to the actual production origin(s).
-- Update all edge functions to check `Origin` header against an allowlist (the published domain + preview domain), falling back to `*` only in development
+**5. Signup password minimum mismatch**
+`Signup.tsx` enforces 6-character minimum, but `ResetPassword.tsx` enforces 8-character minimum. Inconsistent — a user could set a 6-char password at signup, then be unable to "reset" to the same password.
+- Standardize to 8-character minimum everywhere
 
-**8. Stale `AUDIT_REPORT.md`**
-The existing audit report references outdated JWT settings. Should be regenerated to match current state.
-- Regenerate with accurate findings
+**6. Missing `safe-area-bottom` CSS utility**
+`AppLayout.tsx` uses `safe-area-bottom` class but it's never defined in CSS. This means the bottom nav may overlap the home indicator on iPhones.
+- Add CSS: `.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }`
 
-### What is already fine (no action needed)
-- All edge functions validate JWTs via `getClaims()` or `getUser()` -- the security scanner findings are correctly ignored
-- RLS is enabled on all tables with proper owner-scoped policies
-- No `console.log` statements in src
-- No `dangerouslySetInnerHTML` outside shadcn internals
-- Error boundary exists with Sentry reporting
-- Offline detection banner works
-- Data export and account deletion work
-- Google OAuth configured with correct `redirectTo`
+**7. Data export 1000-row limit risk**
+`SettingsPage.tsx` exports data with `supabase.from('table').select('*')` — Supabase defaults to 1000 rows max. Power users could silently lose data in exports.
+- Add `.limit(10000)` or paginated fetching for export queries
 
-### Technical details
+**8. Regenerate `AUDIT_REPORT.md`**
+The current report is stale — it still references the pre-hardening state. Should reflect current findings for investor/reviewer confidence.
+- Update to match current scan results and codebase state
 
-| # | Files affected | Complexity |
+---
+
+### What Is Already Good (No Action Needed)
+- RLS on all 22 tables with proper owner-scoped policies
+- 8 storage policies correctly scoped by `auth.uid()` path prefix
+- CORS hardened to production origin allowlist
+- ErrorBoundary wraps root `<Routes>`
+- Password reset flow complete (Login link + `/reset-password` page)
+- JWT validated in-code in all 10 edge functions
+- `apikey` header present on delete-account call
+- PWA manifest with proper raster icons (192px, 512px, split purpose)
+- Google OAuth with correct `redirectTo`
+- Offline detection banner
+- Data export and account deletion working
+- CI pipeline (lint, typecheck, test, build)
+
+---
+
+### Technical Details
+
+| # | Files Affected | Complexity |
 |---|---|---|
-| 1 | `src/pages/Login.tsx`, new `src/pages/ResetPassword.tsx`, `src/App.tsx` | Medium |
-| 2 | New `.env.example` | Trivial |
-| 3 | `src/App.tsx` | Trivial |
-| 4 | `src/pages/SettingsPage.tsx` | Trivial |
-| 5 | `public/manifest.json`, generate PNGs | Low |
-| 6 | `src/pages/NotFound.tsx` | Trivial |
-| 7 | All 10 `supabase/functions/*/index.ts` | Medium |
+| 1 | New `src/pages/Privacy.tsx`, `src/pages/Terms.tsx`, `src/App.tsx`, `src/pages/Login.tsx`, `src/pages/Signup.tsx`, `src/pages/SettingsPage.tsx` | Medium |
+| 2 | `index.html` | Trivial |
+| 3 | `index.html` | Trivial |
+| 4 | Supabase Dashboard (manual) | Trivial |
+| 5 | `src/pages/Signup.tsx` | Trivial |
+| 6 | `src/index.css` | Trivial |
+| 7 | `src/pages/SettingsPage.tsx` | Low |
 | 8 | `AUDIT_REPORT.md` | Low |
 
-### Execution order
-Steps 2, 3, 4, 6 first (quick wins). Then 1 (password reset). Then 5 (icons). Then 7 (CORS). Then 8 (audit doc).
+### Execution Order
+Steps 2, 3, 5, 6 first (one-line fixes). Then 1 (legal pages). Then 7 (export fix). Then 8 (audit doc). Step 4 is a manual dashboard toggle you'll do yourself.
 
