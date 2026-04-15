@@ -186,6 +186,9 @@ export default function ProjectDetail() {
   const { user } = useAuth();
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [uploadingStepId, setUploadingStepId] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoStepIdRef = useRef<string | null>(null);
 
   // Queries
   const { data: project } = useQuery({
