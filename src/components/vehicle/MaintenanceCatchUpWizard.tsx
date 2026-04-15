@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, ChevronDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { CalendarIcon, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 
 import { supabase } from '@/integrations/supabase/client';
@@ -247,6 +255,28 @@ function ServiceRow({
 }) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const selectedDate = entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : undefined;
+  const currentMonth = selectedDate ?? new Date();
+  const monthValue = String(currentMonth.getMonth());
+  const yearValue = String(currentMonth.getFullYear());
+  const years = Array.from({ length: new Date().getFullYear() - 1989 }, (_, i) => String(1990 + i)).reverse();
+  const monthOptions = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  const setCalendarMonth = (month: number, year: number) => {
+    const baseDate = selectedDate ?? new Date(year, month, 1);
+    const nextDate = new Date(baseDate);
+    nextDate.setFullYear(year, month, 1);
+    onDateChange(format(nextDate, 'yyyy-MM-dd'));
+  };
+
+  const shiftMonth = (direction: -1 | 1) => {
+    const nextDate = new Date(currentMonth);
+    nextDate.setMonth(nextDate.getMonth() + direction, 1);
+    if (nextDate > new Date()) return;
+    onDateChange(format(nextDate, 'yyyy-MM-dd'));
+  };
 
   return (
     <div className={cn(
@@ -283,6 +313,7 @@ function ServiceRow({
                   : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
               title={opt.description}
+              type="button"
             >
               <Icon className="h-3 w-3" />
               {opt.label}
@@ -292,66 +323,116 @@ function ServiceRow({
       </div>
 
       {entry.status === 'done_recently' && (
-        <div className="space-y-2 mt-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="col-span-2 sm:col-span-1">
-              <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDatePickerOpen(prev => !prev)}
-                className={cn(
-                  'w-full h-8 text-xs justify-between font-normal bg-popover',
-                  !entry.date && 'text-muted-foreground'
-                )}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="col-span-2 sm:col-span-1">
+            <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    'w-full h-8 text-xs justify-between font-normal bg-popover',
+                    !entry.date && 'text-muted-foreground'
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <CalendarIcon className="h-3 w-3 shrink-0" />
+                    {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Pick date'}
+                  </span>
+                  <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', datePickerOpen && 'rotate-180')} />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                side="bottom"
+                sideOffset={8}
+                collisionPadding={16}
+                className="w-[320px] rounded-2xl border-border bg-popover/98 p-3 shadow-xl backdrop-blur-sm"
               >
-                <span className="flex items-center gap-1.5 truncate">
-                  <CalendarIcon className="h-3 w-3 shrink-0" />
-                  {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Pick date'}
-                </span>
-                <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', datePickerOpen && 'rotate-180')} />
-              </Button>
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <Label className="text-[10px] text-muted-foreground">Mileage (optional)</Label>
-              <Input
-                value={entry.mileage ? Number(entry.mileage).toLocaleString() : ''}
-                onChange={e => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  onMileageChange(raw);
-                }}
-                placeholder="45,000"
-                inputMode="numeric"
-                className="bg-popover h-8 text-xs"
-              />
-            </div>
-          </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => shiftMonth(-1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Select value={monthValue} onValueChange={(value) => setCalendarMonth(Number(value), Number(yearValue))}>
+                      <SelectTrigger className="h-8 flex-1 bg-background text-xs">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((month, index) => (
+                          <SelectItem key={month} value={String(index)}>{month}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={yearValue} onValueChange={(value) => setCalendarMonth(Number(monthValue), Number(value))}>
+                      <SelectTrigger className="h-8 w-[96px] bg-background text-xs">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year}>{year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => shiftMonth(1)}
+                      disabled={new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1) > new Date()}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-          {datePickerOpen && (
-            <div className="rounded-xl border border-border bg-background/95 p-2">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(d) => {
-                  onDateChange(d ? format(d, 'yyyy-MM-dd') : '');
-                  if (d) setDatePickerOpen(false);
-                }}
-                disabled={(d) => d > new Date()}
-                defaultMonth={selectedDate ?? new Date()}
-                initialFocus
-                fixedWeeks
-                captionLayout="dropdown-buttons"
-                fromYear={1990}
-                toYear={new Date().getFullYear()}
-                className="p-3 pointer-events-auto w-full"
-                classNames={{
-                  months: 'flex justify-center',
-                  month: 'space-y-4 w-full',
-                  caption: 'flex justify-center pt-1 relative items-center gap-1',
-                }}
-              />
-            </div>
-          )}
+                  <div className="rounded-xl border border-border/70 bg-background/60 p-2">
+                    <Calendar
+                      mode="single"
+                      month={new Date(Number(yearValue), Number(monthValue), 1)}
+                      selected={selectedDate}
+                      onMonthChange={(month) => setCalendarMonth(month.getMonth(), month.getFullYear())}
+                      onSelect={(d) => {
+                        onDateChange(d ? format(d, 'yyyy-MM-dd') : '');
+                        if (d) setDatePickerOpen(false);
+                      }}
+                      disabled={(d) => d > new Date()}
+                      fixedWeeks
+                      showOutsideDays
+                      className="p-0 pointer-events-auto"
+                      classNames={{
+                        month: 'space-y-3',
+                        caption: 'hidden',
+                        head_cell: 'text-muted-foreground rounded-md w-9 font-normal text-[0.72rem]',
+                        cell: 'h-9 w-9 text-center text-sm p-0 relative',
+                        day: 'h-9 w-9 p-0 text-sm font-medium rounded-lg hover:bg-accent hover:text-accent-foreground',
+                      }}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <Label className="text-[10px] text-muted-foreground">Mileage (optional)</Label>
+            <Input
+              value={entry.mileage ? Number(entry.mileage).toLocaleString() : ''}
+              onChange={e => {
+                const raw = e.target.value.replace(/[^0-9]/g, '');
+                onMileageChange(raw);
+              }}
+              placeholder="45,000"
+              inputMode="numeric"
+              className="bg-popover h-8 text-xs"
+            />
+          </div>
         </div>
       )}
     </div>
