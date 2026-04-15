@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeWithAuth } from '@/integrations/supabase/functions';
@@ -125,13 +125,41 @@ function ChipRow({ chips, selected, onToggle, label }: {
   );
 }
 
+// ─── DTC prefix → symptom category mapping ───
+const DTC_PREFIX_MAP: Record<string, { category: string; chip: string; description: string }> = {
+  'P00': { category: 'Engine Running', chip: 'Poor fuel economy', description: 'Fuel/Air Metering' },
+  'P01': { category: 'Engine Running', chip: 'Poor fuel economy', description: 'Fuel/Air Metering' },
+  'P02': { category: 'Engine Running', chip: 'Poor fuel economy', description: 'Fuel/Air Metering Auxiliary' },
+  'P03': { category: 'Engine Running', chip: 'Misfires / shaking', description: 'Ignition System or Misfire' },
+  'P04': { category: 'Engine Running', chip: 'Poor fuel economy', description: 'Auxiliary Emission Controls' },
+  'P05': { category: 'Engine Running', chip: 'Rough idle', description: 'Vehicle Speed / Idle Control' },
+  'P06': { category: 'Starting / Electrical', chip: 'Check engine light', description: 'Computer / Output Circuit' },
+  'P07': { category: 'Engine Running', chip: 'Stalls randomly', description: 'Transmission' },
+  'P0A': { category: 'Starting / Electrical', chip: 'Check engine light', description: 'Hybrid Propulsion' },
+  'B': { category: 'Starting / Electrical', chip: 'Check engine light', description: 'Body' },
+  'C': { category: 'Brakes / Steering / Suspension', chip: 'Vibration at speed', description: 'Chassis' },
+  'U': { category: 'Starting / Electrical', chip: 'Check engine light', description: 'Network Communication' },
+};
+
+function mapDTCToSymptom(code: string): { chip: string; description: string } | null {
+  const upper = code.toUpperCase();
+  // Try P0x prefix first (3 chars), then first letter
+  const p3 = upper.slice(0, 3);
+  if (DTC_PREFIX_MAP[p3]) return DTC_PREFIX_MAP[p3];
+  const p1 = upper.charAt(0);
+  if (DTC_PREFIX_MAP[p1]) return DTC_PREFIX_MAP[p1];
+  return null;
+}
+
 export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Wizard: 0 = history, 1 = symptoms, 2 = context, 3 = evidence
   const [wizardStep, setWizardStep] = useState(0);
+  const [obdSource, setObdSource] = useState<string | null>(null);
 
   const [symptom, setSymptom] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
@@ -145,6 +173,27 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
   const docInputRef = useRef<HTMLInputElement>(null);
   const [linkInput, setLinkInput] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
+
+  // Auto-fill from scanned DTC
+  useEffect(() => {
+    const dtc = searchParams.get('dtc');
+    if (!dtc) return;
+    
+    const mapping = mapDTCToSymptom(dtc);
+    const desc = mapping?.description || 'Diagnostic Trouble Code';
+    
+    setSymptom(`DTC ${dtc.toUpperCase()} — ${desc} (scanned via OBD-II)`);
+    if (mapping?.chip) {
+      setSelectedChips(prev => prev.includes(mapping.chip) ? prev : [...prev, mapping.chip]);
+    }
+    setObdSource(dtc.toUpperCase());
+    setWizardStep(2); // Skip to context — symptom is known from hardware
+    
+    // Clear the dtc param so it doesn't re-trigger
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('dtc');
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
 
