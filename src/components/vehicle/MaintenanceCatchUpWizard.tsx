@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDown } from 'lucide-react';
 
 
 import { supabase } from '@/integrations/supabase/client';
@@ -246,6 +245,9 @@ function ServiceRow({
   onDateChange: (d: string) => void;
   onMileageChange: (m: string) => void;
 }) {
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const selectedDate = entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : undefined;
+
   return (
     <div className={cn(
       "rounded-xl border p-3 transition-colors",
@@ -258,7 +260,6 @@ function ServiceRow({
         <span className="text-sm font-medium">{entry.service_name}</span>
       </div>
 
-      {/* Status pills */}
       <div className="flex gap-1.5 mb-2">
         {STATUS_OPTIONS.map(opt => {
           const Icon = opt.icon;
@@ -266,7 +267,11 @@ function ServiceRow({
           return (
             <button
               key={opt.value}
-              onClick={() => onStatusChange(isActive ? null : opt.value)}
+              onClick={() => {
+                const nextStatus = isActive ? null : opt.value;
+                onStatusChange(nextStatus);
+                if (nextStatus !== 'done_recently') setDatePickerOpen(false);
+              }}
               className={cn(
                 'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all',
                 isActive
@@ -286,53 +291,67 @@ function ServiceRow({
         })}
       </div>
 
-      {/* Date/mileage fields — only show when "Done" is selected */}
       {entry.status === 'done_recently' && (
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
-            <Popover modal>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full h-8 text-xs justify-start font-normal bg-popover",
-                    !entry.date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-1.5 h-3 w-3" />
-                  {entry.date ? format(parse(entry.date, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy') : 'Pick date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[9999]" align="start" side="top" sideOffset={4} collisionPadding={16}>
-                <Calendar
-                  mode="single"
-                  selected={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : undefined}
-                  onSelect={(d) => onDateChange(d ? format(d, 'yyyy-MM-dd') : '')}
-                  disabled={(d) => d > new Date()}
-                  defaultMonth={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : new Date()}
-                  initialFocus
-                  fixedWeeks
-                  className="p-3 pointer-events-auto"
-                  fromYear={1990}
-                  toYear={new Date().getFullYear()}
-                />
-              </PopoverContent>
-            </Popover>
+        <div className="space-y-2 mt-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2 sm:col-span-1">
+              <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDatePickerOpen(prev => !prev)}
+                className={cn(
+                  'w-full h-8 text-xs justify-between font-normal bg-popover',
+                  !entry.date && 'text-muted-foreground'
+                )}
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  <CalendarIcon className="h-3 w-3 shrink-0" />
+                  {selectedDate ? format(selectedDate, 'MMM d, yyyy') : 'Pick date'}
+                </span>
+                <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', datePickerOpen && 'rotate-180')} />
+              </Button>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <Label className="text-[10px] text-muted-foreground">Mileage (optional)</Label>
+              <Input
+                value={entry.mileage ? Number(entry.mileage).toLocaleString() : ''}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  onMileageChange(raw);
+                }}
+                placeholder="45,000"
+                inputMode="numeric"
+                className="bg-popover h-8 text-xs"
+              />
+            </div>
           </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Mileage (optional)</Label>
-            <Input
-              value={entry.mileage ? Number(entry.mileage).toLocaleString() : ''}
-              onChange={e => {
-                const raw = e.target.value.replace(/[^0-9]/g, '');
-                onMileageChange(raw);
-              }}
-              placeholder="45,000"
-              inputMode="numeric"
-              className="bg-popover h-8 text-xs"
-            />
-          </div>
+
+          {datePickerOpen && (
+            <div className="rounded-xl border border-border bg-background/95 p-2">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(d) => {
+                  onDateChange(d ? format(d, 'yyyy-MM-dd') : '');
+                  if (d) setDatePickerOpen(false);
+                }}
+                disabled={(d) => d > new Date()}
+                defaultMonth={selectedDate ?? new Date()}
+                initialFocus
+                fixedWeeks
+                captionLayout="dropdown-buttons"
+                fromYear={1990}
+                toYear={new Date().getFullYear()}
+                className="p-3 pointer-events-auto w-full"
+                classNames={{
+                  months: 'flex justify-center',
+                  month: 'space-y-4 w-full',
+                  caption: 'flex justify-center pt-1 relative items-center gap-1',
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
