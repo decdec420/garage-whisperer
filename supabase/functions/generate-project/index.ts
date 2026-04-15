@@ -249,8 +249,20 @@ function titleCaseMake(make: string): string {
   return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
 }
 
-function formatEngineForCharm(engine: string | null, model: string): string {
-  if (!engine) return model;
+function normalizeDrivetrain(dt: string | null | undefined): string | null {
+  if (!dt) return null;
+  const u = dt.toUpperCase().replace(/[\s-]/g, '');
+  if (u === 'FWD' || u.includes('FRONTWHEEL')) return 'FWD';
+  if (u === 'RWD' || u.includes('REARWHEEL')) return 'RWD';
+  if (u === 'AWD' || u.includes('ALLWHEEL')) return 'AWD';
+  if (u === '4WD' || u === '4X4' || u.includes('FOURWHEEL')) return '4WD';
+  if (u === '2WD' || u === '2X4' || u.includes('TWOWHEEL')) return '2WD';
+  return null;
+}
+
+function formatEngineForManual(engine: string | null, model: string, drivetrain?: string | null): string {
+  const dt = normalizeDrivetrain(drivetrain);
+  if (!engine) return dt ? `${model} ${dt}` : model;
   const dm = engine.match(/(\d+\.?\d*)\s*L/i);
   const rawD = dm ? parseFloat(dm[1]) : null;
   const d = rawD ? roundDisplacement(rawD) : null;
@@ -259,9 +271,13 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   else if (/V\s*8|V8/i.test(engine)) c = 'V8';
   else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = 'L4';
   else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = 'L6';
-  if (d && c) return `${model} ${c}-${d}L`;
-  if (d) return `${model} ${d}L`;
-  return model;
+  let enginePart = '';
+  if (d && c) enginePart = `${c}-${d}L`;
+  else if (d) enginePart = `${d}L`;
+  const parts = [model];
+  if (dt) parts.push(dt);
+  if (enginePart) parts.push(enginePart);
+  return parts.join(' ');
 }
 
 function extractImages(html: string): string[] {
@@ -270,8 +286,8 @@ function extractImages(html: string): string[] {
   let m;
   while ((m = imgRegex.exec(html)) !== null) {
     const src = m[1];
-    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
-      images.push(src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`);
+    if (src.includes('lemon-manuals.la/images') || src.includes('/images/') && !src.includes('/icons/')) {
+      images.push(src.startsWith('http') ? src : `https://lemon-manuals.la${src.startsWith('/') ? '' : '/'}${src}`);
     }
   }
   return [...new Set(images)];
@@ -302,13 +318,13 @@ function extractTorqueSpecs(text: string): any[] {
 }
 
 async function fetchCharmData(supabase: any, vehicle: any, jobDescription: string) {
-  if (vehicle.year < 1982 || vehicle.year > 2013) return null;
+  if (vehicle.year < 1960 || vehicle.year > 2025) return null;
   const pathResult = matchJobKeyword(jobDescription);
   if (!pathResult) return null;
 
   const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-  const charmModel = formatEngineForCharm(vehicle.engine, vehicle.model);
-  const encodedModel = encodeURIComponent(charmModel);
+  const manualModel = formatEngineForManual(vehicle.engine, vehicle.model, vehicle.drivetrain);
+  const encodedModel = encodeURIComponent(manualModel);
 
   let allImages: string[] = [];
   let allText = '';
@@ -316,10 +332,10 @@ async function fetchCharmData(supabase: any, vehicle: any, jobDescription: strin
   const fetchedUrls: string[] = [];
 
   for (const path of paths) {
-    const charmUrl = `https://charm.li/${titleCaseMake(vehicle.make)}/${vehicle.year}/${encodedModel}/${path}/`;
+    const manualUrl = `https://lemon-manuals.la/${titleCaseMake(vehicle.make)}/${vehicle.year}/${encodedModel}/${path}/`;
 
     // Check cache
-    const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
+    const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", manualUrl).single();
     if (cached) {
       const fetchedAt = new Date(cached.fetched_at);
       const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
@@ -327,16 +343,16 @@ async function fetchCharmData(supabase: any, vehicle: any, jobDescription: strin
         allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${cached.procedure_text || ''}`;
         allImages.push(...(cached.images || []));
         allTorqueSpecs.push(...(cached.torque_specs || []));
-        fetchedUrls.push(charmUrl);
+        fetchedUrls.push(manualUrl);
         continue;
       }
     }
 
     // Fetch live
     try {
-      console.log(`Fetching charm.li: ${charmUrl}`);
-      const resp = await fetch(charmUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
-      if (!resp.ok) { console.log(`Charm.li ${resp.status} for ${charmUrl}`); continue; }
+      console.log(`Fetching lemon-manuals: ${manualUrl}`);
+      const resp = await fetch(manualUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
+      if (!resp.ok) { console.log(`lemon-manuals ${resp.status} for ${manualUrl}`); continue; }
       const html = await resp.text();
 
       const images = extractImages(html);
@@ -349,15 +365,15 @@ async function fetchCharmData(supabase: any, vehicle: any, jobDescription: strin
       if (cached) {
         await supabase.from("charm_cache").update({ images, procedure_text: procedureText, torque_specs: torqueSpecs, fetched_at: new Date().toISOString() }).eq("id", cached.id);
       } else {
-        await supabase.from("charm_cache").insert({ charm_url: charmUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
+        await supabase.from("charm_cache").insert({ charm_url: manualUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
       }
 
       allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${procedureText}`;
       allImages.push(...images);
       allTorqueSpecs.push(...torqueSpecs);
-      fetchedUrls.push(charmUrl);
+      fetchedUrls.push(manualUrl);
     } catch (e) {
-      console.error(`Charm fetch failed for ${charmUrl}:`, e);
+      console.error(`Manual fetch failed for ${manualUrl}:`, e);
       continue;
     }
   }

@@ -350,7 +350,7 @@ serve(async (req) => {
     }
 
     if (fetchedUrls.length === 0) {
-      return new Response(JSON.stringify({ found: false, reason: "No charm.li content found for any matching URL" }), {
+      return new Response(JSON.stringify({ found: false, reason: "No manual content found for any matching URL" }), {
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
