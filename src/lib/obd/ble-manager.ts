@@ -1,3 +1,5 @@
+/// <reference types="web-bluetooth" />
+
 /**
  * Web Bluetooth BLE Connection Manager for ELM327-compatible OBD-II adapters.
  *

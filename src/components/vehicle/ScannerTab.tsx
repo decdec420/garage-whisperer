@@ -165,14 +165,14 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
       // Log scan session
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('obd_scan_sessions').insert({
+        await supabase.from('obd_scan_sessions').insert([{
           vehicle_id: vehicleId,
           user_id: user.id,
           scanner_name: scannerName,
-          dtcs_found: codes,
-          pids_captured: Array.from(liveReadings.values()),
+          dtcs_found: codes as any,
+          pids_captured: Array.from(liveReadings.values()) as any,
           status: 'completed',
-        });
+        }]);
       }
 
       toast({
