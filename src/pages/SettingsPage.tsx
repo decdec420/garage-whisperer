@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -44,12 +44,12 @@ export default function SettingsPage() {
     setExporting(true);
     try {
       const [vehicles, maintenance, repairs, projects, diagnoses, memories] = await Promise.all([
-        supabase.from('vehicles').select('*'),
-        supabase.from('maintenance_logs').select('*'),
-        supabase.from('repair_logs').select('*'),
-        supabase.from('projects').select('*, project_steps(*), project_parts(*), project_tools(*)'),
-        supabase.from('diagnosis_sessions').select('*'),
-        supabase.from('ratchet_memory').select('*'),
+        supabase.from('vehicles').select('*').limit(10000),
+        supabase.from('maintenance_logs').select('*').limit(10000),
+        supabase.from('repair_logs').select('*').limit(10000),
+        supabase.from('projects').select('*, project_steps(*), project_parts(*), project_tools(*)').limit(10000),
+        supabase.from('diagnosis_sessions').select('*').limit(10000),
+        supabase.from('ratchet_memory').select('*').limit(10000),
       ]);
 
       const payload = {
@@ -165,6 +165,12 @@ export default function SettingsPage() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      <div className="text-center text-xs text-muted-foreground pt-2">
+        <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
+        {' · '}
+        <Link to="/terms" className="hover:text-primary">Terms of Service</Link>
+      </div>
     </div>
   );
 }

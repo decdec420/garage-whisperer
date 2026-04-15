@@ -22,8 +22,8 @@ export default function Signup() {
       toast.error('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
     setLoading(true);
@@ -89,6 +89,11 @@ export default function Signup() {
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{' '}
           <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
+        </p>
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
+          {' · '}
+          <Link to="/terms" className="hover:text-primary">Terms of Service</Link>
         </p>
       </div>
     </div>
