@@ -833,96 +833,75 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
 
     if (projErr) throw projErr;
 
-    // Insert tools
-    if (plan.tools?.length) {
-      const tools = plan.tools.map((t: any, i: number) => ({
-        project_id: project.id,
-        name: t.name,
-        spec: t.spec || null,
-        required: t.required ?? true,
-        sort_order: i,
-      }));
-      await supabase.from("project_tools").insert(tools);
-    }
+    // Parallel DB inserts: tools + steps + diagnosis link
+    const dbInserts: Promise<any>[] = [];
 
-    // Insert steps with factory image assignment
-    if (plan.steps?.length) {
+    const toolsData = plan.tools?.length ? plan.tools.map((t: any, i: number) => ({
+      project_id: project.id,
+      name: t.name,
+      spec: t.spec || null,
+      required: t.required ?? true,
+      sort_order: i,
+    })) : [];
+
+    const stepsData = plan.steps?.length ? plan.steps.map((s: any, idx: number) => {
       const stepImages = mergedImages;
       const sourceUrl = factorySourceUrl;
+      let assignedImage: string | null = null;
+      if (typeof s.factoryImageIndex === "number" && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
+        assignedImage = stepImages[s.factoryImageIndex];
+      } else if (stepImages[idx]) {
+        assignedImage = stepImages[idx] || null;
+      }
+      return {
+        project_id: project.id,
+        step_number: s.number,
+        title: s.title,
+        description:
+          s.description +
+          (s.expectedResult ? `\n\n✅ Expected (healthy): ${s.expectedResult}` : "") +
+          (s.failureIndicator ? `\n\n❌ Failure indicator: ${s.failureIndicator}` : "") +
+          (s.eliminates?.length ? `\n\n🔍 Rules out: ${s.eliminates.join(", ")}` : "") +
+          (s.confirms?.length ? `\n\n🎯 Confirms: ${s.confirms.join(", ")}` : ""),
+        torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
+        sub_steps: s.subSteps?.length ? s.subSteps : null,
+        tip: s.tip || null,
+        safety_note: s.safetyNote || null,
+        estimated_minutes: s.estimatedMinutes || null,
+        sort_order: s.number,
+        notes: JSON.stringify({
+          systemTesting: s.systemTesting || null,
+          eliminates: s.eliminates || [],
+          confirms: s.confirms || [],
+        }),
+        charm_image_url: assignedImage,
+        charm_source_url: factorySourceUrl,
+        is_factory_verified: hasFactoryData,
+      };
+    }) : [];
 
-      const steps = plan.steps.map((s: any, idx: number) => {
-        let assignedImage: string | null = null;
-        if (
-          typeof s.factoryImageIndex === "number" &&
-          s.factoryImageIndex >= 0 &&
-          s.factoryImageIndex < stepImages.length
-        ) {
-          assignedImage = stepImages[s.factoryImageIndex];
-        } else if (stepImages[idx]) {
-          assignedImage = stepImages[idx] || null;
-        }
-
-        return {
-          project_id: project.id,
-          step_number: s.number,
-          title: s.title,
-          description:
-            s.description +
-            (s.expectedResult ? `\n\n✅ Expected (healthy): ${s.expectedResult}` : "") +
-            (s.failureIndicator ? `\n\n❌ Failure indicator: ${s.failureIndicator}` : "") +
-            (s.eliminates?.length ? `\n\n🔍 Rules out: ${s.eliminates.join(", ")}` : "") +
-            (s.confirms?.length ? `\n\n🎯 Confirms: ${s.confirms.join(", ")}` : ""),
-          torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
-          sub_steps: s.subSteps?.length ? s.subSteps : null,
-          tip: s.tip || null,
-          safety_note: s.safetyNote || null,
-          estimated_minutes: s.estimatedMinutes || null,
-          sort_order: s.number,
-          notes: JSON.stringify({
-            systemTesting: s.systemTesting || null,
-            eliminates: s.eliminates || [],
-            confirms: s.confirms || [],
-          }),
-          charm_image_url: assignedImage,
-          charm_source_url: sourceUrl,
-          is_factory_verified: hasFactoryData,
-        };
-      });
-      await supabase.from("project_steps").insert(steps);
-    }
+    if (toolsData.length) dbInserts.push(supabase.from("project_tools").insert(toolsData));
+    if (stepsData.length) dbInserts.push(supabase.from("project_steps").insert(stepsData));
 
     if (diagnosisId) {
-      await supabase
-        .from("diagnosis_sessions")
-        .update({
+      dbInserts.push(
+        supabase.from("diagnosis_sessions").update({
           project_id: project.id,
           tree_data: plan.possibleCauses
             ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
             : [],
-        })
-        .eq("id", diagnosisId)
-        .eq("user_id", userId)
-        .eq("vehicle_id", vehicleId);
+        }).eq("id", diagnosisId).eq("user_id", userId).eq("vehicle_id", vehicleId)
+      );
     }
 
-    // Return full project
-    const { data: fullProject } = await supabase.from("projects").select("*").eq("id", project.id).single();
-    const { data: savedTools } = await supabase
-      .from("project_tools")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("sort_order");
-    const { data: savedSteps } = await supabase
-      .from("project_steps")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("step_number");
+    await Promise.all(dbInserts);
 
+    // Return project data directly — skip re-reading from DB
     return new Response(
       JSON.stringify({
-        project: fullProject,
-        tools: savedTools,
-        steps: savedSteps,
+        project: { ...project },
+        tools: toolsData,
+        steps: stepsData,
         projectId: project.id,
         possibleCauses: plan.possibleCauses || [],
         charmData: hasFactoryData
