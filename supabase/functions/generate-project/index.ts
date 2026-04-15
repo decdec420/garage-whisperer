@@ -528,23 +528,30 @@ Use this information to:
 - Use the confirmed hardware counts — these are verified for this vehicle
 - Note what the user already found and what condition things were in`;
     }
-    const charmData = await fetchCharmData(supabase, vehicle, jobDescription);
+    // Parallel fetch: charm data + manual data
+    const manualAbortCtrl = new AbortController();
+    const manualTimeout = setTimeout(() => manualAbortCtrl.abort(), 25000);
 
-    // Also fetch from the Cloudflare-hosted Honda manual (richer data with sub-pages)
-    let manualData: any = null;
-    try {
-      const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
+    const [charmData, manualData] = await Promise.all([
+      fetchCharmData(supabase, vehicle, jobDescription).catch(() => null),
+      fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
         method: "POST",
+        signal: manualAbortCtrl.signal,
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ jobKeyword: jobDescription, vehicleYear: vehicle.year }),
-      });
-      if (manualResp.ok) {
-        manualData = await manualResp.json();
-        if (!manualData?.found) manualData = null;
-      }
-    } catch (e) {
-      console.error("Manual data fetch failed (non-fatal):", e);
-    }
+        body: JSON.stringify({
+          jobKeyword: jobDescription,
+          vehicleYear: vehicle.year,
+          vehicleMake: vehicle.make,
+          vehicleModel: vehicle.model,
+          vehicleEngine: vehicle.engine,
+          vehicleDrivetrain: vehicle.drivetrain,
+        }),
+      })
+        .then(async (r) => { const d = await r.json(); return d?.found ? d : null; })
+        .catch(() => null),
+    ]);
+
+    clearTimeout(manualTimeout);
 
     // Merge: prefer manual data (richer, multi-page) but combine images from both
     const mergedImages: string[] = [];
