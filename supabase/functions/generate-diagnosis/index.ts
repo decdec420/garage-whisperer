@@ -686,6 +686,7 @@ serve(async (req) => {
     const pastDiagnoses = historyResult;
     const charmData = charmDataResult;
     const manualData = manualDataResult;
+    const recentScans = obdScanResult;
 
     // Process patterns
     const relevantPatterns = (matchedPatterns || []).filter((p: any) => {
