@@ -90,6 +90,11 @@ export default function Signup() {
           Already have an account?{' '}
           <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
         </p>
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
+          {' · '}
+          <Link to="/terms" className="hover:text-primary">Terms of Service</Link>
+        </p>
       </div>
     </div>
   );

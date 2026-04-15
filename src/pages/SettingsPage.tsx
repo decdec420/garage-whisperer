@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -165,6 +165,12 @@ export default function SettingsPage() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      <div className="text-center text-xs text-muted-foreground pt-2">
+        <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
+        {' · '}
+        <Link to="/terms" className="hover:text-primary">Terms of Service</Link>
+      </div>
     </div>
   );
 }
