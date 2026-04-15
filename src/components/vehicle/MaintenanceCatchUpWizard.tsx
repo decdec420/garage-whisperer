@@ -312,6 +312,7 @@ function ServiceRow({
                   disabled={(d) => d > new Date()}
                   defaultMonth={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : new Date()}
                   initialFocus
+                  fixedWeeks
                   className="p-3 pointer-events-auto"
                   fromYear={1990}
                   toYear={new Date().getFullYear()}
