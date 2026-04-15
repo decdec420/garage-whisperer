@@ -1,55 +1,74 @@
 
 
-# Combined UI Polish: Landing Page + Login Fix + Dashboard Cleanup
+# Profile Link Fix + Aesthetic Micro-Interactions
 
-## 1. Login — Autofill turns input white
-**File:** `src/index.css`
-Add CSS override to force dark background on browser autofill:
-```css
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px hsl(0 0% 4%) inset !important;
-  -webkit-text-fill-color: hsl(240 5% 96%) !important;
-  transition: background-color 5000s ease-in-out 0s;
-}
-```
+## The Problem
+The sidebar profile area at the bottom is just a `navigate('/settings')` hyperlink — feels lazy. User wants it to feel intentional, not "you clicked a link and ended up somewhere."
 
-## 2. Landing Page — Fix the "printer running out of ink" problem
-**File:** `src/pages/LandingPage.tsx`
-
-The hero section has visual energy (mesh gradient, glow, glass mockup), but the Features, Steps, and "Under the Hood" sections drop to flat `bg-card/50` on black. They need the same visual continuity.
-
-**Visual fixes:**
-- **Features section** (line 94): Replace `bg-card/50` with a `relative` container holding subtle positioned radial gradient blobs (orange + indigo at ~5-8% opacity) so it doesn't feel like a hard cut to gray
-- **Steps section** (line 117): Add a faint radial glow behind the step area
-- **"Under the Hood" section** (line 136): Same mesh gradient treatment — subtle warm/cool radials instead of flat `bg-card/50`
-- **CTA section**: Add a subtle gradient divider line above it (transparent → primary → transparent)
-- **Footer**: Already has gradient — good as-is
-
-**Copy fixes (monetization-safe):**
-- Line 54: `"all free, all in your pocket"` → `"all in your pocket"` — drop the free claim
-- Line 88: `"Free forever. No credit card. No catch. Seriously."` → `"No credit card. No strings. Just answers."`
-- Line 139: `"for free"` → drop it: `"Here's what you're actually getting."`
-
-## 3. Dashboard — Remove redundant Quick Intelligence buttons
-**File:** `src/pages/Index.tsx`
-
-Delete lines 467-487 (the "Ask Ratchet" / "Diagnose Issue" two-button grid). Ratchet FAB handles general chat, and diagnosis belongs in the vehicle's Diagnose tab. These buttons are redundant without vehicle context.
-
-## 4. Save monetization strategy to memory
-**File:** `mem://features/monetization-strategy`
-
-Document the value-first funnel: guests can run a quick diagnosis teaser → prompted to sign up free → free tier is full-featured for personal use → paid tier unlocks live OBD2, always-on Ratchet, fleet/shop features. Never paywall immediately after signup — ROI first, then upgrade.
+## The Fun Question
+"How do I add personality without changing the layout?" — micro-interactions, hover effects, contextual flourishes. A "personality layer" on top of the existing clean dark UI.
 
 ---
 
-## Files to edit
+## Changes
+
+### 1. Profile Click → Settings with Profile Tab Auto-Selected
+**Files:** `src/components/AppLayout.tsx`, `src/pages/SettingsPage.tsx`
+
+Instead of just dumping the user on Settings, navigate to `/settings?tab=account` and auto-scroll to the profile card. The sidebar profile button gets a subtle tooltip-style label on hover: "Your profile" instead of just being a silent clickable row.
+
+- Add `?tab=account` to the profile navigation in AppLayout
+- In SettingsPage, read `tab` from URL params to set the default tab
+- Feels purposeful — "I clicked my name and it took me to MY profile"
+
+### 2. Aesthetic Micro-Interactions (The Fun Layer)
+
+**A. Sidebar nav items — hover magnetic effect**
+`src/components/AppLayout.tsx`
+- Add a subtle background glow that follows the hovered item (a `bg-gradient-to-r from-primary/5 to-transparent` that appears on hover)
+- Active item gets a soft pulse on the left accent bar when first entering the page
+
+**B. Dashboard greeting — time-aware emoji + typewriter feel**
+`src/pages/Index.tsx`
+- Add a contextual emoji to the greeting: 🌅 morning, ☀️ afternoon, 🌙 evening
+- The greeting text gets a subtle `animate-fade-in` with a slight delay so it feels like Ratchet is "saying" it
+
+**C. Vehicle Health Cards — hover lift + glow ring**
+`src/pages/Index.tsx`
+- Cards get the `card-hover` class (already in CSS but not applied)
+- Health gauge gets a subtle colored ring glow matching the score (green = healthy, orange = warning, red = critical)
+
+**D. Garage cards — color accent strip**
+`src/pages/Garage.tsx`
+- Each vehicle card gets a thin 3px left border in the vehicle's stored color (or primary as fallback)
+- Hover reveals a subtle "→" slide animation on the "View" button
+
+**E. Settings profile card — personality touch**
+`src/pages/SettingsPage.tsx`
+- Avatar gets a hover scale-up (1.05) with the glow ring intensifying
+- "Member since" gets a fun micro-copy: "Wrenching since April 2025"
+- The initials avatar has a subtle gradient background instead of flat color
+
+**F. Global — section headings get a fade-in on scroll**
+`src/index.css`
+- Add an `animate-on-scroll` utility using Intersection Observer pattern (CSS-only with `animation-timeline: view()` for modern browsers, graceful fallback)
+
+### 3. Sidebar Profile — Visual Upgrade
+`src/components/AppLayout.tsx`
+- The profile row gets a subtle gradient border (like the `gradient-border` class already in CSS)
+- Logout icon gets a hover rotation (15deg tilt)
+- Profile name shows "Your profile →" on hover as a tooltip-style indicator
+
+---
+
+## Files to Edit
 | File | Change |
 |------|--------|
-| `src/index.css` | Autofill background override |
-| `src/pages/LandingPage.tsx` | Mesh gradients on lower sections + copy tweaks |
-| `src/pages/Index.tsx` | Remove Quick Intelligence buttons (lines 467-487) |
-| `mem://features/monetization-strategy` | Save freemium funnel model |
-| `mem://index.md` | Add monetization strategy reference |
+| `src/components/AppLayout.tsx` | Profile → `/settings?tab=account`, hover effects on nav + profile |
+| `src/pages/SettingsPage.tsx` | Read `tab` from URL params, avatar hover, "Wrenching since" copy |
+| `src/pages/Index.tsx` | Greeting emoji, card-hover on vehicle cards, gauge glow |
+| `src/pages/Garage.tsx` | Color accent strip on cards, hover slide on button |
+| `src/index.css` | Scroll-triggered fade utility, logout hover rotation |
+
+All additive — nothing removed, nothing restructured. Just personality sprinkled on top.
 
