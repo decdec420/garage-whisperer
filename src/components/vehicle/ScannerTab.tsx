@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import {
   Bluetooth, BluetoothOff, RefreshCw, Trash2, Zap, Activity,
-  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search
+  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search, Clock
 } from 'lucide-react';
 import { BLEManager, type BLEConnectionState } from '@/lib/obd/ble-manager';
 import { initializeELM327, queryPID, getSupportedPIDs } from '@/lib/obd/elm327';
@@ -355,7 +355,7 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
                         variant="ghost"
                         size="sm"
                         className="text-xs"
-                        onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose`)}
+                        onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent(dtc.code)}`)}
                       >
                         <Search className="h-3 w-3 mr-1" /> Diagnose
                       </Button>
@@ -397,6 +397,75 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Scan History */}
+      <ScanHistory vehicleId={vehicleId} />
+    </div>
+  );
+}
+
+// ─── Scan History sub-component ───
+function ScanHistory({ vehicleId }: { vehicleId: string }) {
+  const navigate = useNavigate();
+  const { data: scanSessions, isLoading } = useQuery({
+    queryKey: ['obd-scan-sessions', vehicleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('obd_scan_sessions')
+        .select('*')
+        .eq('vehicle_id', vehicleId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!vehicleId,
+  });
+
+  if (isLoading || !scanSessions?.length) return null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+        <Clock className="h-4 w-4 text-muted-foreground" />
+        Scan History
+      </h3>
+      <div className="space-y-2">
+        {scanSessions.map((session: any) => {
+          const dtcsFound = (session.dtcs_found as any[]) || [];
+          const pidsCount = ((session.pids_captured as any[]) || []).length;
+          return (
+            <Card key={session.id} className="border-border">
+              <CardContent className="p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`p-1.5 rounded-lg ${dtcsFound.length > 0 ? 'bg-amber-500/10' : 'bg-green-500/10'}`}>
+                    {dtcsFound.length > 0
+                      ? <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      : <Activity className="h-3.5 w-3.5 text-green-500" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">
+                      {dtcsFound.length > 0
+                        ? `${dtcsFound.length} code${dtcsFound.length > 1 ? 's' : ''}: ${dtcsFound.map((d: any) => d.code).join(', ')}`
+                        : 'All clear — no codes'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(session.created_at).toLocaleDateString()} · {session.scanner_name || 'Unknown scanner'}
+                      {pidsCount > 0 && ` · ${pidsCount} PID readings`}
+                    </p>
+                  </div>
+                </div>
+                {dtcsFound.length > 0 && (
+                  <Button variant="ghost" size="sm" className="text-xs shrink-0"
+                    onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent((dtcsFound[0] as any).code)}`)}>
+                    <Search className="h-3 w-3 mr-1" /> Diagnose
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
