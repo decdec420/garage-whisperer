@@ -85,7 +85,9 @@ export default function Garage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vehicles.map((v) => (
             <Card key={v.id} className="border-border card-hover group relative cursor-pointer overflow-hidden"
-              onClick={() => navigate(`/garage/${v.id}`)}>
+              onClick={() => navigate(`/garage/${v.id}`)}
+              style={{ borderLeftWidth: '3px', borderLeftColor: v.color || 'hsl(var(--primary))' }}
+            >
               {/* Gradient top accent */}
               <div className="h-1 bg-gradient-to-r from-primary/60 via-primary/20 to-transparent" />
               <CardContent className="p-5">
