@@ -665,78 +665,67 @@ Generate the complete project plan for this exact vehicle and job.`;
 
     if (projErr) throw projErr;
 
-    // Insert parts
-    if (plan.parts?.length) {
-      const parts = plan.parts.map((p: any, i: number) => ({
-        project_id: project.id, name: p.name, part_number: p.partNumber || null,
-        brand: p.brand || null, quantity: p.quantity || 1, estimated_cost: p.estimatedCost || null,
-        notes: p.notes || null, sort_order: i,
-      }));
-      await supabase.from("project_parts").insert(parts);
-    }
+    // Parallel DB inserts: parts + tools + steps + diagnosis link
+    const dbInserts: Promise<any>[] = [];
 
-    // Insert tools
-    if (plan.tools?.length) {
-      const tools = plan.tools.map((t: any, i: number) => ({
-        project_id: project.id, name: t.name, spec: t.spec || null,
-        required: t.required ?? true, sort_order: i,
-      }));
-      await supabase.from("project_tools").insert(tools);
-    }
+    const partsData = plan.parts?.length ? plan.parts.map((p: any, i: number) => ({
+      project_id: project.id, name: p.name, part_number: p.partNumber || null,
+      brand: p.brand || null, quantity: p.quantity || 1, estimated_cost: p.estimatedCost || null,
+      notes: p.notes || null, sort_order: i,
+    })) : [];
 
-    // Insert steps — use AI's factoryImageIndex for smart image assignment
-    if (plan.steps?.length) {
-      const stepImages = mergedImages;
-      const sourceUrl = factorySourceUrl;
+    const toolsData = plan.tools?.length ? plan.tools.map((t: any, i: number) => ({
+      project_id: project.id, name: t.name, spec: t.spec || null,
+      required: t.required ?? true, sort_order: i,
+    })) : [];
 
-      const steps = plan.steps.map((s: any, idx: number) => {
-        let assignedImage: string | null = null;
-        if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
-          assignedImage = stepImages[s.factoryImageIndex];
-        } else if (stepImages[idx]) {
-          assignedImage = stepImages[idx] || null;
-        }
-
-        return {
-          project_id: project.id,
-          step_number: s.number,
-          title: s.title,
-          description: s.description,
-          torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
-          sub_steps: s.subSteps?.length ? s.subSteps : null,
-          tip: s.tip || null,
-          safety_note: s.safetyNote || null,
-          estimated_minutes: s.estimatedMinutes || null,
-          sort_order: s.number,
-          charm_image_url: assignedImage,
-          charm_source_url: sourceUrl,
-          is_factory_verified: hasFactoryData,
-        };
-      });
-      await supabase.from("project_steps").insert(steps);
-    }
-
-    // Link back to diagnosis session if diagnosisId provided
-    if (diagnosisId && UUID_RE.test(diagnosisId)) {
-      await supabase.from("diagnosis_sessions").update({
+    const stepsData = plan.steps?.length ? plan.steps.map((s: any, idx: number) => {
+      let assignedImage: string | null = null;
+      if (typeof s.factoryImageIndex === 'number' && s.factoryImageIndex >= 0 && s.factoryImageIndex < mergedImages.length) {
+        assignedImage = mergedImages[s.factoryImageIndex];
+      } else if (mergedImages[idx]) {
+        assignedImage = mergedImages[idx] || null;
+      }
+      return {
         project_id: project.id,
-        status: 'resolved',
-        updated_at: new Date().toISOString(),
-      }).eq("id", diagnosisId).eq("user_id", userId).eq("vehicle_id", vehicleId);
+        step_number: s.number,
+        title: s.title,
+        description: s.description,
+        torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
+        sub_steps: s.subSteps?.length ? s.subSteps : null,
+        tip: s.tip || null,
+        safety_note: s.safetyNote || null,
+        estimated_minutes: s.estimatedMinutes || null,
+        sort_order: s.number,
+        charm_image_url: assignedImage,
+        charm_source_url: factorySourceUrl,
+        is_factory_verified: hasFactoryData,
+      };
+    }) : [];
+
+    if (partsData.length) dbInserts.push(supabase.from("project_parts").insert(partsData));
+    if (toolsData.length) dbInserts.push(supabase.from("project_tools").insert(toolsData));
+    if (stepsData.length) dbInserts.push(supabase.from("project_steps").insert(stepsData));
+
+    if (diagnosisId && UUID_RE.test(diagnosisId)) {
+      dbInserts.push(
+        supabase.from("diagnosis_sessions").update({
+          project_id: project.id,
+          status: 'resolved',
+          updated_at: new Date().toISOString(),
+        }).eq("id", diagnosisId).eq("user_id", userId).eq("vehicle_id", vehicleId)
+      );
     }
 
-    // Return full project
-    const { data: fullProject } = await supabase.from("projects").select("*").eq("id", project.id).single();
-    const { data: savedParts } = await supabase.from("project_parts").select("*").eq("project_id", project.id).order("sort_order");
-    const { data: savedTools } = await supabase.from("project_tools").select("*").eq("project_id", project.id).order("sort_order");
-    const { data: savedSteps } = await supabase.from("project_steps").select("*").eq("project_id", project.id).order("step_number");
+    await Promise.all(dbInserts);
 
+    // Return data directly — skip re-reading from DB
     return new Response(
       JSON.stringify({
-        project: fullProject,
-        parts: savedParts,
-        tools: savedTools,
-        steps: savedSteps,
+        project: { ...project },
+        parts: partsData,
+        tools: toolsData,
+        steps: stepsData,
         charmData: hasFactoryData ? {
           charmUrl: factorySourceUrl,
           charmUrls: charmData?.charmUrls || [],
