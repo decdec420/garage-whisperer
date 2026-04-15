@@ -1,53 +1,71 @@
 
 
-# Next Step: Scanner → Ratchet Auto-Diagnosis Bridge
+# Ratchet + OBD Scanner: Full Integration & iPhone Reality
 
-## What's Already Built
-- Scanner tab: BLE connect, live PID gauges, DTC read/clear, session logging
-- Each scanned DTC has a "Diagnose" button that navigates to `?tab=diagnose`
-- Diagnose tab has a 3-step symptom wizard (Symptoms → Context → Evidence)
+## The iPhone Question — Honest Answer
 
-## What's Missing
-The "Diagnose" button on a scanned DTC just switches tabs — it doesn't pass the code. Ratchet has no idea what you just scanned. The bridge is broken.
+When you plug in the GOOLOO DS200 and it opens the DeepScan companion app, that's because **iOS routes BLE device connections through the app that registered the Bluetooth accessory**. Here's the deal:
 
-## The Plan: Wire Scanned DTCs Into the Diagnosis Flow
+- **Web Bluetooth does NOT work on Safari/iOS.** Apple has refused to implement it. Period.
+- **The DS200's companion app "owns" the BLE pairing on your iPhone** — iOS associates the device with whatever app first paired it.
+- **To use the DS200 with Ratchet on iPhone**, Ratchet needs to be a **Capacitor native app** using CoreBluetooth directly (bypassing Safari entirely).
 
-### 1. Pass DTC context via URL params
-When the user taps "Diagnose" on a scanned DTC (e.g., P0301), navigate with the code in the URL:
+```text
+Current State:
+  iPhone → plug in DS200 → iOS opens DeepScan app (BLE accessory association)
+  Chrome Desktop/Android → Web Bluetooth → Ratchet Scanner tab ✓
+
+Future State (with Capacitor):
+  iPhone → Ratchet native app → CoreBluetooth → DS200 pairs with Ratchet directly
+  (DeepScan app no longer intercepts because Ratchet registers as the BLE handler)
 ```
-/garage/{vehicleId}?tab=diagnose&dtc=P0301
+
+**For now**: Scanner tab works on Chrome Desktop and Chrome Android. iPhone requires the Capacitor native app build (a separate milestone).
+
+## What's Missing: Ratchet Chat Doesn't Know About Scans
+
+The **diagnosis engine** (`generate-diagnosis`) already fetches recent `obd_scan_sessions` — that's wired. But the **general Ratchet chat** (`RatchetPanel.tsx` → `chat` edge function) has zero awareness of OBD data. So if you scan your car and then open Ratchet to ask "what's wrong with my car?", Ratchet has no idea you just scanned.
+
+## The Plan: Wire OBD Data Into Ratchet Chat
+
+### 1. Inject latest OBD scan into Ratchet's chat context
+In `RatchetPanel.tsx`, when building `vehicleContext`, fetch the most recent `obd_scan_sessions` for the active vehicle and append it:
+
+```
+## Recent OBD-II Scan (2 hours ago, via GOOLOO DS200)
+DTCs: P0301 (active), P0420 (pending)  
+Live readings: RPM 750, Coolant 195°F, Battery 13.8V, Engine Load 22%
 ```
 
-**File**: `src/components/vehicle/ScannerTab.tsx` — update the navigate call to include `&dtc={code}`
+This gives Ratchet real hardware data to reason with — no more "have you pulled any codes?"
 
-### 2. Auto-fill the diagnosis wizard from scanned DTCs
-The Diagnose tab reads the `dtc` query param and:
-- Pre-selects the matching symptom category chip (e.g., P03xx → "Misfires / shaking")
-- Pre-fills the free-text field with `"DTC P0301 — Cylinder 1 Misfire Detected (scanned via OBD-II)"`
-- Skips straight to Step 2 (Context) since the symptom is already known
-- Adds a badge: "🔧 Scanned via OBD-II" so Ratchet knows this came from hardware, not a guess
+### 2. Add OBD context to the chat edge function system prompt
+In `supabase/functions/chat/index.ts`, when OBD scan data is present in the vehicle context, add instructions telling Ratchet to:
+- Reference specific scanned values instead of asking generic questions
+- Correlate DTCs with live PID readings (e.g., "P0301 misfire + low RPM suggests...")
+- Flag anomalous readings proactively
 
-**File**: `src/components/vehicle/DiagnoseTab.tsx` — read `dtc` param, map DTC prefix to symptom category, auto-advance
+### 3. "Ask Ratchet about this scan" button on Scanner tab
+After completing a scan (Read Codes or Live Data session), show a button that opens the Ratchet panel with a prefilled message like:
+> "I just scanned my car. Found P0301 and P0420. RPM was 750, coolant 195°F, battery 13.8V. What's going on?"
 
-### 3. Include recent scan data in Ratchet's diagnosis context
-When generating a diagnosis for a scanned DTC, the edge function should pull the latest `obd_scan_sessions` data for that vehicle — giving Ratchet access to the live PID readings captured at scan time (coolant temp, RPM, voltage, etc.).
+This uses the existing `openRatchetPanel(prefilledMessage)` flow — no new infrastructure needed.
 
-**File**: `supabase/functions/generate-diagnosis/index.ts` — query `obd_scan_sessions` for the vehicle and include recent PID snapshots in the AI prompt context
+### 4. Scan history entries link to Ratchet
+Each scan history row gets an "Ask Ratchet" action that opens the panel with that specific scan's data pre-filled.
 
-### 4. Add scan history to Scanner tab
-Show a compact list of previous scan sessions below the live controls — date, codes found, "View Results" link. This gives the tab persistence beyond the live connection.
+## Files to Modify
 
-**Files**:
-- `src/components/vehicle/ScannerTab.tsx` — add a React Query fetch for `obd_scan_sessions` filtered by vehicle_id, render as a timeline
+| File | Change |
+|------|--------|
+| `src/components/RatchetPanel.tsx` | Fetch latest `obd_scan_sessions` for active vehicle, append to `vehicleContext` string |
+| `src/components/vehicle/ScannerTab.tsx` | Add "Ask Ratchet" button post-scan + on each history entry |
+| `supabase/functions/chat/index.ts` | Add OBD-aware instructions to system prompt when scan data is present |
 
-## What the User Experiences
-1. Scan car → see P0301
-2. Tap "Diagnose" → lands on Diagnose tab with "Cylinder 1 Misfire" pre-filled
-3. Ratchet already knows the live sensor readings from the scan (coolant was 210°F, RPM was 750, voltage 13.8V)
-4. Diagnosis is faster and more accurate because it's working with real data, not guesses
+## Technical Details
 
-## Technical Scope
-- ~4 files modified, no new dependencies
-- No database changes needed (tables already exist)
-- No new edge functions — just enriching the existing `generate-diagnosis` prompt
+- **No new tables or migrations** — uses existing `obd_scan_sessions`
+- **No new dependencies** — just React Query fetch + string interpolation
+- **Chat edge function change**: parse the OBD block from `vehicleContext` and add a small system prompt section instructing Ratchet to leverage hardware-verified data over user guesses
+- The RatchetPanel fetch is a simple `useQuery` with `staleTime: 5 * 60 * 1000` (5 min cache) so it doesn't re-fetch on every panel open
 
