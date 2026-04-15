@@ -51,7 +51,7 @@ export default function LandingPage() {
             <span className="text-primary">Start wrenching.</span>
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Ratchet is the AI mechanic that actually knows what it's talking about. Diagnostics, repair plans, maintenance tracking — all free, all in your pocket, no condescending YouTube comments required.
+            Ratchet is the AI mechanic that actually knows what it's talking about. Diagnostics, repair plans, maintenance tracking — all in your pocket, no condescending YouTube comments required.
           </p>
 
           {/* ─── Mock Dashboard Preview ─── */}
@@ -85,14 +85,21 @@ export default function LandingPage() {
             <Button size="lg" className="gap-2 text-base px-8" asChild>
               <Link to="/signup">Let's Go <ArrowRight className="h-4 w-4" /></Link>
             </Button>
-            <p className="mt-3 text-xs text-muted-foreground">Free forever. No credit card. No catch. Seriously.</p>
+            <p className="mt-3 text-xs text-muted-foreground">No credit card. No strings. Just answers.</p>
           </div>
         </div>
       </section>
 
       {/* ─── Features ─── */}
-      <section className="px-6 py-16 bg-card/50">
-        <div className="max-w-5xl mx-auto">
+      <section className="px-6 py-16 relative overflow-hidden">
+        {/* Ambient gradient blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[400px] rounded-full bg-primary/[0.06] blur-[100px]" />
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[350px] rounded-full bg-[hsl(240_60%_50%/0.05)] blur-[100px]" />
+        </div>
+        {/* Gradient divider top */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <div className="max-w-5xl mx-auto relative z-10">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-center mb-3">Everything you need to stop paying $120/hr</h2>
           <p className="text-center text-muted-foreground mb-12 max-w-xl mx-auto">Well, for the stuff you can do yourself anyway. We're not suggesting you rebuild a transmission in your driveway. <span className="italic">Unless you're about that life.</span></p>
           <div className="grid md:grid-cols-3 gap-6">
@@ -114,9 +121,11 @@ export default function LandingPage() {
       </section>
 
       {/* ─── How It Works ─── */}
-      <section className="px-6 py-16 max-w-4xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-center mb-3">Up and running in minutes</h2>
-        <p className="text-center text-muted-foreground mb-12">Faster than finding the 10mm socket you just had.</p>
+      <section className="px-6 py-16 max-w-4xl mx-auto relative">
+        {/* Faint glow behind steps */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] rounded-full bg-primary/[0.04] blur-[80px] pointer-events-none" />
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-center mb-3 relative z-10">Up and running in minutes</h2>
+        <p className="text-center text-muted-foreground mb-12 relative z-10">Faster than finding the 10mm socket you just had.</p>
         <div className="grid md:grid-cols-3 gap-8 relative">
           {/* Connector line (desktop only) */}
           <div className="hidden md:block absolute top-6 left-[16.66%] right-[16.66%] h-[2px] bg-gradient-to-r from-primary/30 via-primary/10 to-primary/30" />
@@ -133,10 +142,17 @@ export default function LandingPage() {
       </section>
 
       {/* ─── What's packed in ─── */}
-      <section className="px-6 py-16 bg-card/50">
-        <div className="max-w-4xl mx-auto text-center space-y-8">
+      <section className="px-6 py-16 relative overflow-hidden">
+        {/* Ambient gradient blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/3 right-1/5 w-[450px] h-[350px] rounded-full bg-primary/[0.05] blur-[100px]" />
+          <div className="absolute bottom-1/4 left-1/6 w-[400px] h-[300px] rounded-full bg-[hsl(280_60%_40%/0.04)] blur-[100px]" />
+        </div>
+        {/* Gradient divider top */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+        <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
           <h2 className="text-2xl sm:text-3xl font-extrabold">What's under the hood</h2>
-          <p className="text-muted-foreground max-w-lg mx-auto">Yeah, we went there with the pun. Here's what you're actually getting — for free.</p>
+          <p className="text-muted-foreground max-w-lg mx-auto">Yeah, we went there with the pun. Here's what you're actually getting.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
             {[
               { label: 'Master-tech diagnostic logic', detail: 'The same decision trees the pros use, minus the waiting room magazines.' },
@@ -148,7 +164,7 @@ export default function LandingPage() {
             ].map((item, i) => (
               <div
                 key={item.label}
-                className="rounded-xl border border-border bg-card p-4 text-left space-y-1.5 hover:border-primary/20 transition-colors animate-stagger-in"
+                className="rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 text-left space-y-1.5 hover:border-primary/20 transition-colors animate-stagger-in"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className="flex items-center gap-2">
@@ -164,6 +180,8 @@ export default function LandingPage() {
 
       {/* ─── CTA ─── */}
       <section className="px-6 py-20 text-center max-w-3xl mx-auto hero-glow relative">
+        {/* Gradient divider top */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
         <div className="relative z-10">
           <h2 className="text-2xl sm:text-3xl font-extrabold">Your car's check engine light is on.</h2>
           <p className="mt-3 text-muted-foreground">You could panic. Or you could ask Ratchet. Your call.</p>

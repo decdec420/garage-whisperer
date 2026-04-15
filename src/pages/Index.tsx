@@ -464,27 +464,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Quick Intelligence ─────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => openRatchetPanel('What maintenance does my car need soon?')}
-          className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[90px] justify-center"
-        >
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-            <Activity className="h-5 w-5" />
-          </div>
-          <span className="text-xs font-medium text-center">Ask Ratchet</span>
-        </button>
-        <button
-          onClick={() => openRatchetPanel('I have a symptom to diagnose')}
-          className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:border-primary/30 transition-colors min-h-[90px] justify-center"
-        >
-          <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-warning/10 text-warning">
-            <ShieldAlert className="h-5 w-5" />
-          </div>
-          <span className="text-xs font-medium text-center">Diagnose Issue</span>
-        </button>
-      </div>
 
       {/* ── OBD2 Future Teaser ─────────────────────────────────── */}
       <Card className="border-dashed border-primary/20 bg-primary/[0.02]">
