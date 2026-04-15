@@ -81,6 +81,15 @@
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(240 4% 24%);
   }
+
+  /* Autofill dark override */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px hsl(0 0% 4%) inset !important;
+    -webkit-text-fill-color: hsl(240 5% 96%) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
 }
 
 /* ── Shimmer skeleton ── */
