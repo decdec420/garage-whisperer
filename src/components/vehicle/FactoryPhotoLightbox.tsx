@@ -35,9 +35,9 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
 
   if (!img) return null;
 
-  const isCharm = !img.isUserPhoto;
-  const attribution = isCharm
-    ? 'Source: Operation CHARM (charm.li) — Factory Service Manual'
+  const isManual = !img.isUserPhoto;
+  const attribution = isManual
+    ? 'Source: LEMON Manuals (lemon-manuals.la) — Factory Service Manual'
     : `Photo ${idx + 1} of ${images.length}`;
 
   const content = (
@@ -46,9 +46,9 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2">
-          {isCharm && <BookOpen className="h-4 w-4 text-primary" />}
+          {isManual && <BookOpen className="h-4 w-4 text-primary" />}
           <span className="text-xs text-muted-foreground">
-            {img.title || (isCharm ? `Factory Diagram ${idx + 1} of ${images.length}` : `Step Photo ${idx + 1} of ${images.length}`)}
+            {img.title || (isManual ? `Factory Diagram ${idx + 1} of ${images.length}` : `Step Photo ${idx + 1} of ${images.length}`)}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -58,10 +58,10 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
               <Trash2 className="h-4 w-4 text-destructive" />
             </button>
           )}
-          {img.sourceUrl && isCharm && (
+          {img.sourceUrl && isManual && (
             <a href={img.sourceUrl} target="_blank" rel="noopener noreferrer"
               className="text-xs text-primary flex items-center gap-1 hover:underline">
-              charm.li <ExternalLink className="h-3 w-3" />
+              lemon-manuals.la <ExternalLink className="h-3 w-3" />
             </a>
           )}
           <button onClick={onClose} className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-white/10">

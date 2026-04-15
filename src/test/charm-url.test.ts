@@ -60,18 +60,18 @@ describe('buildCharmUrls', () => {
   const accord = { make: 'Honda', year: 2012, model: 'Accord', engine: '2.4L I4' };
 
   it('returns empty array for out-of-range year (too new)', () => {
-    expect(buildCharmUrls({ ...accord, year: 2020 }, 'replace spark plugs')).toEqual([]);
+    expect(buildCharmUrls({ ...accord, year: 2026 }, 'replace spark plugs')).toEqual([]);
   });
   it('returns empty array for out-of-range year (too old)', () => {
-    expect(buildCharmUrls({ ...accord, year: 1981 }, 'replace spark plugs')).toEqual([]);
+    expect(buildCharmUrls({ ...accord, year: 1959 }, 'replace spark plugs')).toEqual([]);
   });
   it('returns empty array for unknown job', () => {
     expect(buildCharmUrls(accord, 'replace flux capacitor')).toEqual([]);
   });
-  it('returns a valid charm.li URL for a known job', () => {
+  it('returns a valid lemon-manuals.la URL for a known job', () => {
     const urls = buildCharmUrls(accord, 'replace the spark plugs');
     expect(urls.length).toBeGreaterThan(0);
-    expect(urls[0]).toMatch(/^https:\/\/charm\.li\/Honda\/2012\//);
+    expect(urls[0]).toMatch(/^https:\/\/lemon-manuals\.la\/Honda\/2012\//);
     expect(urls[0]).toContain('Spark%20Plug');
   });
   it('returns two URLs for brake pads (front + rear)', () => {
@@ -90,6 +90,18 @@ describe('buildCharmUrls', () => {
     expect(urls.length).toBeGreaterThan(0);
     expect(urls[0]).toContain('Accord');
   });
+  it('includes drivetrain in URL when provided', () => {
+    const fusion = { make: 'Ford', year: 2008, model: 'Fusion', engine: '2.3L I4', drivetrain: 'FWD' };
+    const urls = buildCharmUrls(fusion, 'replace the battery');
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls[0]).toContain('Fusion%20FWD%20L4-2.3L');
+  });
+  it('supports 2020+ vehicles (expanded range)', () => {
+    const civic = { make: 'Honda', year: 2023, model: 'Civic', engine: '2.0L I4' };
+    const urls = buildCharmUrls(civic, 'replace spark plugs');
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls[0]).toMatch(/^https:\/\/lemon-manuals\.la\/Honda\/2023\//);
+  });
 });
 
 // ─── buildCharmUrl (deprecated) ─────────────────────────────────────────────
@@ -97,7 +109,7 @@ describe('buildCharmUrl', () => {
   it('returns first URL for a single-path job', () => {
     const url = buildCharmUrl({ make: 'Honda', year: 2012, model: 'Accord' }, 'replace alternator');
     expect(url).not.toBeNull();
-    expect(url).toContain('charm.li');
+    expect(url).toContain('lemon-manuals.la');
   });
   it('returns null for unknown job', () => {
     expect(buildCharmUrl({ make: 'Honda', year: 2012, model: 'Accord' }, 'fix windshield wiper')).toBeNull();
