@@ -433,7 +433,68 @@ export default function ProjectDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-notes', projectId] }),
   });
 
-  const completedSteps = steps.filter(s => s.status === 'done').length;
+  // Step photo upload
+  const uploadStepPhoto = useMutation({
+    mutationFn: async ({ stepId, file }: { stepId: string; file: File }) => {
+      if (!user) throw new Error('Not authenticated');
+      setUploadingStepId(stepId);
+      const compressed = await compressImage(file);
+      const path = await uploadFile('repair-photos', compressed, user.id, `steps/${stepId}`);
+      // Append path to photo_urls
+      const step = steps.find(s => s.id === stepId);
+      const existing = step?.photo_urls || [];
+      await supabase.from('project_steps').update({
+        photo_urls: [...existing, path],
+      }).eq('id', stepId);
+      return path;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      toast.success('Photo added 📸');
+      setUploadingStepId(null);
+    },
+    onError: (err: any) => {
+      toast.error(`Upload failed: ${err.message}`);
+      setUploadingStepId(null);
+    },
+  });
+
+  const deleteStepPhoto = useMutation({
+    mutationFn: async ({ stepId, photoPath, photoIdx }: { stepId: string; photoPath: string; photoIdx: number }) => {
+      const step = steps.find(s => s.id === stepId);
+      const existing = [...(step?.photo_urls || [])];
+      existing.splice(photoIdx, 1);
+      await supabase.from('project_steps').update({ photo_urls: existing }).eq('id', stepId);
+      // Best-effort delete from storage
+      await supabase.storage.from('repair-photos').remove([photoPath]).catch(() => {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      toast.success('Photo removed');
+    },
+  });
+
+  // Resolve signed URLs for step photos
+  const allPhotoUrls = steps.flatMap(s => (s.photo_urls || []).map(p => `${s.id}::${p}`));
+  const { data: signedUrlMap = {} } = useQuery({
+    queryKey: ['step-photo-urls', allPhotoUrls.join(',')],
+    queryFn: async () => {
+      const map: Record<string, string> = {};
+      await Promise.all(
+        steps.flatMap(s =>
+          (s.photo_urls || []).map(async (path) => {
+            const key = `${s.id}::${path}`;
+            const url = await getSignedUrl('repair-photos', path, 3600);
+            if (url) map[key] = url;
+          })
+        )
+      );
+      return map;
+    },
+    enabled: allPhotoUrls.length > 0,
+    staleTime: 30 * 60 * 1000, // 30 min
+  });
+
   const pctDone = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
   const totalPartsCost = parts.reduce((s, p) => s + (Number(p.estimated_cost) || 0) * (p.quantity || 1), 0);
   const partsReady = parts.filter(p => p.have_it).length;
