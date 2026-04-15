@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Mic, Volume2, VolumeX, Wrench, AlertTriangle, Lightbulb, Zap, Droplets, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Check, Mic, Volume2, VolumeX, Wrench, AlertTriangle, Lightbulb, Zap, Droplets, ArrowLeft, ArrowRight, Camera, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { uploadFile } from '@/lib/storage-helpers';
+import { compressImage } from '@/lib/image-compress';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface MechanicModeProps {
   project: any;
