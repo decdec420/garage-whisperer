@@ -157,40 +157,7 @@ function getYearCode(year: number): string {
   return codes[idx] ?? 'A';
 }
 
-// Well-known trim levels by make for common manufacturers
-const COMMON_TRIMS: Record<string, string[]> = {
-  'TOYOTA': ['SR', 'SR5', 'TRD Sport', 'TRD Off-Road', 'Limited', 'TRD Pro', 'XLE', 'XSE', 'LE', 'SE', 'Nightshade', 'Platinum', '1794 Edition'],
-  'HONDA': ['LX', 'EX', 'EX-L', 'Sport', 'Sport Touring', 'Touring', 'Type R', 'Si', 'Hybrid'],
-  'FORD': ['XL', 'XLT', 'Lariat', 'King Ranch', 'Platinum', 'Limited', 'Raptor', 'SE', 'SEL', 'Titanium', 'ST', 'ST-Line'],
-  'CHEVROLET': ['LS', 'LT', 'RST', 'Z71', 'ZR2', 'High Country', 'Trail Boss', 'RS', 'Premier', '1LT', '2LT', '3LT'],
-  'NISSAN': ['S', 'SV', 'SL', 'SR', 'Platinum', 'PRO-4X', 'PRO-X', 'Midnight Edition', 'Rock Creek'],
-  'HYUNDAI': ['SE', 'SEL', 'N Line', 'Limited', 'Calligraphy', 'XRT', 'Blue'],
-  'KIA': ['LX', 'LXS', 'EX', 'SX', 'SX Prestige', 'GT-Line', 'GT'],
-  'SUBARU': ['Base', 'Premium', 'Sport', 'Limited', 'Touring', 'Onyx Edition', 'Wilderness'],
-  'BMW': ['sDrive', 'xDrive', 'M Sport', 'M', 'Competition'],
-  'MERCEDES-BENZ': ['Base', 'AMG Line', 'AMG', 'Night Package'],
-  'JEEP': ['Sport', 'Sport S', 'Altitude', 'Latitude', 'Overland', 'Limited', 'Sahara', 'Rubicon', 'Mojave', 'Trailhawk', 'Summit'],
-  'RAM': ['Tradesman', 'Big Horn', 'Lone Star', 'Laramie', 'Rebel', 'Limited', 'TRX', 'Limited Longhorn'],
-  'GMC': ['SLE', 'SLT', 'AT4', 'AT4X', 'Denali', 'Denali Ultimate', 'Elevation'],
-  'DODGE': ['SXT', 'GT', 'R/T', 'Scat Pack', 'Hellcat', 'Redeye'],
-  'VOLKSWAGEN': ['S', 'SE', 'SEL', 'SEL Premium', 'R-Line', 'GTI', 'GLI', 'R'],
-  'MAZDA': ['Base', 'Select', 'Preferred', 'Carbon Edition', 'Premium', 'Premium Plus', 'Turbo', 'Turbo Premium Plus'],
-  'LEXUS': ['Base', 'Premium', 'Luxury', 'F Sport', 'F Sport Design', 'Ultra Luxury'],
-  'ACURA': ['Base', 'Technology', 'A-Spec', 'Advance', 'Type S', 'PMC Edition'],
-  'AUDI': ['Premium', 'Premium Plus', 'Prestige', 'S Line', 'RS'],
-};
-
-// Common engine options by make
-const COMMON_ENGINES: Record<string, string[]> = {
-  'TOYOTA': ['2.4L 4cyl', '2.4L 4cyl Turbo', '2.5L 4cyl', '2.5L 4cyl Hybrid', '3.5L V6', 'i-FORCE MAX 2.4L Turbo Hybrid'],
-  'HONDA': ['1.5L 4cyl', '1.5L 4cyl Turbo', '2.0L 4cyl', '2.0L 4cyl Turbo', '2.0L 4cyl Hybrid', '2.4L 4cyl', '3.5L V6'],
-  'FORD': ['1.5L 3cyl', '1.5L 4cyl Turbo', '2.0L 4cyl', '2.0L 4cyl Turbo', '2.3L 4cyl Turbo', '2.5L 4cyl', '2.7L V6 Turbo', '3.5L V6', '3.5L V6 Turbo', '5.0L V8', '5.2L V8', '6.7L V8 Diesel'],
-  'CHEVROLET': ['1.4L 4cyl Turbo', '1.5L 4cyl Turbo', '2.0L 4cyl Turbo', '2.5L 4cyl', '2.7L 4cyl Turbo', '3.6L V6', '5.3L V8', '6.2L V8', '6.6L V8 Diesel'],
-  'NISSAN': ['1.6L 4cyl Turbo', '2.0L 4cyl', '2.5L 4cyl', '3.5L V6', '3.8L V6', '5.6L V8'],
-  'HYUNDAI': ['1.6L 4cyl Turbo', '2.0L 4cyl', '2.5L 4cyl', '2.5L 4cyl Turbo', '3.3L V6 Turbo', '3.5L V6'],
-  'JEEP': ['2.0L 4cyl Turbo', '2.4L 4cyl', '3.0L V6 Diesel', '3.6L V6', '5.7L V8', '6.2L V8', '6.4L V8'],
-  'SUBARU': ['2.0L 4cyl', '2.4L 4cyl Turbo', '2.5L 4cyl'],
-};
+import { getTrimOptions, getEngineOptions } from '@/lib/vehicle-options';
 
 export default function SmartVehicleForm({ form, onChange, smartSuggest = true }: Props) {
   const [makes, setMakes] = useState<string[]>([]);
@@ -202,30 +169,8 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
     onChange({ ...form, [k]: v });
   }, [form, onChange]);
 
-  // Get trim suggestions based on make
-  const trimOptions = (() => {
-    if (!form.make) return [];
-    const makeUpper = form.make.toUpperCase();
-    // Check exact match first, then partial
-    for (const [key, trims] of Object.entries(COMMON_TRIMS)) {
-      if (makeUpper === key || makeUpper.includes(key) || key.includes(makeUpper)) {
-        return trims;
-      }
-    }
-    return [];
-  })();
-
-  // Get engine suggestions based on make
-  const engineOptions = (() => {
-    if (!form.make) return [];
-    const makeUpper = form.make.toUpperCase();
-    for (const [key, engines] of Object.entries(COMMON_ENGINES)) {
-      if (makeUpper === key || makeUpper.includes(key) || key.includes(makeUpper)) {
-        return engines;
-      }
-    }
-    return [];
-  })();
+  const trimOptions = getTrimOptions(form.make, form.model);
+  const engineOptions = getEngineOptions(form.make, form.model);
 
   // Fetch makes when year changes
   useEffect(() => {
