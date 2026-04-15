@@ -1,6 +1,6 @@
-import { ReactNode, useState, useEffect, useCallback } from 'react';
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3, Search } from 'lucide-react';
+import { LayoutDashboard, Car, Wrench, Settings, LogOut, Plus, Home, Grid3X3 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/app-store';
 import { useQuery } from '@tanstack/react-query';
@@ -34,6 +34,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { activeVehicle, setActiveVehicle, setAddVehicleModalOpen, isRatchetOpen } = useAppStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [logoSpinning, setLogoSpinning] = useState(false);
+  const logoRef = useRef<HTMLButtonElement>(null);
 
   const handleOffline = useCallback(() => {
     setIsOffline(true);
@@ -70,7 +72,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       setActiveVehicle(null);
       return;
     }
-    // If no active vehicle, or the active vehicle was deleted, switch to the first available
     const stillExists = vehicles.some(v => v.id === activeVehicle?.id);
     if (!activeVehicle || !stillExists) {
       const v = vehicles[0];
@@ -97,6 +98,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     else navigate('/garage');
   };
 
+  const handleLogoClick = () => {
+    setLogoSpinning(true);
+    setTimeout(() => setLogoSpinning(false), 600);
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  };
+
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
@@ -115,10 +124,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-60 border-r border-sidebar-border bg-sidebar fixed inset-y-0 left-0 z-30">
         <div className="p-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <Wrench className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-primary">Ratchet</span>
-          </div>
+          <button
+            ref={logoRef}
+            onClick={handleLogoClick}
+            className="flex items-center gap-2 group cursor-pointer"
+          >
+            <Wrench className={cn(
+              "h-6 w-6 text-primary transition-transform duration-500",
+              logoSpinning && "animate-[spin_0.5s_ease-in-out]"
+            )} />
+            <span className="text-xl font-bold text-primary group-hover:tracking-wide transition-all duration-300">
+              Ratchet
+            </span>
+          </button>
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
@@ -161,15 +179,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Settings className="h-5 w-5" />
             Settings
           </button>
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent/40 mt-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold avatar-glow">
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-sidebar-accent/40 mt-2 hover:bg-sidebar-accent/60 transition-colors cursor-pointer group"
+          >
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold avatar-glow group-hover:bg-primary/30 transition-colors">
               {profileName[0]?.toUpperCase()}
             </div>
-            <span className="text-sm font-medium truncate flex-1">{profileName}</span>
-            <button onClick={signOut} className="text-muted-foreground hover:text-destructive transition-colors">
+            <span className="text-sm font-medium truncate flex-1 text-left group-hover:text-primary transition-colors">{profileName}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); signOut(); }}
+              className="text-muted-foreground hover:text-destructive transition-colors"
+            >
               <LogOut className="h-4 w-4" />
             </button>
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -177,31 +201,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <main className={cn("flex-1 md:ml-60 pb-20 md:pb-0 transition-[margin] duration-300 overflow-x-hidden", isRatchetOpen && "md:mr-[420px]")}>
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-xl z-20">
-          <div className="flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-primary" />
+          <button onClick={handleLogoClick} className="flex items-center gap-2 group">
+            <Wrench className={cn(
+              "h-5 w-5 text-primary transition-transform duration-500",
+              logoSpinning && "animate-[spin_0.5s_ease-in-out]"
+            )} />
             <span className="font-bold text-primary">Ratchet</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <NotificationCenter />
-            <button
-              onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-              className="p-2 text-muted-foreground hover:text-foreground"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-          </div>
+          </button>
+          <NotificationCenter />
         </header>
 
-        {/* Desktop top bar with notifications */}
+        {/* Desktop top bar — notifications only */}
         <div className="hidden md:flex items-center justify-end gap-2 px-6 py-3 border-b border-border">
-          <button
-            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-          >
-            <Search className="h-4 w-4" />
-            <span>Search</span>
-            <kbd className="text-[10px] bg-secondary px-1.5 py-0.5 rounded ml-2">⌘K</kbd>
-          </button>
           <NotificationCenter />
         </div>
 
