@@ -327,8 +327,42 @@ export default function MechanicMode({
           </div>
         )}
 
+        {/* Camera button — large touch target */}
+        {!isDone && (
+          <div className="px-5 pb-4">
+            <button
+              className="w-full flex items-center justify-center gap-3 rounded-xl transition-colors"
+              style={{ height: 56, background: '#1a1a1a', border: '1px solid #27272a' }}
+              disabled={isUploading}
+              onClick={() => photoInputRef.current?.click()}>
+              {isUploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              ) : (
+                <Camera className="h-6 w-6 text-primary" />
+              )}
+              <span style={{ fontSize: 16, color: '#e4e4e7' }}>
+                {isUploading ? 'Uploading...' : '📸 Snap a photo'}
+              </span>
+            </button>
+          </div>
+        )}
+
         <div style={{ height: 100 }} />
       </div>
+
+      {/* Hidden photo input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handlePhotoCapture(file);
+          e.target.value = '';
+        }}
+      />
 
       {/* Bottom bar */}
       <div className="shrink-0 flex items-center gap-3 px-4" style={{ height: 80, background: '#0a0a0a', borderTop: '1px solid #1a1a1a', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
