@@ -244,8 +244,14 @@ export default function DocsTab({ vehicleId, vehicle }: Props) {
               return;
             }
             const blobUrl = URL.createObjectURL(fileData);
-            window.open(blobUrl, '_blank');
-            // Clean up blob URL after a delay
+            // Use anchor download to avoid sandbox blob: restrictions
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = doc.title || 'document';
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
           } catch {
             toast.error('Could not open file');
