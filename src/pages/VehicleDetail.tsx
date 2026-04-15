@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3, Search, BookOpen, Wrench, DollarSign, Activity, ChevronRight, CalendarDays } from 'lucide-react';
+import { ArrowLeft, MessageCircle, AlertTriangle, CheckCircle2, Grid3X3, Search, BookOpen, Wrench, DollarSign, Activity, ChevronRight, CalendarDays, Bluetooth } from 'lucide-react';
 import MaintenanceTab from '@/components/vehicle/MaintenanceTab';
 import RepairsTab from '@/components/vehicle/RepairsTab';
 import ProjectsTab from '@/components/vehicle/ProjectsTab';
@@ -16,6 +16,7 @@ import BlueprintTab from '@/components/vehicle/BlueprintTab';
 import DiagnoseTab from '@/components/vehicle/DiagnoseTab';
 import DocsTab from '@/components/vehicle/DocsTab';
 import ChatsTab from '@/components/vehicle/ChatsTab';
+import ScannerTab from '@/components/vehicle/ScannerTab';
 
 export default function VehicleDetail() {
   const { vehicleId } = useParams();
@@ -168,6 +169,7 @@ export default function VehicleDetail() {
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
           <TabsTrigger value="docs"><BookOpen className="h-3.5 w-3.5 mr-1" />Docs</TabsTrigger>
+          <TabsTrigger value="scanner"><Bluetooth className="h-3.5 w-3.5 mr-1" />Scanner</TabsTrigger>
           <TabsTrigger value="chats"><MessageCircle className="h-3.5 w-3.5 mr-1" />Chats</TabsTrigger>
         </TabsList>
 
@@ -375,6 +377,10 @@ export default function VehicleDetail() {
 
         <TabsContent value="chats">
           <ChatsTab vehicleId={vehicleId!} />
+        </TabsContent>
+
+        <TabsContent value="scanner">
+          <ScannerTab vehicleId={vehicleId!} vehicle={vehicle} />
         </TabsContent>
       </Tabs>
     </div>

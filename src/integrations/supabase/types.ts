@@ -510,6 +510,50 @@ export type Database = {
           },
         ]
       }
+      obd_scan_sessions: {
+        Row: {
+          created_at: string
+          dtcs_found: Json | null
+          id: string
+          pids_captured: Json | null
+          scanner_name: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          dtcs_found?: Json | null
+          id?: string
+          pids_captured?: Json | null
+          scanner_name?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          dtcs_found?: Json | null
+          id?: string
+          pids_captured?: Json | null
+          scanner_name?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obd_scan_sessions_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
