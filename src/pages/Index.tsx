@@ -420,8 +420,8 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {steps && steps.total > 0 && (
-                      <div className="w-16">
-                        <Progress value={progress} className="h-1.5" />
+                      <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                        <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
                       </div>
                     )}
                     <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
