@@ -46,6 +46,38 @@ export default function Garage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Manual cascade: delete child records before the vehicle
+      // Get project IDs first for nested deletes
+      const { data: projects } = await supabase.from('projects').select('id').eq('vehicle_id', id);
+      const projectIds = (projects ?? []).map(p => p.id);
+
+      if (projectIds.length > 0) {
+        await Promise.all([
+          supabase.from('project_steps').delete().in('project_id', projectIds),
+          supabase.from('project_parts').delete().in('project_id', projectIds),
+          supabase.from('project_tools').delete().in('project_id', projectIds),
+          supabase.from('project_notes').delete().in('project_id', projectIds),
+        ]);
+        // Chat sessions linked to projects
+        await supabase.from('chat_sessions').delete().in('project_id', projectIds);
+        // Diagnosis feedback linked to projects
+        await supabase.from('diagnosis_feedback').delete().in('project_id', projectIds);
+      }
+
+      // Delete vehicle-level children
+      await Promise.all([
+        supabase.from('projects').delete().eq('vehicle_id', id),
+        supabase.from('diagnosis_sessions').delete().eq('vehicle_id', id),
+        supabase.from('maintenance_logs').delete().eq('vehicle_id', id),
+        supabase.from('repair_logs').delete().eq('vehicle_id', id),
+        supabase.from('dtc_records').delete().eq('vehicle_id', id),
+        supabase.from('vehicle_documents').delete().eq('vehicle_id', id),
+        supabase.from('vehicle_service_schedules').delete().eq('vehicle_id', id),
+        supabase.from('vehicle_projects').delete().eq('vehicle_id', id),
+        supabase.from('chat_sessions').delete().eq('vehicle_id', id),
+        supabase.from('ratchet_memory').delete().eq('vehicle_id', id),
+      ]);
+
       const { error } = await supabase.from('vehicles').delete().eq('id', id);
       if (error) throw error;
     },
@@ -54,7 +86,10 @@ export default function Garage() {
       queryClient.invalidateQueries({ queryKey: ['vehicles-list'] });
       toast.success('Vehicle removed');
     },
-    onError: () => toast.error('Failed to delete vehicle'),
+    onError: (e) => {
+      console.error('Delete vehicle failed:', e);
+      toast.error('Failed to delete vehicle');
+    },
   });
 
   return (
