@@ -731,6 +731,23 @@ ${historyLines.join("\n")}
 Use this history to identify patterns. If this vehicle has had repeated electrical issues, check grounds first. If there's a history of oil-related problems, consider systemic causes.`;
     }
 
+    // Process OBD scan data
+    let obdScanBlock = "";
+    if (recentScans && recentScans.length > 0) {
+      const scanLines = recentScans.map((scan: any) => {
+        const dtcs = (scan.dtcs_found || []).map((d: any) => `${d.code} (${d.type})`).join(", ");
+        const pids = (scan.pids_captured || []).map((p: any) => `${p.name}: ${p.value} ${p.unit}`).join(", ");
+        const date = new Date(scan.created_at).toLocaleDateString();
+        return `- Scan ${date} via ${scan.scanner_name || "OBD-II"}:${dtcs ? ` DTCs: ${dtcs}` : " No DTCs"}${pids ? ` | Live readings: ${pids}` : ""}`;
+      });
+      obdScanBlock = `\n\n## OBD-II Scanner Data — Hardware-Verified
+The following data was captured directly from the vehicle's ECU via OBD-II scanner. This is HARDWARE-VERIFIED data, not user guesswork. Weight it heavily.
+
+${scanLines.join("\n")}
+
+Use these live sensor readings to inform your diagnostic approach. Abnormal PID values (high coolant temp, low voltage, high engine load at idle) are diagnostic signals.`;
+    }
+
     // Merge factory data
     const mergedImages: string[] = [];
     const mergedText: string[] = [];
