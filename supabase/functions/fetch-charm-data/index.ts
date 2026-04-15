@@ -97,8 +97,20 @@ function titleCaseMake(make: string): string {
   return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
 }
 
-function formatEngineForCharm(engine: string | null, model: string): string {
-  if (!engine) return model;
+function normalizeDrivetrain(dt: string | null | undefined): string | null {
+  if (!dt) return null;
+  const u = dt.toUpperCase().replace(/[\s-]/g, '');
+  if (u === 'FWD' || u.includes('FRONTWHEEL')) return 'FWD';
+  if (u === 'RWD' || u.includes('REARWHEEL')) return 'RWD';
+  if (u === 'AWD' || u.includes('ALLWHEEL')) return 'AWD';
+  if (u === '4WD' || u === '4X4' || u.includes('FOURWHEEL')) return '4WD';
+  if (u === '2WD' || u === '2X4' || u.includes('TWOWHEEL')) return '2WD';
+  return null;
+}
+
+function formatEngineForManual(engine: string | null, model: string, drivetrain?: string | null): string {
+  const dt = normalizeDrivetrain(drivetrain);
+  if (!engine) return dt ? `${model} ${dt}` : model;
   const dm = engine.match(/(\d+\.?\d*)\s*L/i);
   const rawD = dm ? parseFloat(dm[1]) : null;
   const d = rawD ? roundDisplacement(rawD) : null;
@@ -107,9 +119,13 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   else if (/V\s*8|V8/i.test(engine)) c = 'V8';
   else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = 'L4';
   else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = 'L6';
-  if (d && c) return `${model} ${c}-${d}L`;
-  if (d) return `${model} ${d}L`;
-  return model;
+  let enginePart = '';
+  if (d && c) enginePart = `${c}-${d}L`;
+  else if (d) enginePart = `${d}L`;
+  const parts = [model];
+  if (dt) parts.push(dt);
+  if (enginePart) parts.push(enginePart);
+  return parts.join(' ');
 }
 
 function extractImages(html: string): string[] {
@@ -118,8 +134,8 @@ function extractImages(html: string): string[] {
   let match;
   while ((match = imgRegex.exec(html)) !== null) {
     const src = match[1];
-    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
-      const url = src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`;
+    if (src.includes('lemon-manuals.la/images') || src.includes('/images/') && !src.includes('/icons/')) {
+      const url = src.startsWith('http') ? src : `https://lemon-manuals.la${src.startsWith('/') ? '' : '/'}${src}`;
       images.push(url);
     }
   }
@@ -151,13 +167,12 @@ function extractProcedureText(html: string): string {
 /** Extract images with their surrounding text context for AI assignment */
 function extractImagesWithContext(html: string): Array<{ url: string; context: string }> {
   const results: Array<{ url: string; context: string }> = [];
-  // Split HTML by img tags and grab surrounding text
   const imgRegex = /(?:<(?:p|li|div|span|td)[^>]*>([^<]{0,200})<\/(?:p|li|div|span|td)>\s*)?<img[^>]+src=["']([^"']+)["'][^>]*>(?:\s*<(?:p|li|div|span|td)[^>]*>([^<]{0,200})<\/(?:p|li|div|span|td)>)?/gi;
   let match;
   while ((match = imgRegex.exec(html)) !== null) {
     const src = match[2];
-    if (src.includes('charm.li/images') || (src.includes('/images/') && !src.includes('/icons/'))) {
-      const url = src.startsWith('http') ? src : `https://charm.li${src.startsWith('/') ? '' : '/'}${src}`;
+    if (src.includes('lemon-manuals.la/images') || src.includes('/images/') && !src.includes('/icons/')) {
+      const url = src.startsWith('http') ? src : `https://lemon-manuals.la${src.startsWith('/') ? '' : '/'}${src}`;
       const before = (match[1] || '').replace(/<[^>]+>/g, '').trim();
       const after = (match[3] || '').replace(/<[^>]+>/g, '').trim();
       const context = [before, after].filter(Boolean).join(' — ') || 'Factory diagram';
