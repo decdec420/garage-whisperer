@@ -291,12 +291,33 @@ function ServiceRow({
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div>
             <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
-            <Input
-              type="date"
-              value={entry.date}
-              onChange={e => onDateChange(e.target.value)}
-              className="bg-popover h-8 text-xs"
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full h-8 text-xs justify-start font-normal bg-popover",
+                    !entry.date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-1.5 h-3 w-3" />
+                  {entry.date ? format(parse(entry.date, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy') : 'Pick date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : undefined}
+                  onSelect={(d) => onDateChange(d ? format(d, 'yyyy-MM-dd') : '')}
+                  disabled={(d) => d > new Date()}
+                  defaultMonth={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : new Date()}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                  fromYear={1990}
+                  toYear={new Date().getFullYear()}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label className="text-[10px] text-muted-foreground">Mileage (optional)</Label>
