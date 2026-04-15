@@ -241,13 +241,13 @@ export default function SettingsPage() {
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
                 <div
-                  className="h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
+                  className="h-16 w-16 rounded-full flex items-center justify-center text-xl font-bold shrink-0 avatar-glow"
                   style={{ backgroundColor: avatarColor, color: '#fff' }}
                 >
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-lg truncate">{name || user?.email}</p>
+                  <p className="font-bold text-lg truncate">{name || user?.email}</p>
                   <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                   {memberSince && <p className="text-xs text-muted-foreground mt-0.5">Member since {memberSince}</p>}
                   {isGoogleUser && (
@@ -413,7 +413,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-destructive/30">
+          <div className="danger-zone">
+          <Card className="border-none bg-transparent shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-destructive flex items-center gap-2"><Trash2 className="h-4 w-4" /> Delete Account</CardTitle>
               <CardDescription>Permanently delete your account and all data. This cannot be undone.</CardDescription>
@@ -451,6 +452,7 @@ export default function SettingsPage() {
               </AlertDialog>
             </CardContent>
           </Card>
+          </div>
 
           <div className="text-center text-xs text-muted-foreground pt-2">
             <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
