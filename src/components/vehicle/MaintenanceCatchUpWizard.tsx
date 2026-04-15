@@ -291,7 +291,7 @@ function ServiceRow({
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div>
             <Label className="text-[10px] text-muted-foreground">Approx. Date</Label>
-            <Popover>
+            <Popover modal>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -304,7 +304,7 @@ function ServiceRow({
                   {entry.date ? format(parse(entry.date, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy') : 'Pick date'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-[9999]" align="start" side="top" sideOffset={4} collisionPadding={16}>
                 <Calendar
                   mode="single"
                   selected={entry.date ? parse(entry.date, 'yyyy-MM-dd', new Date()) : undefined}
