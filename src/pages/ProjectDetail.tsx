@@ -721,7 +721,7 @@ export default function ProjectDetail() {
                   </PopoverTrigger>
                   <PopoverContent className="w-64 text-sm">
                     <p className="font-semibold text-foreground mb-1">📖 Factory Service Manual</p>
-                    <p className="text-muted-foreground text-xs">Steps, torque specs, and procedures verified against the official {vehicle?.make} factory service manual via Operation CHARM (charm.li).</p>
+                    <p className="text-muted-foreground text-xs">Steps, torque specs, and procedures verified against the official {vehicle?.make} factory service manual via LEMON Manuals (lemon-manuals.la).</p>
                   </PopoverContent>
                 </Popover>
               )}
@@ -799,7 +799,7 @@ export default function ProjectDetail() {
               ))}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[11px] text-muted-foreground">Honda FSM · charm.li</span>
+              <span className="text-[11px] text-muted-foreground">{vehicle?.make} FSM · lemon-manuals.la</span>
             </div>
           </div>
         )}
@@ -1005,7 +1005,7 @@ export default function ProjectDetail() {
                     {step.is_factory_verified && step.charm_source_url && (
                       <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
                         <BookOpen className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs text-muted-foreground">Source: Operation CHARM (charm.li) — Factory Service Manual</span>
+                        <span className="text-xs text-muted-foreground">Source: LEMON Manuals (lemon-manuals.la) — Factory Service Manual</span>
                         <a href={step.charm_source_url} target="_blank" rel="noopener noreferrer"
                           className="ml-auto text-primary flex items-center gap-1 hover:underline text-xs">
                           View <ExternalLink className="h-2.5 w-2.5" />
