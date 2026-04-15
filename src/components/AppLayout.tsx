@@ -167,16 +167,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button
             onClick={() => navigate('/settings')}
             className={cn(
-              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative',
+              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative group/nav',
               isActive('/settings')
                 ? 'bg-primary/10 text-primary'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                : 'text-sidebar-foreground hover:bg-gradient-to-r hover:from-primary/[0.07] hover:to-transparent hover:text-sidebar-accent-foreground',
             )}
           >
             {isActive('/settings') && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary animate-scale-pop" />
             )}
-            <Settings className="h-5 w-5" />
+            <Settings className="h-5 w-5 transition-transform duration-200 group-hover/nav:scale-110" />
             Settings
           </button>
           <button
