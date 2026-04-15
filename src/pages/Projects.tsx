@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,12 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus, Sparkles, Wrench, Clock, DollarSign, CheckCircle2,
-  ChevronDown, Pause, Play, Circle, ArrowRight
+  Pause, Play, Circle, ArrowRight, Car, ChevronRight
 } from 'lucide-react';
 import NewProjectSheet from '@/components/vehicle/NewProjectSheet';
+import { cn } from '@/lib/utils';
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   Beginner: 'bg-success/20 text-success',
@@ -21,16 +22,23 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   Expert: 'bg-destructive/20 text-destructive',
 };
 
+const STATUS_CONFIG = {
+  active: { label: 'In Progress', icon: Play, color: 'text-primary', dotColor: 'bg-primary', borderColor: 'border-l-primary' },
+  planning: { label: 'Planned', icon: Circle, color: 'text-muted-foreground', dotColor: 'bg-muted-foreground', borderColor: 'border-l-muted-foreground' },
+  paused: { label: 'Paused', icon: Pause, color: 'text-warning', dotColor: 'bg-warning', borderColor: 'border-l-warning' },
+  completed: { label: 'Done', icon: CheckCircle2, color: 'text-success', dotColor: 'bg-success', borderColor: 'border-l-success' },
+} as const;
+
 export default function ActiveWork() {
   const navigate = useNavigate();
   const { activeVehicle, setAddVehicleModalOpen } = useAppStore();
   const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [viewMode, setViewMode] = useState<'vehicle' | 'status'>('vehicle');
 
   const { data: vehicles } = useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage');
+      const { data, error } = await supabase.from('vehicles').select('id, year, make, model, trim, nickname, engine, mileage, color');
       if (error) throw error;
       return data;
     },
@@ -41,7 +49,7 @@ export default function ActiveWork() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('id, title, status, difficulty, vehicle_id, estimated_minutes, created_at, updated_at')
+        .select('id, title, status, difficulty, vehicle_id, estimated_minutes, actual_minutes, created_at, updated_at, completed_at')
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -78,13 +86,6 @@ export default function ActiveWork() {
     enabled: projectIds.length > 0,
   });
 
-  const active = projects?.filter(p => p.status === 'active') || [];
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const readyToStart = projects?.filter(p => p.status === 'planning' && p.updated_at && p.updated_at < sevenDaysAgo) || [];
-  const planned = projects?.filter(p => p.status === 'planning' && !readyToStart.some(r => r.id === p.id)) || [];
-  const paused = projects?.filter(p => p.status === 'paused') || [];
-  const completed = projects?.filter(p => p.status === 'completed').slice(0, 3) || [];
-
   const vehicleMap = new Map(vehicles?.map(v => [v.id, v]) || []);
 
   const getStepStats = (projectId: string) => {
@@ -97,6 +98,44 @@ export default function ActiveWork() {
     return parts.reduce((s, p) => s + (Number(p.estimated_cost) || 0) * (p.quantity || 1), 0);
   };
 
+  // Group projects by vehicle
+  const vehicleGroups = useMemo(() => {
+    if (!projects || !vehicles) return [];
+    const groups = new Map<string, typeof projects>();
+    for (const p of projects) {
+      if (!groups.has(p.vehicle_id)) groups.set(p.vehicle_id, []);
+      groups.get(p.vehicle_id)!.push(p);
+    }
+    // Sort vehicles: those with active projects first
+    return Array.from(groups.entries())
+      .map(([vehicleId, vehicleProjects]) => ({
+        vehicle: vehicleMap.get(vehicleId),
+        vehicleId,
+        projects: vehicleProjects,
+        activeCount: vehicleProjects.filter(p => p.status === 'active').length,
+        totalProgress: (() => {
+          const nonCompleted = vehicleProjects.filter(p => p.status !== 'completed');
+          if (!nonCompleted.length) return 100;
+          const stats = nonCompleted.map(p => getStepStats(p.id));
+          const totalSteps = stats.reduce((a, s) => a + s.total, 0);
+          const doneSteps = stats.reduce((a, s) => a + s.done, 0);
+          return totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+        })(),
+      }))
+      .sort((a, b) => b.activeCount - a.activeCount);
+  }, [projects, vehicles, allSteps]);
+
+  // Group projects by status
+  const statusGroups = useMemo(() => {
+    if (!projects) return {};
+    return {
+      active: projects.filter(p => p.status === 'active'),
+      planning: projects.filter(p => p.status === 'planning'),
+      paused: projects.filter(p => p.status === 'paused'),
+      completed: projects.filter(p => p.status === 'completed').slice(0, 5),
+    };
+  }, [projects]);
+
   const handleNewProject = () => {
     if (!vehicles?.length) {
       setAddVehicleModalOpen(true);
@@ -105,62 +144,48 @@ export default function ActiveWork() {
     setNewProjectOpen(true);
   };
 
-  const ProjectCard = ({ project, variant }: { project: any; variant: 'active' | 'planned' | 'completed' }) => {
-    const v = vehicleMap.get(project.vehicle_id);
+  // Summary stats
+  const totalActive = projects?.filter(p => p.status === 'active').length ?? 0;
+  const totalPlanned = projects?.filter(p => p.status === 'planning').length ?? 0;
+  const totalPaused = projects?.filter(p => p.status === 'paused').length ?? 0;
+
+  const ProjectRow = ({ project }: { project: any }) => {
     const { total, done } = getStepStats(project.id);
     const cost = getPartsCost(project.id);
-    const progress = total > 0 ? (done / total) * 100 : 0;
-    const StatusIcon = variant === 'active' ? Play : variant === 'completed' ? CheckCircle2 : Circle;
-    const borderColor = variant === 'active' ? 'border-l-primary' : variant === 'completed' ? 'border-l-success' : 'border-l-muted-foreground';
+    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+    const config = STATUS_CONFIG[project.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.planning;
+    const v = vehicleMap.get(project.vehicle_id);
 
     return (
-      <Card
-        className={`border-l-4 ${borderColor} cursor-pointer hover:border-primary/40 hover:scale-[1.01] transition-all duration-150 ${variant === 'completed' ? 'opacity-70' : ''}`}
+      <button
         onClick={() => navigate(`/garage/${project.vehicle_id}/projects/${project.id}`)}
+        className={cn(
+          'w-full flex items-center gap-3 rounded-xl border border-border p-3 pl-4 text-left transition-all card-hover',
+          'border-l-[3px]', config.borderColor,
+          project.status === 'completed' && 'opacity-60'
+        )}
       >
-        <CardContent className="p-4 space-y-3">
-          {v && (
-            <Badge variant="secondary" className="text-[11px]">
-              {v.year} {v.make} {v.model}
-            </Badge>
-          )}
-          <div className="flex items-start gap-3">
-            <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${variant === 'active' ? 'text-primary' : variant === 'completed' ? 'text-success' : 'text-muted-foreground'}`} />
-            <div className="min-w-0 flex-1">
-              <h3 className="text-base font-semibold leading-tight">{project.title}</h3>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                {project.difficulty && <Badge className={`text-xs ${DIFFICULTY_COLORS[project.difficulty] || ''}`}>{project.difficulty}</Badge>}
-                {total > 0 && <span className="text-xs text-muted-foreground">{done}/{total} steps</span>}
-              </div>
-            </div>
+        <config.icon className={cn('h-4 w-4 shrink-0', config.color)} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{project.title}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {project.difficulty && (
+              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', DIFFICULTY_COLORS[project.difficulty])}>{project.difficulty}</span>
+            )}
+            {total > 0 && <span className="text-[11px] text-muted-foreground">{done}/{total} steps</span>}
+            {cost > 0 && <span className="text-[11px] text-muted-foreground flex items-center gap-0.5"><DollarSign className="h-2.5 w-2.5" />{cost.toFixed(0)}</span>}
           </div>
-
-          {variant === 'active' && total > 0 && (
-            <Progress value={progress} className="h-1.5" />
-          )}
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              {variant === 'active' && project.actual_minutes != null && (
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {Math.floor((project.actual_minutes || 0) / 60)}h {(project.actual_minutes || 0) % 60}m</span>
-              )}
-              {variant === 'planned' && project.estimated_minutes && (
-                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Est. {Math.round(project.estimated_minutes / 60)}h</span>
-              )}
-              {cost > 0 && (
-                <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" /> ${cost.toFixed(0)}</span>
-              )}
-              {variant === 'completed' && project.completed_at && (
-                <span>{new Date(project.completed_at).toLocaleDateString()}</span>
-              )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {project.status === 'active' && total > 0 && (
+            <div className="w-14 h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
-            <Button size="sm" variant={variant === 'active' ? 'default' : 'ghost'} className="text-xs gap-1 h-8">
-              {variant === 'active' ? 'Resume' : variant === 'completed' ? 'View' : 'Open'}
-              <ArrowRight className="h-3 w-3" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+          {total > 0 && <span className="text-xs font-medium text-muted-foreground w-8 text-right">{progress}%</span>}
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </button>
     );
   };
 
@@ -174,7 +199,7 @@ export default function ActiveWork() {
         <p className="text-muted-foreground mb-6 max-w-sm">
           Start your first repair project and Ratchet will guide you through every step.
         </p>
-        <Button size="lg" onClick={handleNewProject} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button size="lg" onClick={handleNewProject}>
           <Sparkles className="h-5 w-5 mr-2" /> Start a Project
         </Button>
         {activeVehicle && (
@@ -190,84 +215,121 @@ export default function ActiveWork() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Hero Header */}
-      <div className="px-4 md:px-6 py-6 md:py-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-[28px] font-bold">Active Work</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              What's happening across your garage
-            </p>
-          </div>
-          <Button onClick={handleNewProject} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Sparkles className="h-4 w-4 mr-2" /> New Project
-          </Button>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Active Work</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {totalActive > 0 && <span className="text-primary font-medium">{totalActive} in progress</span>}
+            {totalActive > 0 && (totalPlanned + totalPaused > 0) && ' · '}
+            {totalPlanned > 0 && `${totalPlanned} planned`}
+            {totalPaused > 0 && ` · ${totalPaused} paused`}
+            {totalActive === 0 && totalPlanned === 0 && totalPaused === 0 && 'All caught up 🎉'}
+          </p>
         </div>
+        <Button onClick={handleNewProject} size="sm">
+          <Sparkles className="h-4 w-4 mr-2" /> New Project
+        </Button>
       </div>
 
-      <div className="p-4 md:p-6 space-y-8 max-w-[1200px] mx-auto">
-        {/* Active Projects */}
-        {active.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-semibold">In Progress</h2>
-              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {active.map(p => <ProjectCard key={p.id} project={p} variant="active" />)}
-            </div>
-          </section>
-        )}
+      {/* View toggle */}
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'vehicle' | 'status')} className="w-full">
+        <TabsList className="w-fit">
+          <TabsTrigger value="vehicle" className="text-xs gap-1.5">
+            <Car className="h-3.5 w-3.5" /> By Vehicle
+          </TabsTrigger>
+          <TabsTrigger value="status" className="text-xs gap-1.5">
+            <Play className="h-3.5 w-3.5" /> By Status
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Ready to start */}
-        {readyToStart.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Ready to Start</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {readyToStart.map(p => <ProjectCard key={p.id} project={p} variant="planned" />)}
-            </div>
-          </section>
-        )}
+        {/* ── By Vehicle ──────────────────────────────────────── */}
+        <TabsContent value="vehicle" className="space-y-6 mt-4">
+          {vehicleGroups.map(({ vehicle, vehicleId, projects: vProjects, activeCount, totalProgress }) => {
+            const active = vProjects.filter(p => p.status === 'active');
+            const other = vProjects.filter(p => p.status !== 'active' && p.status !== 'completed');
+            const completed = vProjects.filter(p => p.status === 'completed').slice(0, 2);
+            const vName = vehicle
+              ? (vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`)
+              : 'Unknown Vehicle';
 
-        {/* Paused */}
-        {paused.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Pause className="h-4 w-4 text-warning" /> Paused
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {paused.map(p => <ProjectCard key={p.id} project={p} variant="planned" />)}
-            </div>
-          </section>
-        )}
+            return (
+              <section key={vehicleId} className="rounded-xl border border-border overflow-hidden">
+                {/* Vehicle header */}
+                <button
+                  onClick={() => navigate(`/garage/${vehicleId}`)}
+                  className="w-full flex items-center gap-3 p-4 bg-card hover:bg-accent/30 transition-colors text-left"
+                  style={{ borderLeftWidth: '4px', borderLeftColor: vehicle?.color || 'hsl(var(--primary))' }}
+                >
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Car className="h-4.5 w-4.5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{vName}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {vProjects.length} project{vProjects.length !== 1 ? 's' : ''}
+                      {activeCount > 0 && <span className="text-primary"> · {activeCount} active</span>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {totalProgress > 0 && totalProgress < 100 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${totalProgress}%` }} />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{totalProgress}%</span>
+                      </div>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
 
-        {/* Planned */}
-        {planned.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Up Next</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {planned.map(p => <ProjectCard key={p.id} project={p} variant="planned" />)}
-            </div>
-          </section>
-        )}
+                {/* Projects under this vehicle */}
+                <div className="p-3 space-y-2 bg-background">
+                  {active.map(p => <ProjectRow key={p.id} project={p} />)}
+                  {other.map(p => <ProjectRow key={p.id} project={p} />)}
+                  {completed.map(p => <ProjectRow key={p.id} project={p} />)}
+                </div>
+              </section>
+            );
+          })}
+        </TabsContent>
 
-        {/* Completed */}
-        {completed.length > 0 && (
-          <Collapsible open={showCompleted} onOpenChange={setShowCompleted}>
-            <CollapsibleTrigger className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-semibold">Recently Completed</h2>
-              <Badge variant="secondary" className="text-xs">{completed.length}</Badge>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showCompleted ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {completed.map(p => <ProjectCard key={p.id} project={p} variant="completed" />)}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-      </div>
+        {/* ── By Status ───────────────────────────────────────── */}
+        <TabsContent value="status" className="space-y-6 mt-4">
+          {(['active', 'planning', 'paused', 'completed'] as const).map(status => {
+            const items = statusGroups[status] || [];
+            if (!items.length) return null;
+            const config = STATUS_CONFIG[status];
+            return (
+              <section key={status}>
+                <div className="flex items-center gap-2 mb-3">
+                  <config.icon className={cn('h-4 w-4', config.color)} />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide">{config.label}</h2>
+                  <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+                  {status === 'active' && <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+                </div>
+                <div className="space-y-2">
+                  {items.map(p => {
+                    const v = vehicleMap.get(p.vehicle_id);
+                    return (
+                      <div key={p.id} className="relative">
+                        {v && (
+                          <span className="absolute -top-1 right-2 text-[9px] bg-secondary px-1.5 py-0.5 rounded-b-md text-muted-foreground z-10">
+                            {v.nickname || `${v.year} ${v.make} ${v.model}`}
+                          </span>
+                        )}
+                        <ProjectRow project={p} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </TabsContent>
+      </Tabs>
 
       {activeVehicle && (
         <NewProjectSheet
