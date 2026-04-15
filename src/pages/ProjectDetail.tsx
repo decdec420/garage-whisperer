@@ -17,12 +17,14 @@ import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
-  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search
+  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search, Loader2
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
 import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { uploadFile, getSignedUrl } from '@/lib/storage-helpers';
+import { compressImage } from '@/lib/image-compress';
 
 type ProjectRow = {
   id: string; vehicle_id: string; user_id: string; title: string; description: string | null;
@@ -179,11 +181,14 @@ export default function ProjectDetail() {
   const [checkedSubSteps, setCheckedSubSteps] = useState<Record<string, Set<number>>>({});
   const [showCompletion, setShowCompletion] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string }[]; index: number } | null>(null);
+  const [lightboxState, setLightboxState] = useState<{ images: { url: string; title?: string; sourceUrl?: string; isUserPhoto?: boolean }[]; index: number } | null>(null);
   const stepRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const { user } = useAuth();
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [uploadingStepId, setUploadingStepId] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoStepIdRef = useRef<string | null>(null);
 
   // Queries
   const { data: project } = useQuery({
@@ -426,6 +431,68 @@ export default function ProjectDetail() {
       await supabase.from('project_notes').delete().eq('id', id);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project-notes', projectId] }),
+  });
+
+  // Step photo upload
+  const uploadStepPhoto = useMutation({
+    mutationFn: async ({ stepId, file }: { stepId: string; file: File }) => {
+      if (!user) throw new Error('Not authenticated');
+      setUploadingStepId(stepId);
+      const compressed = await compressImage(file);
+      const path = await uploadFile('repair-photos', compressed, user.id, `steps/${stepId}`);
+      // Append path to photo_urls
+      const step = steps.find(s => s.id === stepId);
+      const existing = step?.photo_urls || [];
+      await supabase.from('project_steps').update({
+        photo_urls: [...existing, path],
+      }).eq('id', stepId);
+      return path;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      toast.success('Photo added 📸');
+      setUploadingStepId(null);
+    },
+    onError: (err: any) => {
+      toast.error(`Upload failed: ${err.message}`);
+      setUploadingStepId(null);
+    },
+  });
+
+  const deleteStepPhoto = useMutation({
+    mutationFn: async ({ stepId, photoPath, photoIdx }: { stepId: string; photoPath: string; photoIdx: number }) => {
+      const step = steps.find(s => s.id === stepId);
+      const existing = [...(step?.photo_urls || [])];
+      existing.splice(photoIdx, 1);
+      await supabase.from('project_steps').update({ photo_urls: existing }).eq('id', stepId);
+      // Best-effort delete from storage
+      await supabase.storage.from('repair-photos').remove([photoPath]).catch(() => {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-steps', projectId] });
+      toast.success('Photo removed');
+    },
+  });
+
+  // Resolve signed URLs for step photos
+  const allPhotoUrls = steps.flatMap(s => (s.photo_urls || []).map(p => `${s.id}::${p}`));
+  const { data: signedUrlMap = {} } = useQuery({
+    queryKey: ['step-photo-urls', allPhotoUrls.join(',')],
+    queryFn: async () => {
+      const map: Record<string, string> = {};
+      await Promise.all(
+        steps.flatMap(s =>
+          (s.photo_urls || []).map(async (path) => {
+            const key = `${s.id}::${path}`;
+            const url = await getSignedUrl('repair-photos', path, 3600);
+            if (url) map[key] = url;
+          })
+        )
+      );
+      return map;
+    },
+    enabled: allPhotoUrls.length > 0,
+    staleTime: 30 * 60 * 1000, // 30 min
   });
 
   const completedSteps = steps.filter(s => s.status === 'done').length;
@@ -1006,6 +1073,65 @@ export default function ProjectDetail() {
                       </div>
                     )}
 
+                    {/* Step Photos — camera + thumbnails */}
+                    {(() => {
+                      const stepPhotos = step.photo_urls || [];
+                      const isUploading = uploadingStepId === step.id;
+                      const resolvedPhotos = stepPhotos.map((path, pi) => ({
+                        path,
+                        url: signedUrlMap[`${step.id}::${path}`] || '',
+                        idx: pi,
+                      })).filter(p => p.url);
+
+                      return (
+                        <div className="space-y-2">
+                          {/* Thumbnail strip */}
+                          {resolvedPhotos.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
+                              {resolvedPhotos.map((photo, i) => (
+                                <button key={photo.path} className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors relative group"
+                                  style={{ width: 80, height: 80 }}
+                                  onClick={() => setLightboxState({
+                                    images: resolvedPhotos.map(p => ({ url: p.url, title: `Step ${step.step_number} photo`, isUserPhoto: true })),
+                                    index: i,
+                                  })}>
+                                  <img src={photo.url} alt={`Step ${step.step_number} photo ${i + 1}`}
+                                    className="w-full h-full object-cover" loading="lazy" />
+                                  {!isDone && (
+                                    <button
+                                      className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteStepPhoto.mutate({ stepId: step.id, photoPath: photo.path, photoIdx: photo.idx });
+                                      }}>
+                                      <X className="h-3 w-3 text-destructive" />
+                                    </button>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {/* Camera button */}
+                          {!isDone && (
+                            <button
+                              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40"
+                              disabled={isUploading}
+                              onClick={() => {
+                                photoStepIdRef.current = step.id;
+                                photoInputRef.current?.click();
+                              }}>
+                              {isUploading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Camera className="h-4 w-4" />
+                              )}
+                              {isUploading ? 'Uploading...' : 'Add photo'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Tip */}
                     {step.tip && (
                       <div className="rounded-lg border border-warning/30 bg-[#1a1500] p-3" style={{ borderLeftWidth: 4, borderLeftColor: '#eab308' }}>
@@ -1070,12 +1196,48 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* Hidden file input for step photos */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const stepId = photoStepIdRef.current;
+          if (file && stepId) {
+            uploadStepPhoto.mutate({ stepId, file });
+          }
+          e.target.value = '';
+        }}
+      />
+
       {/* Lightbox */}
       {lightboxState && (
         <FactoryPhotoLightbox
           images={lightboxState.images}
           initialIndex={lightboxState.index}
           onClose={() => setLightboxState(null)}
+          onDelete={lightboxState.images[0]?.isUserPhoto ? (idx) => {
+            // Find which step this photo belongs to by matching URL
+            const img = lightboxState.images[idx];
+            if (!img) return;
+            for (const step of steps) {
+              const photos = step.photo_urls || [];
+              for (let pi = 0; pi < photos.length; pi++) {
+                const key = `${step.id}::${photos[pi]}`;
+                if (signedUrlMap[key] === img.url) {
+                  deleteStepPhoto.mutate({ stepId: step.id, photoPath: photos[pi], photoIdx: pi });
+                  // Close lightbox if last photo
+                  if (lightboxState.images.length <= 1) {
+                    setLightboxState(null);
+                  }
+                  return;
+                }
+              }
+            }
+          } : undefined}
         />
       )}
     </div>

@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Mic, Volume2, VolumeX, Wrench, AlertTriangle, Lightbulb, Zap, Droplets, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Check, Mic, Volume2, VolumeX, Wrench, AlertTriangle, Lightbulb, Zap, Droplets, ArrowLeft, ArrowRight, Camera, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { uploadFile } from '@/lib/storage-helpers';
+import { compressImage } from '@/lib/image-compress';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface MechanicModeProps {
   project: any;
@@ -51,9 +57,13 @@ export default function MechanicMode({
   const [subStepsChecked, setSubStepsChecked] = useState<Set<number>>(new Set());
   const [showCompletion, setShowCompletion] = useState(false);
   const [greenFlash, setGreenFlash] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const step = steps[activeStepIdx];
   const isDone = step?.status === 'done';
@@ -63,6 +73,24 @@ export default function MechanicMode({
   const pctDone = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
   const isLastStep = activeStepIdx >= steps.length - 1;
   const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
+
+  const handlePhotoCapture = useCallback(async (file: File) => {
+    if (!user || !step) return;
+    setIsUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      const path = await uploadFile('repair-photos', compressed, user.id, `steps/${step.id}`);
+      const existing = step.photo_urls || [];
+      await supabase.from('project_steps').update({
+        photo_urls: [...existing, path],
+      }).eq('id', step.id);
+      queryClient.invalidateQueries({ queryKey: ['project-steps', project.id] });
+      toast.success('Photo captured 📸');
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
+    }
+    setIsUploading(false);
+  }, [user, step, project.id, queryClient]);
 
   useEffect(() => {
     setSubStepsChecked(new Set());
@@ -299,8 +327,42 @@ export default function MechanicMode({
           </div>
         )}
 
+        {/* Camera button — large touch target */}
+        {!isDone && (
+          <div className="px-5 pb-4">
+            <button
+              className="w-full flex items-center justify-center gap-3 rounded-xl transition-colors"
+              style={{ height: 56, background: '#1a1a1a', border: '1px solid #27272a' }}
+              disabled={isUploading}
+              onClick={() => photoInputRef.current?.click()}>
+              {isUploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              ) : (
+                <Camera className="h-6 w-6 text-primary" />
+              )}
+              <span style={{ fontSize: 16, color: '#e4e4e7' }}>
+                {isUploading ? 'Uploading...' : '📸 Snap a photo'}
+              </span>
+            </button>
+          </div>
+        )}
+
         <div style={{ height: 100 }} />
       </div>
+
+      {/* Hidden photo input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handlePhotoCapture(file);
+          e.target.value = '';
+        }}
+      />
 
       {/* Bottom bar */}
       <div className="shrink-0 flex items-center gap-3 px-4" style={{ height: 80, background: '#0a0a0a', borderTop: '1px solid #1a1a1a', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
