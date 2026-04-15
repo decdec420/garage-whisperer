@@ -1,13 +1,18 @@
 /**
  * Model-specific trim and engine options for popular vehicles.
  * Keyed by MAKE (uppercase) → MODEL (uppercase) → options[].
- * Falls back to empty array (renders text input) when no match.
+ * 
+ * TRIM_ENGINES provides trim→engine cascading for models where it matters.
+ * When a trim is selected, only relevant engines are shown.
+ * 
+ * These cover common RECENT configurations. Older model years may differ —
+ * all fields accept free text entry alongside dropdown suggestions.
  */
 
 export const MODEL_TRIMS: Record<string, Record<string, string[]>> = {
   FORD: {
     'F-150': ['XL', 'XLT', 'Lariat', 'King Ranch', 'Platinum', 'Limited', 'Raptor', 'Tremor', 'STX'],
-    'MUSTANG': ['EcoBoost', 'EcoBoost Premium', 'GT', 'GT Premium', 'Mach 1', 'Shelby GT500', 'Dark Horse', 'Bullitt'],
+    'MUSTANG': ['EcoBoost', 'EcoBoost Premium', 'GT', 'GT Premium', 'Mach 1', 'Shelby GT500', 'Dark Horse', 'Bullitt', 'V6'],
     'EXPLORER': ['Base', 'XLT', 'Limited', 'ST', 'Platinum', 'Timberline', 'King Ranch'],
     'ESCAPE': ['S', 'SE', 'SEL', 'Titanium', 'PHEV', 'ST-Line'],
     'TRANSIT CONNECT': ['XL', 'XLT', 'Titanium'],
@@ -187,7 +192,7 @@ export const MODEL_TRIMS: Record<string, Record<string, string[]>> = {
 export const MODEL_ENGINES: Record<string, Record<string, string[]>> = {
   FORD: {
     'F-150': ['2.7L V6 Turbo', '3.3L V6', '3.5L V6 Turbo', '3.5L V6 Turbo Hybrid (PowerBoost)', '5.0L V8'],
-    'MUSTANG': ['2.3L 4cyl Turbo', '5.0L V8', '5.2L V8 Supercharged'],
+    'MUSTANG': ['2.3L 4cyl Turbo (EcoBoost)', '4.0L V6', '4.6L V8 (3V)', '5.0L V8 (Coyote)', '5.2L V8 Supercharged (Predator)', '5.4L V8 Supercharged', '5.8L V8 Supercharged'],
     'EXPLORER': ['2.3L 4cyl Turbo', '3.0L V6 Turbo', '3.3L V6 Hybrid'],
     'ESCAPE': ['1.5L 3cyl Turbo', '2.0L 4cyl Turbo', '2.5L 4cyl Hybrid', '2.5L 4cyl PHEV'],
     'TRANSIT CONNECT': ['2.0L 4cyl', '2.5L 4cyl'],
@@ -283,11 +288,109 @@ export const MODEL_ENGINES: Record<string, Record<string, string[]>> = {
     'TITAN': ['5.6L V8'],
     'Z': ['3.0L V6 Turbo'],
   },
+  DODGE: {
+    'CHARGER': ['3.6L V6', '5.7L V8', '6.2L V8 Supercharged', '6.4L V8'],
+    'CHALLENGER': ['3.6L V6', '5.7L V8', '6.2L V8 Supercharged', '6.4L V8'],
+    'DURANGO': ['3.6L V6', '5.7L V8', '6.2L V8 Supercharged', '6.4L V8'],
+  },
   TESLA: {
     'MODEL 3': ['Single Motor', 'Dual Motor', 'Tri Motor'],
     'MODEL Y': ['Single Motor', 'Dual Motor', 'Tri Motor'],
     'MODEL S': ['Dual Motor', 'Tri Motor (Plaid)'],
     'MODEL X': ['Dual Motor', 'Tri Motor (Plaid)'],
+  },
+};
+
+/**
+ * Trim-to-engine cascading for models where trim determines engine.
+ * When a trim is selected AND exists here, only those engines are shown.
+ * If the trim isn't found, all engines for the model are shown.
+ * 
+ * NOTE: These reflect common/recent configs. Older years may differ —
+ * the UI always allows free-text entry for any field.
+ */
+export const TRIM_ENGINES: Record<string, Record<string, Record<string, string[]>>> = {
+  FORD: {
+    'MUSTANG': {
+      'V6': ['4.0L V6'],
+      'ECOBOOST': ['2.3L 4cyl Turbo (EcoBoost)'],
+      'ECOBOOST PREMIUM': ['2.3L 4cyl Turbo (EcoBoost)'],
+      'GT': ['4.6L V8 (3V)', '5.0L V8 (Coyote)'],
+      'GT PREMIUM': ['4.6L V8 (3V)', '5.0L V8 (Coyote)'],
+      'BULLITT': ['4.6L V8 (3V)', '5.0L V8 (Coyote)'],
+      'MACH 1': ['5.0L V8 (Coyote)'],
+      'DARK HORSE': ['5.0L V8 (Coyote)'],
+      'SHELBY GT500': ['5.2L V8 Supercharged (Predator)', '5.4L V8 Supercharged', '5.8L V8 Supercharged'],
+    },
+    'F-150': {
+      'RAPTOR': ['3.5L V6 Turbo'],
+      'LIMITED': ['3.5L V6 Turbo', '3.5L V6 Turbo Hybrid (PowerBoost)'],
+      'KING RANCH': ['3.5L V6 Turbo', '3.5L V6 Turbo Hybrid (PowerBoost)', '5.0L V8'],
+      'PLATINUM': ['3.5L V6 Turbo', '3.5L V6 Turbo Hybrid (PowerBoost)'],
+    },
+  },
+  CHEVROLET: {
+    'CAMARO': {
+      '1LS': ['2.0L 4cyl Turbo', '3.6L V6'],
+      '1LT': ['2.0L 4cyl Turbo', '3.6L V6'],
+      '2LT': ['2.0L 4cyl Turbo', '3.6L V6'],
+      '3LT': ['3.6L V6'],
+      'LT1': ['6.2L V8'],
+      '1SS': ['6.2L V8'],
+      '2SS': ['6.2L V8'],
+      'ZL1': ['6.2L V8 Supercharged'],
+    },
+    'CORVETTE': {
+      '1LT': ['6.2L V8'],
+      '2LT': ['6.2L V8'],
+      '3LT': ['6.2L V8'],
+      'Z06': ['5.5L V8'],
+      'E-RAY': ['6.2L V8'],
+      '1LZ': ['5.5L V8'],
+      '2LZ': ['5.5L V8'],
+      '3LZ': ['5.5L V8'],
+    },
+  },
+  DODGE: {
+    'CHARGER': {
+      'SXT': ['3.6L V6'],
+      'GT': ['3.6L V6'],
+      'R/T': ['5.7L V8'],
+      'SCAT PACK': ['6.4L V8'],
+      'SRT HELLCAT': ['6.2L V8 Supercharged'],
+      'SRT HELLCAT REDEYE': ['6.2L V8 Supercharged'],
+      'SRT JAILBREAK': ['6.2L V8 Supercharged'],
+    },
+    'CHALLENGER': {
+      'SXT': ['3.6L V6'],
+      'GT': ['3.6L V6'],
+      'R/T': ['5.7L V8'],
+      'R/T SCAT PACK': ['6.4L V8'],
+      'SRT HELLCAT': ['6.2L V8 Supercharged'],
+      'SRT HELLCAT REDEYE': ['6.2L V8 Supercharged'],
+      'SRT SUPER STOCK': ['6.2L V8 Supercharged'],
+      'SRT DEMON 170': ['6.2L V8 Supercharged'],
+    },
+  },
+  JEEP: {
+    'WRANGLER': {
+      '392': ['6.4L V8'],
+      '4XE': ['2.0L 4cyl Turbo PHEV'],
+    },
+  },
+  TOYOTA: {
+    'SUPRA': {
+      '2.0': ['2.0L 4cyl Turbo'],
+      '3.0': ['3.0L 6cyl Turbo'],
+      '3.0 PREMIUM': ['3.0L 6cyl Turbo'],
+      'A91 EDITION': ['3.0L 6cyl Turbo'],
+    },
+  },
+  HONDA: {
+    'CIVIC': {
+      'SI': ['1.5L 4cyl Turbo'],
+      'TYPE R': ['2.0L 4cyl Turbo'],
+    },
   },
 };
 
@@ -303,11 +406,20 @@ export function getTrimOptions(make: string, model: string): string[] {
 }
 
 /**
- * Look up engine options for a specific make + model.
- * Returns empty array if no match (caller should render text input).
+ * Look up engine options for a specific make + model + optional trim.
+ * When trim is provided and has a TRIM_ENGINES mapping, returns only
+ * the engines valid for that trim. Otherwise returns all model engines.
  */
-export function getEngineOptions(make: string, model: string): string[] {
+export function getEngineOptions(make: string, model: string, trim?: string): string[] {
   if (!make || !model) return [];
+  
+  // Check trim-specific engines first
+  if (trim) {
+    const trimEngines = TRIM_ENGINES[make.toUpperCase()]?.[model.toUpperCase()]?.[trim.toUpperCase()];
+    if (trimEngines && trimEngines.length > 0) return trimEngines;
+  }
+  
+  // Fall back to all engines for the model
   const makeData = MODEL_ENGINES[make.toUpperCase()];
   if (!makeData) return [];
   return makeData[model.toUpperCase()] ?? [];
