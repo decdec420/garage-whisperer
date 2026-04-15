@@ -1,14 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ChevronLeft, ChevronRight, BookOpen, ExternalLink } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 
-interface FactoryPhotoLightboxProps {
-  images: { url: string; title?: string; sourceUrl?: string }[];
-  initialIndex?: number;
-  onClose: () => void;
+interface PhotoLightboxImage {
+  url: string;
+  title?: string;
+  sourceUrl?: string;
+  isUserPhoto?: boolean;
 }
 
-export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose }: FactoryPhotoLightboxProps) {
+interface FactoryPhotoLightboxProps {
+  images: PhotoLightboxImage[];
+  initialIndex?: number;
+  onClose: () => void;
+  onDelete?: (index: number) => void;
+}
+
+export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose, onDelete }: FactoryPhotoLightboxProps) {
   const [idx, setIdx] = useState(initialIndex);
   const img = images[idx];
 
@@ -27,19 +35,30 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
 
   if (!img) return null;
 
+  const isCharm = !img.isUserPhoto;
+  const attribution = isCharm
+    ? 'Source: Operation CHARM (charm.li) — Factory Service Manual'
+    : `Photo ${idx + 1} of ${images.length}`;
+
   const content = (
     <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: 'rgba(0,0,0,0.95)' }}
       onClick={onClose}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-primary" />
+          {isCharm && <BookOpen className="h-4 w-4 text-primary" />}
           <span className="text-xs text-muted-foreground">
-            {img.title || `Factory Diagram ${idx + 1} of ${images.length}`}
+            {img.title || (isCharm ? `Factory Diagram ${idx + 1} of ${images.length}` : `Step Photo ${idx + 1} of ${images.length}`)}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {img.sourceUrl && (
+          {img.isUserPhoto && onDelete && (
+            <button onClick={() => onDelete(idx)}
+              className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/20 transition-colors">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
+          )}
+          {img.sourceUrl && isCharm && (
             <a href={img.sourceUrl} target="_blank" rel="noopener noreferrer"
               className="text-xs text-primary flex items-center gap-1 hover:underline">
               charm.li <ExternalLink className="h-3 w-3" />
@@ -55,7 +74,7 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
       <div className="flex-1 flex items-center justify-center px-4 overflow-hidden" onClick={e => e.stopPropagation()}>
         <img
           src={img.url}
-          alt={img.title || 'Factory diagram'}
+          alt={img.title || 'Photo'}
           className="max-w-full max-h-full object-contain select-none"
           draggable={false}
         />
@@ -80,7 +99,7 @@ export default function FactoryPhotoLightbox({ images, initialIndex = 0, onClose
 
       {/* Attribution */}
       <div className="text-center pb-4 shrink-0">
-        <span className="text-[11px] text-muted-foreground">Source: Operation CHARM (charm.li) — Honda Factory Service Manual</span>
+        <span className="text-[11px] text-muted-foreground">{attribution}</span>
       </div>
     </div>
   );
