@@ -57,9 +57,13 @@ export default function MechanicMode({
   const [subStepsChecked, setSubStepsChecked] = useState<Set<number>>(new Set());
   const [showCompletion, setShowCompletion] = useState(false);
   const [greenFlash, setGreenFlash] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const step = steps[activeStepIdx];
   const isDone = step?.status === 'done';
@@ -69,6 +73,24 @@ export default function MechanicMode({
   const pctDone = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
   const isLastStep = activeStepIdx >= steps.length - 1;
   const vehicleLabel = vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : '';
+
+  const handlePhotoCapture = useCallback(async (file: File) => {
+    if (!user || !step) return;
+    setIsUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      const path = await uploadFile('repair-photos', compressed, user.id, `steps/${step.id}`);
+      const existing = step.photo_urls || [];
+      await supabase.from('project_steps').update({
+        photo_urls: [...existing, path],
+      }).eq('id', step.id);
+      queryClient.invalidateQueries({ queryKey: ['project-steps', project.id] });
+      toast.success('Photo captured 📸');
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
+    }
+    setIsUploading(false);
+  }, [user, step, project.id, queryClient]);
 
   useEffect(() => {
     setSubStepsChecked(new Set());
