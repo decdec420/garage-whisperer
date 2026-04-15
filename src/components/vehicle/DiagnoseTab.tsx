@@ -542,7 +542,14 @@ export default function DiagnoseTab({ vehicleId, vehicle }: DiagnoseTabProps) {
           className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <h2 className="text-lg font-semibold text-foreground flex-1">New Diagnosis</h2>
+        <h2 className="text-lg font-semibold text-foreground flex-1">
+          New Diagnosis
+          {obdSource && (
+            <Badge className="ml-2 text-[10px] h-5 bg-primary/10 text-primary border-primary/30">
+              🔧 Scanned via OBD-II · {obdSource}
+            </Badge>
+          )}
+        </h2>
         <button onClick={resetWizard} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
           Cancel
         </button>
