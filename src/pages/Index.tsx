@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
+import CircularGauge from '@/components/CircularGauge';
 import {
   Car, Plus, AlertTriangle, CheckCircle2, Clock, Wrench,
   ChevronRight, Cpu, FolderOpen, DollarSign, Activity,
@@ -295,13 +295,15 @@ export default function Dashboard() {
       {/* ── Needs Attention ─────────────────────────────────────── */}
       {attentionItems.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Needs Attention</h2>
+          <h2 className="section-heading text-muted-foreground mb-3">Needs Attention</h2>
           <div className="space-y-2">
             {attentionItems.slice(0, 5).map((item, i) => (
               <button
                 key={i}
                 onClick={item.action}
-                className="w-full flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary/30 hover:bg-accent/50 transition-colors text-left"
+                className="attention-card w-full flex items-center gap-3 rounded-xl border border-border p-3 pl-4 hover:border-primary/30 hover:bg-accent/50 transition-colors text-left animate-stagger-in"
+                data-severity={item.type === 'overdue' ? 'overdue' : item.type === 'dtc' ? 'dtc' : 'info'}
+                style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className={cn('h-9 w-9 rounded-lg flex items-center justify-center shrink-0', item.type === 'overdue' ? 'bg-destructive/10' : item.type === 'dtc' ? 'bg-warning/10' : 'bg-muted')}>
                   <item.icon className={cn('h-4 w-4', item.color)} />
@@ -319,7 +321,7 @@ export default function Dashboard() {
 
       {/* ── Vehicle Health Cards ────────────────────────────────── */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vehicle Health</h2>
+        <h2 className="section-heading text-muted-foreground mb-3">Vehicle Health</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {vehicleHealth.map(vh => (
             <Card
@@ -338,22 +340,22 @@ export default function Dashboard() {
                     )}
                   </div>
                   {vh.healthScore !== null ? (
-                    <div className={cn(
-                      'text-lg font-bold',
-                      vh.healthScore >= 80 ? 'text-success' : vh.healthScore >= 50 ? 'text-warning' : 'text-destructive'
-                    )}>
-                      {vh.healthScore}%
-                    </div>
+                    <CircularGauge value={vh.healthScore} size={48} strokeWidth={3.5} />
                   ) : (
                     <Badge variant="secondary" className="text-[10px]">No data</Badge>
                   )}
                 </div>
 
                 {vh.healthScore !== null && (
-                  <Progress
-                    value={vh.healthScore}
-                    className="h-1.5 mb-3"
-                  />
+                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-3">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${vh.healthScore}%`,
+                        background: `linear-gradient(90deg, hsl(var(--primary)), hsl(var(--warning)))`,
+                      }}
+                    />
+                  </div>
                 )}
 
                 <div className="flex items-center gap-3 text-xs">
@@ -393,7 +395,7 @@ export default function Dashboard() {
       {activeProjects && activeProjects.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Active Projects</h2>
+            <h2 className="section-heading text-muted-foreground">Active Projects</h2>
             <button onClick={() => navigate('/active-work')} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <div className="space-y-2">
@@ -435,7 +437,7 @@ export default function Dashboard() {
       {/* ── Vehicle Expenses Summary ───────────────────────────── */}
       {vehicleExpenses && Object.keys(vehicleExpenses).length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Vehicle Expenses</h2>
+          <h2 className="section-heading text-muted-foreground mb-3">Vehicle Expenses</h2>
           <Card>
             <CardContent className="p-4">
               <div className="space-y-3">
