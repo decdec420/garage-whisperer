@@ -379,19 +379,35 @@ function titleCaseMake(make: string): string {
   return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
 }
 
-function formatEngineForCharm(engine: string | null, model: string): string {
-  if (!engine) return model;
+function normalizeDrivetrain(dt: string | null | undefined): string | null {
+  if (!dt) return null;
+  const u = dt.toUpperCase().replace(/[\s-]/g, '');
+  if (u === 'FWD' || u.includes('FRONTWHEEL')) return 'FWD';
+  if (u === 'RWD' || u.includes('REARWHEEL')) return 'RWD';
+  if (u === 'AWD' || u.includes('ALLWHEEL')) return 'AWD';
+  if (u === '4WD' || u === '4X4' || u.includes('FOURWHEEL')) return '4WD';
+  if (u === '2WD' || u === '2X4' || u.includes('TWOWHEEL')) return '2WD';
+  return null;
+}
+
+function formatEngineForManual(engine: string | null, model: string, drivetrain?: string | null): string {
+  const dt = normalizeDrivetrain(drivetrain);
+  if (!engine) return dt ? `${model} ${dt}` : model;
   const dm = engine.match(/(\d+\.?\d*)\s*L/i);
   const rawD = dm ? parseFloat(dm[1]) : null;
   const d = rawD ? roundDisplacement(rawD) : null;
-  let c = "";
-  if (/V\s*6|V6/i.test(engine)) c = "V6";
-  else if (/V\s*8|V8/i.test(engine)) c = "V8";
-  else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = "L4";
-  else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = "L6";
-  if (d && c) return `${model} ${c}-${d}L`;
-  if (d) return `${model} ${d}L`;
-  return model;
+  let c = '';
+  if (/V\s*6|V6/i.test(engine)) c = 'V6';
+  else if (/V\s*8|V8/i.test(engine)) c = 'V8';
+  else if (/I\s*4|L4|4[\s-]?cyl|inline[\s-]?4/i.test(engine)) c = 'L4';
+  else if (/I\s*6|L6|inline[\s-]?6/i.test(engine)) c = 'L6';
+  let enginePart = '';
+  if (d && c) enginePart = `${c}-${d}L`;
+  else if (d) enginePart = `${d}L`;
+  const parts = [model];
+  if (dt) parts.push(dt);
+  if (enginePart) parts.push(enginePart);
+  return parts.join(' ');
 }
 
 function extractImages(html: string): string[] {
@@ -400,28 +416,23 @@ function extractImages(html: string): string[] {
   let m;
   while ((m = imgRegex.exec(html)) !== null) {
     const src = m[1];
-    if (src.includes("charm.li/images") || (src.includes("/images/") && !src.includes("/icons/"))) {
-      images.push(src.startsWith("http") ? src : `https://charm.li${src.startsWith("/") ? "" : "/"}${src}`);
+    if (src.includes('lemon-manuals.la/images') || src.includes('/images/') && !src.includes('/icons/')) {
+      images.push(src.startsWith('http') ? src : `https://lemon-manuals.la${src.startsWith('/') ? '' : '/'}${src}`);
     }
   }
   return [...new Set(images)];
 }
 
 function extractProcedureText(html: string): string {
-  let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  let cleaned = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
   const parts: string[] = [];
   const cRe = /<(?:p|li|td|div|span|h[1-6])[^>]*>([\s\S]*?)<\/(?:p|li|td|div|span|h[1-6])>/gi;
   let m;
   while ((m = cRe.exec(cleaned)) !== null) {
-    const t = m[1]
-      .replace(/<[^>]+>/g, "")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/\s+/g, " ")
-      .trim();
+    const t = m[1].replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
     if (t.length > 5) parts.push(t);
   }
-  return [...new Set(parts)].join("\n");
+  return [...new Set(parts)].join('\n');
 }
 
 function extractTorqueSpecs(text: string): any[] {
@@ -430,54 +441,49 @@ function extractTorqueSpecs(text: string): any[] {
   let m;
   while ((m = tRe.exec(text)) !== null) {
     const start = Math.max(0, m.index - 60);
-    const ctx = text.slice(start, m.index).replace(/\n/g, " ").trim();
-    specs.push({
-      value: m[1],
-      unit: m[2].replace(/[\s·.-]/g, " ").trim(),
-      context: ctx.split(".").pop()?.trim() || "",
-    });
+    const ctx = text.slice(start, m.index).replace(/\n/g, ' ').trim();
+    specs.push({ value: m[1], unit: m[2].replace(/[\s·.-]/g, ' ').trim(), context: ctx.split('.').pop()?.trim() || '' });
   }
   return specs;
 }
 
 async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
-  if (vehicle.year < 1982 || vehicle.year > 2013) return null;
+  if (vehicle.year < 1960 || vehicle.year > 2025) return null;
   const pathResult = matchJobKeyword(symptom);
   if (!pathResult) return null;
 
   const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-  const charmModel = formatEngineForCharm(vehicle.engine, vehicle.model);
-  const encodedModel = encodeURIComponent(charmModel);
+  const manualModel = formatEngineForManual(vehicle.engine, vehicle.model, vehicle.drivetrain);
+  const encodedModel = encodeURIComponent(manualModel);
 
   let allImages: string[] = [];
-  let allText = "";
+  let allText = '';
   let allTorqueSpecs: any[] = [];
   const fetchedUrls: string[] = [];
 
   for (const path of paths) {
-    const charmUrl = `https://charm.li/${titleCaseMake(vehicle.make)}/${vehicle.year}/${encodedModel}/${path}/`;
+    const manualUrl = `https://lemon-manuals.la/${titleCaseMake(vehicle.make)}/${vehicle.year}/${encodedModel}/${path}/`;
 
-    const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", charmUrl).single();
+    const { data: cached } = await supabase.from("charm_cache").select("*").eq("charm_url", manualUrl).single();
     if (cached) {
       const fetchedAt = new Date(cached.fetched_at);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
       if (fetchedAt > cutoff && (cached.procedure_text?.length > 50 || cached.images?.length > 0)) {
-        allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split("/").pop() || path)}) ---\n${cached.procedure_text || ""}`;
+        allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${cached.procedure_text || ''}`;
         allImages.push(...(cached.images || []));
         allTorqueSpecs.push(...(cached.torque_specs || []));
-        fetchedUrls.push(charmUrl);
+        fetchedUrls.push(manualUrl);
         continue;
       }
     }
 
     try {
-      console.log(`Fetching charm.li: ${charmUrl}`);
-      const resp = await fetch(charmUrl, { headers: { "User-Agent": "RatchetApp/1.0" } });
-      if (!resp.ok) {
-        console.log(`Charm.li ${resp.status} for ${charmUrl}`);
-        continue;
-      }
+      console.log(`Fetching lemon-manuals: ${manualUrl}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const resp = await fetch(manualUrl, { signal: controller.signal, headers: { "User-Agent": "RatchetApp/1.0" } });
+      clearTimeout(timer);
+      if (!resp.ok) { console.log(`lemon-manuals ${resp.status} for ${manualUrl}`); continue; }
       const html = await resp.text();
 
       const images = extractImages(html);
@@ -487,27 +493,17 @@ async function fetchCharmData(supabase: any, vehicle: any, symptom: string) {
       if (procedureText.length < 50 && images.length === 0) continue;
 
       if (cached) {
-        await supabase
-          .from("charm_cache")
-          .update({
-            images,
-            procedure_text: procedureText,
-            torque_specs: torqueSpecs,
-            fetched_at: new Date().toISOString(),
-          })
-          .eq("id", cached.id);
+        await supabase.from("charm_cache").update({ images, procedure_text: procedureText, torque_specs: torqueSpecs, fetched_at: new Date().toISOString() }).eq("id", cached.id);
       } else {
-        await supabase
-          .from("charm_cache")
-          .insert({ charm_url: charmUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
+        await supabase.from("charm_cache").insert({ charm_url: manualUrl, images, procedure_text: procedureText, torque_specs: torqueSpecs });
       }
 
-      allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split("/").pop() || path)}) ---\n${procedureText}`;
+      allText += `\n\n--- FACTORY PROCEDURE (${decodeURIComponent(path.split('/').pop() || path)}) ---\n${procedureText}`;
       allImages.push(...images);
       allTorqueSpecs.push(...torqueSpecs);
-      fetchedUrls.push(charmUrl);
+      fetchedUrls.push(manualUrl);
     } catch (e) {
-      console.error(`Charm fetch failed for ${charmUrl}:`, e);
+      console.error(`Manual fetch failed for ${manualUrl}:`, e);
       continue;
     }
   }
@@ -621,20 +617,66 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    // --- Check diagnostic pattern cache ---
+    // --- Parallel fetch: pattern cache + history + charm data + manual data ---
     const symptomLower = symptom.toLowerCase().trim();
     const makeLower = vehicle.make.toLowerCase();
     const modelLower = vehicle.model.toLowerCase();
-    
-    const { data: matchedPatterns } = await supabase
-      .from("diagnostic_patterns")
-      .select("*")
-      .ilike("vehicle_make", makeLower)
-      .ilike("vehicle_model", modelLower)
-      .order("confidence_score", { ascending: false })
-      .limit(10);
 
-    // Find patterns that match by symptom similarity and year range
+    const manualAbortCtrl = new AbortController();
+    const manualTimeout = setTimeout(() => manualAbortCtrl.abort(), 25000);
+
+    const [patternsResult, historyResult, charmDataResult, manualDataResult] = await Promise.all([
+      // 1. Pattern cache
+      supabase
+        .from("diagnostic_patterns")
+        .select("*")
+        .ilike("vehicle_make", makeLower)
+        .ilike("vehicle_model", modelLower)
+        .order("confidence_score", { ascending: false })
+        .limit(10)
+        .then((r: any) => r.data || []),
+
+      // 2. Vehicle history
+      supabase
+        .from("diagnosis_sessions")
+        .select("symptom, confirmed_cause, status, confidence_score")
+        .eq("vehicle_id", vehicleId)
+        .eq("user_id", userId)
+        .in("status", ["concluded", "completed"])
+        .order("created_at", { ascending: false })
+        .limit(10)
+        .then((r: any) => r.data || [])
+        .catch(() => []),
+
+      // 3. Charm/lemon data (direct fetch)
+      fetchCharmData(supabase, vehicle, symptom).catch(() => null),
+
+      // 4. Manual data (sub-page crawl via edge function)
+      fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
+        method: "POST",
+        signal: manualAbortCtrl.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+        body: JSON.stringify({
+          jobKeyword: symptom,
+          vehicleYear: vehicle.year,
+          vehicleMake: vehicle.make,
+          vehicleModel: vehicle.model,
+          vehicleEngine: vehicle.engine,
+          vehicleDrivetrain: vehicle.drivetrain,
+        }),
+      })
+        .then(async (r) => { const d = await r.json(); return d?.found ? d : null; })
+        .catch(() => null),
+    ]);
+
+    clearTimeout(manualTimeout);
+
+    const matchedPatterns = patternsResult;
+    const pastDiagnoses = historyResult;
+    const charmData = charmDataResult;
+    const manualData = manualDataResult;
+
+    // Process patterns
     const relevantPatterns = (matchedPatterns || []).filter((p: any) => {
       const symMatch = symptomLower.includes(p.symptom_normalized) || 
                        p.symptom_normalized.includes(symptomLower) ||
@@ -644,7 +686,6 @@ serve(async (req) => {
       return symMatch && yearMatch;
     });
 
-    // High-confidence patterns (>90%) get auto-applied, moderate (50-90%) get suggested
     const highConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.9 && p.success_count >= 3);
     const moderateConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.5 && p.confidence_score < 0.9);
 
@@ -665,48 +706,17 @@ ${highConfidence.length > 0
 `;
     }
 
-    // --- Fetch user's past diagnosis history for this vehicle ---
+    // Process history
     let userHistoryBlock = "";
-    try {
-      const { data: pastDiagnoses } = await supabase
-        .from("diagnosis_sessions")
-        .select("symptom, confirmed_cause, status, confidence_score")
-        .eq("vehicle_id", vehicleId)
-        .eq("user_id", userId)
-        .in("status", ["concluded", "completed"])
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (pastDiagnoses && pastDiagnoses.length > 0) {
-        const historyLines = pastDiagnoses.map((d: any) => 
-          `- Symptom: "${d.symptom}" → ${d.confirmed_cause ? `Confirmed: ${d.confirmed_cause}` : `Status: ${d.status}`}`
-        );
-        userHistoryBlock = `\n\n## This Vehicle's Diagnostic History
+    if (pastDiagnoses && pastDiagnoses.length > 0) {
+      const historyLines = pastDiagnoses.map((d: any) => 
+        `- Symptom: "${d.symptom}" → ${d.confirmed_cause ? `Confirmed: ${d.confirmed_cause}` : `Status: ${d.status}`}`
+      );
+      userHistoryBlock = `\n\n## This Vehicle's Diagnostic History
 Previous diagnoses on this exact vehicle:
 ${historyLines.join("\n")}
 
 Use this history to identify patterns. If this vehicle has had repeated electrical issues, check grounds first. If there's a history of oil-related problems, consider systemic causes.`;
-      }
-    } catch (e) {
-      console.error("Failed to fetch diagnosis history (non-fatal):", e);
-    }
-
-    // --- Fetch factory manual data ---
-    const charmData = await fetchCharmData(supabase, vehicle, symptom);
-
-    let manualData: any = null;
-    try {
-      const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ jobKeyword: symptom, vehicleYear: vehicle.year }),
-      });
-      if (manualResp.ok) {
-        manualData = await manualResp.json();
-        if (!manualData?.found) manualData = null;
-      }
-    } catch (e) {
-      console.error("Manual data fetch failed (non-fatal):", e);
     }
 
     // Merge factory data
@@ -823,96 +833,75 @@ Order tests from most likely cause to least likely for THIS specific vehicle/eng
 
     if (projErr) throw projErr;
 
-    // Insert tools
-    if (plan.tools?.length) {
-      const tools = plan.tools.map((t: any, i: number) => ({
-        project_id: project.id,
-        name: t.name,
-        spec: t.spec || null,
-        required: t.required ?? true,
-        sort_order: i,
-      }));
-      await supabase.from("project_tools").insert(tools);
-    }
+    // Parallel DB inserts: tools + steps + diagnosis link
+    const dbInserts: Promise<any>[] = [];
 
-    // Insert steps with factory image assignment
-    if (plan.steps?.length) {
+    const toolsData = plan.tools?.length ? plan.tools.map((t: any, i: number) => ({
+      project_id: project.id,
+      name: t.name,
+      spec: t.spec || null,
+      required: t.required ?? true,
+      sort_order: i,
+    })) : [];
+
+    const stepsData = plan.steps?.length ? plan.steps.map((s: any, idx: number) => {
       const stepImages = mergedImages;
       const sourceUrl = factorySourceUrl;
+      let assignedImage: string | null = null;
+      if (typeof s.factoryImageIndex === "number" && s.factoryImageIndex >= 0 && s.factoryImageIndex < stepImages.length) {
+        assignedImage = stepImages[s.factoryImageIndex];
+      } else if (stepImages[idx]) {
+        assignedImage = stepImages[idx] || null;
+      }
+      return {
+        project_id: project.id,
+        step_number: s.number,
+        title: s.title,
+        description:
+          s.description +
+          (s.expectedResult ? `\n\n✅ Expected (healthy): ${s.expectedResult}` : "") +
+          (s.failureIndicator ? `\n\n❌ Failure indicator: ${s.failureIndicator}` : "") +
+          (s.eliminates?.length ? `\n\n🔍 Rules out: ${s.eliminates.join(", ")}` : "") +
+          (s.confirms?.length ? `\n\n🎯 Confirms: ${s.confirms.join(", ")}` : ""),
+        torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
+        sub_steps: s.subSteps?.length ? s.subSteps : null,
+        tip: s.tip || null,
+        safety_note: s.safetyNote || null,
+        estimated_minutes: s.estimatedMinutes || null,
+        sort_order: s.number,
+        notes: JSON.stringify({
+          systemTesting: s.systemTesting || null,
+          eliminates: s.eliminates || [],
+          confirms: s.confirms || [],
+        }),
+        charm_image_url: assignedImage,
+        charm_source_url: factorySourceUrl,
+        is_factory_verified: hasFactoryData,
+      };
+    }) : [];
 
-      const steps = plan.steps.map((s: any, idx: number) => {
-        let assignedImage: string | null = null;
-        if (
-          typeof s.factoryImageIndex === "number" &&
-          s.factoryImageIndex >= 0 &&
-          s.factoryImageIndex < stepImages.length
-        ) {
-          assignedImage = stepImages[s.factoryImageIndex];
-        } else if (stepImages[idx]) {
-          assignedImage = stepImages[idx] || null;
-        }
-
-        return {
-          project_id: project.id,
-          step_number: s.number,
-          title: s.title,
-          description:
-            s.description +
-            (s.expectedResult ? `\n\n✅ Expected (healthy): ${s.expectedResult}` : "") +
-            (s.failureIndicator ? `\n\n❌ Failure indicator: ${s.failureIndicator}` : "") +
-            (s.eliminates?.length ? `\n\n🔍 Rules out: ${s.eliminates.join(", ")}` : "") +
-            (s.confirms?.length ? `\n\n🎯 Confirms: ${s.confirms.join(", ")}` : ""),
-          torque_specs: s.torqueSpecs?.length ? s.torqueSpecs : null,
-          sub_steps: s.subSteps?.length ? s.subSteps : null,
-          tip: s.tip || null,
-          safety_note: s.safetyNote || null,
-          estimated_minutes: s.estimatedMinutes || null,
-          sort_order: s.number,
-          notes: JSON.stringify({
-            systemTesting: s.systemTesting || null,
-            eliminates: s.eliminates || [],
-            confirms: s.confirms || [],
-          }),
-          charm_image_url: assignedImage,
-          charm_source_url: sourceUrl,
-          is_factory_verified: hasFactoryData,
-        };
-      });
-      await supabase.from("project_steps").insert(steps);
-    }
+    if (toolsData.length) dbInserts.push(supabase.from("project_tools").insert(toolsData));
+    if (stepsData.length) dbInserts.push(supabase.from("project_steps").insert(stepsData));
 
     if (diagnosisId) {
-      await supabase
-        .from("diagnosis_sessions")
-        .update({
+      dbInserts.push(
+        supabase.from("diagnosis_sessions").update({
           project_id: project.id,
           tree_data: plan.possibleCauses
             ? plan.possibleCauses.map((c: string) => ({ cause: c, status: "untested" }))
             : [],
-        })
-        .eq("id", diagnosisId)
-        .eq("user_id", userId)
-        .eq("vehicle_id", vehicleId);
+        }).eq("id", diagnosisId).eq("user_id", userId).eq("vehicle_id", vehicleId)
+      );
     }
 
-    // Return full project
-    const { data: fullProject } = await supabase.from("projects").select("*").eq("id", project.id).single();
-    const { data: savedTools } = await supabase
-      .from("project_tools")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("sort_order");
-    const { data: savedSteps } = await supabase
-      .from("project_steps")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("step_number");
+    await Promise.all(dbInserts);
 
+    // Return project data directly — skip re-reading from DB
     return new Response(
       JSON.stringify({
-        project: fullProject,
-        tools: savedTools,
-        steps: savedSteps,
+        project: { ...project },
+        tools: toolsData,
+        steps: stepsData,
         projectId: project.id,
         possibleCauses: plan.possibleCauses || [],
         charmData: hasFactoryData
