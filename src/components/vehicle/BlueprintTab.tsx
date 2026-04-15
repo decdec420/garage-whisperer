@@ -696,7 +696,7 @@ function DetailPanel({
                   </div>
 
                   <div className="flex flex-col gap-2 pt-1">
-                    {vehicle.year >= 1982 && vehicle.year <= 2013 && (
+                    {vehicle.year >= 1960 && vehicle.year <= 2025 && (
                       <button
                         onClick={() => onCharm(comp, key)}
                         className="w-full flex items-center justify-center gap-2 rounded-lg py-2 text-[11px] font-mono tracking-wide transition-all hover:opacity-90"
@@ -1268,7 +1268,7 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
               zone={radialMenu.zone}
               x={radialMenu.x}
               y={radialMenu.y}
-              hasCharm={vehicle.year >= 1982 && vehicle.year <= 2013}
+              hasCharm={vehicle.year >= 1960 && vehicle.year <= 2025}
               onClose={() => setRadialMenu(null)}
               onInfo={() => { setSelectedZone(radialMenu.zone); setRadialMenu(null); }}
               onProject={() => {
@@ -1397,11 +1397,11 @@ export default function BlueprintTab({ vehicleId, vehicle }: BlueprintTabProps) 
               )}
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)' }}>
                 <BookOpen className="h-3.5 w-3.5 shrink-0" style={{ color: '#a78bfa' }} />
-                <span className="text-[10px] font-mono" style={{ color: HUD.textMuted }}>Source: Operation CHARM (charm.li) — Factory Service Manual</span>
+                <span className="text-[10px] font-mono" style={{ color: HUD.textMuted }}>Source: LEMON Manuals (lemon-manuals.la) — Factory Service Manual</span>
                 {charmSheet.data.charmUrl && (
                   <a href={charmSheet.data.charmUrl} target="_blank" rel="noopener noreferrer"
                     className="ml-auto text-[10px] font-mono flex items-center gap-1 hover:opacity-80 transition-opacity" style={{ color: '#a78bfa' }}>
-                    charm.li <ExternalLink className="h-3 w-3" />
+                    lemon-manuals.la <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
               </div>

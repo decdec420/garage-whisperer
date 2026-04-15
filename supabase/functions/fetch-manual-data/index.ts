@@ -4,8 +4,8 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 
 
-const CLOUDFLARE_BASE = "https://ratchet-accord-manual.pages.dev";
-const CHARM_BASE = "https://charm.li/Honda/2012/Accord%20L4-2.4L/Repair%20and%20Diagnosis";
+const LEMON_BASE = "https://lemon-manuals.la";
+const MANUAL_BASE = `${LEMON_BASE}/Honda/2012/Accord%20L4-2.4L/Repair%20and%20Diagnosis`;
 
 // Corrected path map matching actual charm.li structure
 const PATH_MAP: Record<string, string> = {
@@ -121,14 +121,14 @@ function extractImages(html: string, baseUrl: string): Array<{ url: string; cont
     if (src.includes('/icons/') || src.endsWith('.svg')) continue;
 
     // Accept charm.li image paths (relative or absolute)
-    if (src.includes('/images/') || src.includes('charm.li/images')) {
+    if (src.includes('/images/') || src.includes('lemon-manuals.la/images')) {
       let url: string;
       if (src.startsWith('http')) {
         url = src;
       } else if (src.startsWith('/')) {
-        url = `https://charm.li${src}`;
+        url = `${LEMON_BASE}${src}`;
       } else {
-        url = `https://charm.li/${src}`;
+        url = `${LEMON_BASE}/${src}`;
       }
 
       // Get surrounding text for context
@@ -227,8 +227,8 @@ serve(async (req) => {
       });
     }
 
-    if (vehicleYear && (vehicleYear < 1982 || vehicleYear > 2013)) {
-      return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside manual coverage (1982-2013)" }), {
+    if (vehicleYear && (vehicleYear < 1960 || vehicleYear > 2025)) {
+      return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside manual coverage (1960-2025)" }), {
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
@@ -264,7 +264,7 @@ serve(async (req) => {
           allImages: cached.all_images || [],
           procedureText: cached.procedure_text || '',
           torqueSpecs: cached.torque_specs || [],
-          sourceUrl: `${CHARM_BASE}/${basePath}/`,
+          sourceUrl: `${MANUAL_BASE}/${basePath}/`,
           pagesCrawled: cached.sub_pages_crawled || [],
           cached: true,
         }), { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });
@@ -274,17 +274,15 @@ serve(async (req) => {
     // Crawl BOTH sources in parallel:
     // 1. Cloudflare (text-heavy, full manual content)
     // 2. charm.li directly (has the actual factory photos)
-    const cloudflareBase = `${CLOUDFLARE_BASE}/${basePath}`;
-    const charmBase = `${CHARM_BASE}/${basePath}`;
+    const lemonBase = `${MANUAL_BASE}/${basePath}`;
+    const cloudflareBase = `${LEMON_BASE}/${basePath}`;
 
     const allUrls: { url: string; source: string; subPage: string }[] = [];
 
     for (const sp of SUB_PAGE_PATHS) {
       const suffix = sp ? `/${sp}` : '';
-      // Cloudflare uses /index.html
       allUrls.push({ url: `${cloudflareBase}${suffix}/index.html`, source: 'cloudflare', subPage: sp || 'Overview' });
-      // charm.li uses trailing slash (no index.html)
-      allUrls.push({ url: `${charmBase}${suffix}/`, source: 'charm', subPage: sp || 'Overview' });
+      allUrls.push({ url: `${lemonBase}${suffix}/`, source: 'lemon', subPage: sp || 'Overview' });
     }
 
     console.log(`Crawling ${allUrls.length} URLs (${SUB_PAGE_PATHS.length} sub-pages × 2 sources) for: ${basePath}`);
@@ -315,8 +313,7 @@ serve(async (req) => {
         allText += `\n\n--- ${pageName} ---\n${pageText}`;
       }
 
-      // Extract images — charm.li is the primary image source
-      const pageImages = extractImages(html, source === 'charm' ? charmBase : cloudflareBase);
+      const pageImages = extractImages(html, source === 'lemon' ? lemonBase : cloudflareBase);
       pageImages.forEach(img => { img.page = pageName; });
       allImages.push(...pageImages);
 
@@ -370,7 +367,7 @@ serve(async (req) => {
     // Upsert cache
     const cacheData = {
       charm_url: cacheKey,
-      base_url: charmBase,
+      base_url: lemonBase,
       images: imageUrls,
       all_images: allImages,
       procedure_text: allText,
@@ -391,7 +388,7 @@ serve(async (req) => {
       allImages,
       procedureText: allText,
       torqueSpecs: allTorqueSpecs,
-      sourceUrl: `${CHARM_BASE}/${basePath}/`,
+      sourceUrl: `${MANUAL_BASE}/${basePath}/`,
       pagesCrawled: crawledPages,
       cached: false,
     }), { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } });

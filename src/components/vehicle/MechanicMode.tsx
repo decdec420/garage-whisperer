@@ -253,7 +253,7 @@ export default function MechanicMode({
               {(step as any)?.charm_source_url && (
                 <a href={(step as any).charm_source_url} target="_blank" rel="noopener noreferrer"
                   className="ml-auto hover:underline" style={{ fontSize: 11, color: '#f97316' }}>
-                  charm.li
+                  lemon-manuals.la
                 </a>
               )}
             </div>

@@ -1,5 +1,5 @@
-// Utility to build charm.li URLs from vehicle + job keyword
-// All paths include "Repair%20and%20Diagnosis/" prefix as required by charm.li
+// Utility to build lemon-manuals.la URLs from vehicle + job keyword
+// Migrated from charm.li — lemon-manuals.la covers 1960-2025
 
 const R = "Repair%20and%20Diagnosis/"; // prefix shorthand
 
@@ -84,10 +84,29 @@ export function titleCaseMake(make: string): string {
 }
 
 /**
- * Parse engine string like "2.4L I4" or "2.359737216L 4cyl" into charm.li format "L4-2.4L"
+ * Normalize drivetrain string to lemon-manuals format
  */
-function formatEngineForCharm(engine: string | null, model: string): string {
-  if (!engine) return model;
+function normalizeDrivetrain(drivetrain: string | null | undefined): string | null {
+  if (!drivetrain) return null;
+  const upper = drivetrain.toUpperCase().replace(/[\s-]/g, '');
+  if (upper === 'FWD' || upper.includes('FRONTWHEEL')) return 'FWD';
+  if (upper === 'RWD' || upper.includes('REARWHEEL')) return 'RWD';
+  if (upper === 'AWD' || upper.includes('ALLWHEEL')) return 'AWD';
+  if (upper === '4WD' || upper === '4X4' || upper.includes('FOURWHEEL')) return '4WD';
+  if (upper === '2WD' || upper === '2X4' || upper.includes('TWOWHEEL')) return '2WD';
+  return null;
+}
+
+/**
+ * Parse engine string like "2.4L I4" into lemon-manuals format "L4-2.4L"
+ * Optionally prepend drivetrain: "FWD L4-2.4L"
+ */
+function formatEngineForManual(engine: string | null, model: string, drivetrain?: string | null): string {
+  const dt = normalizeDrivetrain(drivetrain);
+  
+  if (!engine) {
+    return dt ? `${model} ${dt}` : model;
+  }
   
   const displacementMatch = engine.match(/(\d+\.?\d*)\s*L/i);
   const rawDisplacement = displacementMatch ? parseFloat(displacementMatch[1]) : null;
@@ -101,19 +120,22 @@ function formatEngineForCharm(engine: string | null, model: string): string {
   else if (/V\s*4/i.test(engine)) cylConfig = 'V4';
   else if (/4[\s-]?cylinder/i.test(engine)) cylConfig = 'L4';
   
+  let enginePart = '';
   if (displacement && cylConfig) {
-    return `${model} ${cylConfig}-${displacement}L`;
+    enginePart = `${cylConfig}-${displacement}L`;
+  } else if (displacement) {
+    enginePart = `${displacement}L`;
   }
-  if (displacement) {
-    return `${model} ${displacement}L`;
-  }
-  return model;
+  
+  const parts = [model];
+  if (dt) parts.push(dt);
+  if (enginePart) parts.push(enginePart);
+  return parts.join(' ');
 }
 
 /**
- * Fuzzy-match a job description to charm.li keyword path(s).
+ * Fuzzy-match a job description to keyword path(s).
  * Returns the most specific (longest keyword) match.
- * Can return a single path string or array of paths.
  */
 export function matchJobKeyword(jobDescription: string): string | string[] | null {
   const lower = jobDescription.toLowerCase();
@@ -130,30 +152,33 @@ export function matchJobKeyword(jobDescription: string): string | string[] | nul
   return bestMatch;
 }
 
+const MANUAL_BASE = 'https://lemon-manuals.la';
+
 /**
- * Build charm.li URL(s) for a vehicle + job.
+ * Build lemon-manuals.la URL(s) for a vehicle + job.
  * Returns array of URLs (may be multiple for front/rear procedures).
+ * Year range: 1960-2025
  */
 export function buildCharmUrls(
-  vehicle: { make: string; year: number; model: string; engine?: string | null },
+  vehicle: { make: string; year: number; model: string; engine?: string | null; drivetrain?: string | null },
   jobDescription: string
 ): string[] {
-  if (vehicle.year < 1982 || vehicle.year > 2013) return [];
+  if (vehicle.year < 1960 || vehicle.year > 2025) return [];
   
   const pathResult = matchJobKeyword(jobDescription);
   if (!pathResult) return [];
   
-  const charmMake = titleCaseMake(vehicle.make);
-  const charmModel = formatEngineForCharm(vehicle.engine || null, vehicle.model);
-  const encodedModel = encodeURIComponent(charmModel);
+  const manualMake = titleCaseMake(vehicle.make);
+  const manualModel = formatEngineForManual(vehicle.engine || null, vehicle.model, vehicle.drivetrain);
+  const encodedModel = encodeURIComponent(manualModel);
   
   const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-  return paths.map(path => `https://charm.li/${charmMake}/${vehicle.year}/${encodedModel}/${path}/`);
+  return paths.map(path => `${MANUAL_BASE}/${manualMake}/${vehicle.year}/${encodedModel}/${path}/`);
 }
 
 /** @deprecated Use buildCharmUrls instead */
 export function buildCharmUrl(
-  vehicle: { make: string; year: number; model: string; engine?: string | null },
+  vehicle: { make: string; year: number; model: string; engine?: string | null; drivetrain?: string | null },
   jobDescription: string
 ): string | null {
   const urls = buildCharmUrls(vehicle, jobDescription);
@@ -161,7 +186,7 @@ export function buildCharmUrl(
 }
 
 /**
- * Map a component name from the Blueprint to a charm.li job keyword
+ * Map a component name from the Blueprint to a job keyword
  */
 export function componentToJobKeyword(componentName: string): string {
   const lower = componentName.toLowerCase();
