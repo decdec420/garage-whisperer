@@ -1,60 +1,115 @@
 
 
-# Speed Overhaul: Diagnosis & Project Generation
+# OBD-II Live Scanner Integration — Full Scope Plan
 
-## The Problems
+## Reality Check: Platform Support
 
-**Three root causes making everything slow:**
+Here's the honest breakdown of what works where:
 
-1. **`generate-diagnosis` still uses charm.li** — The lemon-manuals migration only updated `generate-project` and `fetch-charm-data`. The diagnosis function still hits charm.li with the old 1982-2013 year gate, so your 2008 Fusion gets nothing useful.
+```text
+Platform          Web Bluetooth    Capacitor BLE    Status
+─────────────────────────────────────────────────────────
+Chrome Desktop    ✓                n/a              Works now
+Chrome Android    ✓                ✓                Works now
+Safari Desktop    ✗                n/a              Never (Apple refuses)
+Safari iOS        ✗                ✓ (CoreBluetooth) Capacitor only
+Android App       n/a              ✓                Capacitor only
+Firefox           ✗                n/a              Never
+```
 
-2. **`fetch-manual-data` is hardcoded to Honda Accord 2012** — Line 8: `MANUAL_BASE = "https://lemon-manuals.la/Honda/2012/Accord L4-2.4L/..."`. Every vehicle gets Honda Accord manual data. It also crawls 22 URLs (11 sub-pages × 2 sources) sequentially for a Honda that isn't your car.
+**Translation**: For full cross-platform support (especially iPhone), Ratchet needs to become a Capacitor native app. Web-only covers Chrome users. Safari desktop is a dead end for BLE — the only option there would be a companion macOS app or a WiFi-based OBD adapter (which uses HTTP, not BLE).
 
-3. **Everything runs sequentially** — Auth → vehicle fetch → rate limit → pattern cache → history → charm data → manual data → AI call → insert project → insert parts → insert tools → insert steps → re-read everything back. Each step waits for the previous one. The AI call alone is 15-30s, and the manual fetching adds another 10-20s on top.
+## Your GOOLOO DS200
 
-4. **"Failed to fetch" on create repair project** — The edge function likely times out (150s Supabase limit) because of all the sequential work.
+The DS200 is a **Bluetooth Low Energy (BLE) dongle** that speaks the ELM327 AT command set. Good news — it's the standard protocol. The same code that talks to a $12 Amazon ELM327 clone talks to your DS200. No proprietary API needed.
 
-## The Fix
+## The Feature in Three Phases
 
-### 1. Fix `fetch-manual-data` — make it vehicle-aware
-- Accept `vehicleMake`, `vehicleModel`, `vehicleEngine`, `vehicleDrivetrain` params
-- Build the URL dynamically: `lemon-manuals.la/{Make}/{Year}/{Model Engine}/...`
-- Remove the hardcoded Honda Accord path
+### Phase 1: Connect & Scan (MVP)
 
-### 2. Fix `generate-diagnosis` — migrate to lemon-manuals.la
-- Copy the updated `fetchCharmData` from `generate-project` (lemon-manuals.la domain, 1960-2025 year range, drivetrain-aware model formatting)
-- Pass vehicle data to `fetch-manual-data` so it fetches the correct car's manual
+**What the user sees:**
+1. New "Scanner" tab on the vehicle detail page (or a global scanner icon in the nav)
+2. Tap "Connect Scanner" → system BLE pairing dialog appears
+3. Once paired, live gauges appear: RPM, coolant temp, battery voltage, engine load
+4. "Read Codes" button pulls all DTCs → auto-populates `dtc_records` table
+5. "Clear Codes" button sends the reset command
+6. All scanned DTCs get a "Start Diagnosis" shortcut that pre-fills the diagnosis wizard
 
-### 3. Parallelize everything in both edge functions
-- Run these concurrently with `Promise.all`:
-  - Pattern cache lookup
-  - Vehicle history fetch
-  - Charm/lemon data fetch
-  - Manual data fetch
-- After AI response, run all DB inserts (parts, tools, steps) in parallel with `Promise.all`
-- Skip the "re-read everything back" queries — return the data we already have from the inserts
+**Technical work:**
+- **BLE Connection Manager** (`src/lib/obd/ble-manager.ts`): Web Bluetooth API wrapper with reconnection logic, service/characteristic UUIDs for ELM327 BLE
+- **ELM327 Protocol Layer** (`src/lib/obd/elm327.ts`): AT command queue, response parser, initialization sequence (`ATZ`, `ATE0`, `ATL0`, `ATSP0`)
+- **PID Decoder** (`src/lib/obd/pid-decoder.ts`): Converts hex responses to human values (Mode 01 PIDs: RPM, speed, coolant, voltage, MAF, intake temp, etc.)
+- **DTC Reader** (`src/lib/obd/dtc-reader.ts`): Mode 03 (read codes), Mode 04 (clear codes), Mode 07 (pending codes)
+- **Scanner UI** (`src/components/vehicle/ScannerTab.tsx`): Live gauges reusing `CircularGauge`, DTC list, connect/disconnect controls
+- **Supabase**: New `obd_scan_sessions` table to log each scan with timestamp, vehicle_id, PIDs captured, DTCs found
 
-### 4. Add timeout protection
-- Add `AbortController` with 25s timeout on external fetches (lemon-manuals, manual data)
-- If manual fetch times out, proceed without it — AI can still generate a solid plan
+### Phase 2: Always-On Passive Monitoring
 
-### 5. Update callers in both functions
-- `generate-project` and `generate-diagnosis` both call `fetch-manual-data` — update both to pass vehicle-specific params
+**What the user sees:**
+1. Toggle "Background Monitoring" — scanner stays connected while driving
+2. App samples key PIDs every 5-10 seconds (configurable)
+3. Dashboard widget shows trip summary: avg RPM, max coolant temp, fuel efficiency trends
+4. Anomaly alerts: "Coolant temp spiked to 230°F at 2:15 PM" or "Battery voltage dropping below 12.8V consistently"
 
-## Expected Impact
+**Technical work:**
+- **Background BLE Service** (Capacitor only — browsers kill BLE connections when backgrounded): Uses `@capacitor-community/bluetooth-le` with background execution
+- **Telemetry Buffer** (`src/lib/obd/telemetry-buffer.ts`): Ring buffer that batches PID readings and flushes to Supabase every 30 seconds
+- **New tables**: `obd_telemetry` (time-series PID data), `obd_anomalies` (flagged readings)
+- **Edge Function** (`supabase/functions/analyze-telemetry/index.ts`): Runs pattern detection on telemetry batches — rolling averages, threshold alerts, trend analysis
+- **Trip Detection**: Uses speed PID to auto-start/stop trip recording
 
-| Before | After |
-|--------|-------|
-| ~60-90s diagnosis generation | ~20-35s (AI call is the bottleneck) |
-| ~60s+ project generation (often timeout) | ~20-35s |
-| Honda data for all cars | Correct vehicle manual data |
-| charm.li (dead) for diagnosis | lemon-manuals.la for all |
+### Phase 3: Predictive Intelligence
 
-## Files Changed
+**What the user sees:**
+1. Ratchet proactively says: "Your battery voltage has been trending down 0.1V/week for the past month. Based on this pattern, you'll likely need a new battery within 6-8 weeks."
+2. Oil life estimation based on engine hours, RPM patterns, and short-trip detection
+3. "Your catalytic converter efficiency has dropped 12% in 3 months — might want to check that before it throws a P0420"
+4. All predictions feed into the existing Needs Attention dashboard
 
-| File | Changes |
+**Technical work:**
+- **ML-lite analysis** in the telemetry edge function: Linear regression on voltage trends, efficiency ratios (catalyst, O2 sensors), temperature baselines
+- **Integration with Ratchet chat**: Diagnosis context automatically includes recent telemetry anomalies
+- **Notification triggers**: New anomaly → in-app notification → "Ask Ratchet about this"
+
+## Cross-Platform Strategy
+
+| Approach | Covers | Effort |
+|----------|--------|--------|
+| Web Bluetooth only | Chrome desktop + Android browser | Low — Phase 1 only |
+| + Capacitor BLE plugin | + iOS + Android native app | Medium — requires app store deployment |
+| + WiFi OBD support | + Safari desktop (WiFi adapters use HTTP) | Medium — separate adapter protocol |
+
+**Recommendation**: Build Phase 1 with Web Bluetooth first (works today, no app store). Then wrap in Capacitor for iOS/Android native when you're ready for app store distribution. WiFi adapter support can be a later add-on.
+
+## Cost to Users
+
+- **Hardware**: They already own a scanner (or buy a $15-25 ELM327 BLE adapter)
+- **App cost**: This is a premium feature — perfect candidate for the paid tier in the monetization funnel
+- **Data storage**: Telemetry generates volume — metered storage could be a paid differentiator
+
+## Database Changes
+
+New tables needed:
+- `obd_scan_sessions` — scan event log (vehicle_id, user_id, timestamp, dtcs_found, pids_captured)
+- `obd_telemetry` — time-series PID readings (session_id, pid_code, value, unit, recorded_at)
+- `obd_anomalies` — flagged patterns (vehicle_id, anomaly_type, severity, description, telemetry_refs)
+
+## Files to Create/Modify
+
+| File | Purpose |
 |------|---------|
-| `supabase/functions/fetch-manual-data/index.ts` | Accept vehicle params, build dynamic URL |
-| `supabase/functions/generate-diagnosis/index.ts` | Lemon-manuals migration + parallelize all fetches + parallel DB inserts |
-| `supabase/functions/generate-project/index.ts` | Parallelize fetches + parallel DB inserts + pass vehicle to fetch-manual-data |
+| `src/lib/obd/ble-manager.ts` | BLE connection lifecycle |
+| `src/lib/obd/elm327.ts` | AT command protocol |
+| `src/lib/obd/pid-decoder.ts` | Hex → human value conversion |
+| `src/lib/obd/dtc-reader.ts` | Read/clear diagnostic codes |
+| `src/lib/obd/telemetry-buffer.ts` | Batch PID readings for upload |
+| `src/components/vehicle/ScannerTab.tsx` | Scanner UI with live gauges |
+| `src/components/vehicle/ScannerConnect.tsx` | Pairing flow UI |
+| `supabase/functions/analyze-telemetry/index.ts` | Pattern detection edge function |
+| `src/pages/VehicleDetail.tsx` | Add Scanner tab |
+| Migration | New obd_* tables |
+
+## Recommendation
+
+Start with **Phase 1 only** — connect, read live data, pull/clear DTCs. It's self-contained, impressive, and validates the BLE stack before committing to background monitoring complexity. Phase 2 and 3 require Capacitor for real-world use (background BLE), so they naturally pair with the native app rollout.
 
