@@ -1,73 +1,60 @@
 
 
-# Overhaul: charm.li → lemon-manuals.la Migration
+# Speed Overhaul: Diagnosis & Project Generation
 
-## Problem
-The entire factory manual pipeline — image scraping, procedure text, torque specs — is hardcoded to charm.li with a **1982-2013 year gate**. Your 2008 Fusion battery project got zero photos because lemon-manuals.la is the replacement source covering **1960-2025**. Additionally, the model format differs: lemon-manuals includes drivetrain in the model string (e.g., `Fusion FWD L4-2.3L` vs `Fusion L4-2.3L`).
+## The Problems
 
-## Scope of Changes
+**Three root causes making everything slow:**
 
-### 1. Edge Function: `fetch-charm-data/index.ts` → rename to `fetch-manual-data-v2`
-- Replace `charm.li` base URL with `lemon-manuals.la`
-- Expand year range from `1982-2013` to `1960-2025`
-- Update `extractImages()` to match `lemon-manuals.la/images/` src patterns
-- Add drivetrain-aware model formatting: use vehicle's `drivetrain` field (FWD/AWD/2WD/4WD) when building the model string
-- Add fallback logic: try with drivetrain first, fall back to without if 404
-- Update cache upsert to store `lemon-manuals.la` URLs
+1. **`generate-diagnosis` still uses charm.li** — The lemon-manuals migration only updated `generate-project` and `fetch-charm-data`. The diagnosis function still hits charm.li with the old 1982-2013 year gate, so your 2008 Fusion gets nothing useful.
 
-### 2. Edge Function: `generate-project/index.ts`
-- Update `fetchCharmData()` function: same domain swap, year range expansion, drivetrain-aware model formatting
-- Update image extraction to recognize `lemon-manuals.la/images/` URLs
-- Remove the `year < 1982 || year > 2013` hard gate (line 305)
-- Update the `fetch-manual-data` call to also use lemon-manuals.la paths
+2. **`fetch-manual-data` is hardcoded to Honda Accord 2012** — Line 8: `MANUAL_BASE = "https://lemon-manuals.la/Honda/2012/Accord L4-2.4L/..."`. Every vehicle gets Honda Accord manual data. It also crawls 22 URLs (11 sub-pages × 2 sources) sequentially for a Honda that isn't your car.
 
-### 3. Client: `src/lib/charm-url.ts`
-- Swap all `charm.li` URLs to `lemon-manuals.la`
-- Update `buildCharmUrls()` to include drivetrain in model string when available
-- Expand year range check from `1982-2013` to `1960-2025`
-- Update `formatEngineForCharm()` to prepend drivetrain (FWD/AWD/etc.)
+3. **Everything runs sequentially** — Auth → vehicle fetch → rate limit → pattern cache → history → charm data → manual data → AI call → insert project → insert parts → insert tools → insert steps → re-read everything back. Each step waits for the previous one. The AI call alone is 15-30s, and the manual fetching adds another 10-20s on top.
 
-### 4. UI Attribution Updates (4 files)
-- `FactoryPhotoLightbox.tsx`: Change "Operation CHARM (charm.li)" → "LEMON Manuals (lemon-manuals.la)"
-- `ProjectDetail.tsx`: Update attribution text and links
-- `MechanicMode.tsx`: Update link text
-- `BlueprintTab.tsx`: Update attribution and remove `year >= 1982 && year <= 2013` year gate on the "MANUAL" button
+4. **"Failed to fetch" on create repair project** — The edge function likely times out (150s Supabase limit) because of all the sequential work.
 
-### 5. Tests: `src/test/charm-url.test.ts`
-- Update URL expectations from `charm.li` to `lemon-manuals.la`
+## The Fix
 
----
+### 1. Fix `fetch-manual-data` — make it vehicle-aware
+- Accept `vehicleMake`, `vehicleModel`, `vehicleEngine`, `vehicleDrivetrain` params
+- Build the URL dynamically: `lemon-manuals.la/{Make}/{Year}/{Model Engine}/...`
+- Remove the hardcoded Honda Accord path
 
-## Technical Details
+### 2. Fix `generate-diagnosis` — migrate to lemon-manuals.la
+- Copy the updated `fetchCharmData` from `generate-project` (lemon-manuals.la domain, 1960-2025 year range, drivetrain-aware model formatting)
+- Pass vehicle data to `fetch-manual-data` so it fetches the correct car's manual
 
-### Drivetrain Model String Logic
-lemon-manuals.la requires drivetrain in the model URL for many vehicles. The `vehicles` table already has a `drivetrain` column.
+### 3. Parallelize everything in both edge functions
+- Run these concurrently with `Promise.all`:
+  - Pattern cache lookup
+  - Vehicle history fetch
+  - Charm/lemon data fetch
+  - Manual data fetch
+- After AI response, run all DB inserts (parts, tools, steps) in parallel with `Promise.all`
+- Skip the "re-read everything back" queries — return the data we already have from the inserts
 
-```text
-Current:   Fusion L4-2.3L
-Required:  Fusion FWD L4-2.3L
+### 4. Add timeout protection
+- Add `AbortController` with 25s timeout on external fetches (lemon-manuals, manual data)
+- If manual fetch times out, proceed without it — AI can still generate a solid plan
 
-Current:   Ranger V6-4.0L  
-Required:  Ranger 2WD V6-4.0L
-```
+### 5. Update callers in both functions
+- `generate-project` and `generate-diagnosis` both call `fetch-manual-data` — update both to pass vehicle-specific params
 
-Strategy: Build model string as `{Model} {drivetrain} {engine}`. If the page 404s, retry without drivetrain. Some vehicles (Mustang) don't use drivetrain in the URL.
+## Expected Impact
 
-### Image Extraction Update
-Current regex matches `charm.li/images` — needs to match `lemon-manuals.la/images/`. The actual image format on lemon-manuals: `<img class="big-img" src="https://lemon-manuals.la/images/DM10Q313/ford150/109789606/">`.
+| Before | After |
+|--------|-------|
+| ~60-90s diagnosis generation | ~20-35s (AI call is the bottleneck) |
+| ~60s+ project generation (often timeout) | ~20-35s |
+| Honda data for all cars | Correct vehicle manual data |
+| charm.li (dead) for diagnosis | lemon-manuals.la for all |
 
-### Files Changed
-| File | Type |
-|------|------|
-| `supabase/functions/fetch-charm-data/index.ts` | Domain swap, year range, drivetrain, image regex |
-| `supabase/functions/generate-project/index.ts` | Same + remove year gate |
-| `supabase/functions/fetch-manual-data/index.ts` | Update Cloudflare mirror references |
-| `src/lib/charm-url.ts` | Domain swap, year range, drivetrain |
-| `src/components/vehicle/FactoryPhotoLightbox.tsx` | Attribution text |
-| `src/pages/ProjectDetail.tsx` | Attribution text |
-| `src/components/vehicle/MechanicMode.tsx` | Attribution text |
-| `src/components/vehicle/BlueprintTab.tsx` | Attribution + year gate removal |
-| `src/test/charm-url.test.ts` | URL expectations |
+## Files Changed
 
-No database migrations needed — `charm_cache` table structure works as-is.
+| File | Changes |
+|------|---------|
+| `supabase/functions/fetch-manual-data/index.ts` | Accept vehicle params, build dynamic URL |
+| `supabase/functions/generate-diagnosis/index.ts` | Lemon-manuals migration + parallelize all fetches + parallel DB inserts |
+| `supabase/functions/generate-project/index.ts` | Parallelize fetches + parallel DB inserts + pass vehicle to fetch-manual-data |
 
