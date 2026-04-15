@@ -46,40 +46,120 @@ export default function Garage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Manual cascade: delete child records before the vehicle
-      // Get project IDs first for nested deletes
-      const { data: projects } = await supabase.from('projects').select('id').eq('vehicle_id', id);
-      const projectIds = (projects ?? []).map(p => p.id);
+      const assertNoError = (error: { message?: string } | null) => {
+        if (error) throw error;
+      };
+
+      const [projectsResult, diagnosisSessionsResult, vehicleProjectsResult, vehicleChatSessionsResult] = await Promise.all([
+        supabase.from('projects').select('id').eq('vehicle_id', id),
+        supabase.from('diagnosis_sessions').select('id, chat_session_id').eq('vehicle_id', id),
+        supabase.from('vehicle_projects').select('id').eq('vehicle_id', id),
+        supabase.from('chat_sessions').select('id').eq('vehicle_id', id),
+      ]);
+
+      assertNoError(projectsResult.error);
+      assertNoError(diagnosisSessionsResult.error);
+      assertNoError(vehicleProjectsResult.error);
+      assertNoError(vehicleChatSessionsResult.error);
+
+      const projectIds = (projectsResult.data ?? []).map((project) => project.id);
+      const diagnosisSessions = diagnosisSessionsResult.data ?? [];
+      const diagnosisSessionIds = diagnosisSessions.map((session) => session.id);
+      const vehicleProjectIds = (vehicleProjectsResult.data ?? []).map((project) => project.id);
+
+      const projectChatSessionsResult = projectIds.length
+        ? await supabase.from('chat_sessions').select('id').in('project_id', projectIds)
+        : { data: [], error: null };
+
+      assertNoError(projectChatSessionsResult.error);
+
+      const chatSessionIds = Array.from(new Set([
+        ...(vehicleChatSessionsResult.data ?? []).map((session) => session.id),
+        ...(projectChatSessionsResult.data ?? []).map((session) => session.id),
+        ...diagnosisSessions.map((session) => session.chat_session_id).filter((sessionId): sessionId is string => !!sessionId),
+      ]));
 
       if (projectIds.length > 0) {
-        await Promise.all([
+        const [projectNotesResult, projectStepsResult, projectPartsResult, projectToolsResult] = await Promise.all([
+          supabase.from('project_notes').delete().in('project_id', projectIds),
           supabase.from('project_steps').delete().in('project_id', projectIds),
           supabase.from('project_parts').delete().in('project_id', projectIds),
           supabase.from('project_tools').delete().in('project_id', projectIds),
-          supabase.from('project_notes').delete().in('project_id', projectIds),
         ]);
-        // Chat sessions linked to projects
-        await supabase.from('chat_sessions').delete().in('project_id', projectIds);
-        // Diagnosis feedback linked to projects
-        await supabase.from('diagnosis_feedback').delete().in('project_id', projectIds);
+
+        assertNoError(projectNotesResult.error);
+        assertNoError(projectStepsResult.error);
+        assertNoError(projectPartsResult.error);
+        assertNoError(projectToolsResult.error);
       }
 
-      // Delete vehicle-level children
-      await Promise.all([
-        supabase.from('projects').delete().eq('vehicle_id', id),
+      if (vehicleProjectIds.length > 0) {
+        const { error } = await supabase.from('vehicle_project_tasks').delete().in('project_id', vehicleProjectIds);
+        assertNoError(error);
+      }
+
+      if (diagnosisSessionIds.length > 0) {
+        const [stepEventsResult, diagnosisFeedbackBySessionResult, repeatFeedbackResult] = await Promise.all([
+          supabase.from('diagnosis_step_events').delete().in('diagnosis_session_id', diagnosisSessionIds),
+          supabase.from('diagnosis_feedback').delete().in('diagnosis_session_id', diagnosisSessionIds),
+          supabase.from('diagnosis_feedback').delete().in('is_repeat_of_session_id', diagnosisSessionIds),
+        ]);
+
+        assertNoError(stepEventsResult.error);
+        assertNoError(diagnosisFeedbackBySessionResult.error);
+        assertNoError(repeatFeedbackResult.error);
+      }
+
+      const [diagnosisFeedbackByVehicleResult, ratchetMemoryResult] = await Promise.all([
+        supabase.from('diagnosis_feedback').delete().eq('vehicle_id', id),
+        supabase.from('ratchet_memory').delete().eq('vehicle_id', id),
+      ]);
+
+      assertNoError(diagnosisFeedbackByVehicleResult.error);
+      assertNoError(ratchetMemoryResult.error);
+
+      if (projectIds.length > 0) {
+        const { error } = await supabase.from('diagnosis_feedback').delete().in('project_id', projectIds);
+        assertNoError(error);
+      }
+
+      if (chatSessionIds.length > 0) {
+        const [chatMessagesResult, ratchetMemoryBySessionResult] = await Promise.all([
+          supabase.from('chat_messages').delete().in('session_id', chatSessionIds),
+          supabase.from('ratchet_memory').delete().in('source_session_id', chatSessionIds),
+        ]);
+
+        assertNoError(chatMessagesResult.error);
+        assertNoError(ratchetMemoryBySessionResult.error);
+      }
+
+      const [diagnosisSessionsDeleteResult, projectDeleteResult, maintenanceLogsResult, repairLogsResult, dtcRecordsResult, vehicleDocumentsResult, vehicleServiceSchedulesResult, vehicleProjectsDeleteResult] = await Promise.all([
         supabase.from('diagnosis_sessions').delete().eq('vehicle_id', id),
+        supabase.from('projects').delete().eq('vehicle_id', id),
         supabase.from('maintenance_logs').delete().eq('vehicle_id', id),
         supabase.from('repair_logs').delete().eq('vehicle_id', id),
         supabase.from('dtc_records').delete().eq('vehicle_id', id),
         supabase.from('vehicle_documents').delete().eq('vehicle_id', id),
         supabase.from('vehicle_service_schedules').delete().eq('vehicle_id', id),
         supabase.from('vehicle_projects').delete().eq('vehicle_id', id),
-        supabase.from('chat_sessions').delete().eq('vehicle_id', id),
-        supabase.from('ratchet_memory').delete().eq('vehicle_id', id),
       ]);
 
+      assertNoError(diagnosisSessionsDeleteResult.error);
+      assertNoError(projectDeleteResult.error);
+      assertNoError(maintenanceLogsResult.error);
+      assertNoError(repairLogsResult.error);
+      assertNoError(dtcRecordsResult.error);
+      assertNoError(vehicleDocumentsResult.error);
+      assertNoError(vehicleServiceSchedulesResult.error);
+      assertNoError(vehicleProjectsDeleteResult.error);
+
+      if (chatSessionIds.length > 0) {
+        const { error } = await supabase.from('chat_sessions').delete().in('id', chatSessionIds);
+        assertNoError(error);
+      }
+
       const { error } = await supabase.from('vehicles').delete().eq('id', id);
-      if (error) throw error;
+      assertNoError(error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vehicles'] });
