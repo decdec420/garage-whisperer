@@ -1,8 +1,12 @@
 import { useState, useMemo } from 'react';
+import { format, parse } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 import { supabase } from '@/integrations/supabase/client';
