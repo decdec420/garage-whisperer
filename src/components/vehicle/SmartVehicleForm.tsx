@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { getTrimOptions, getEngineOptions } from '@/lib/vehicle-options';
 
 export interface VehicleFormData {
   year: string;
@@ -48,149 +49,6 @@ async function fetchNHTSA(url: string): Promise<NHTSAResult[]> {
   }
 }
 
-// Use NHTSA VIN decode to get specs for a specific year/make/model by looking up
-// known VIN patterns. We'll decode a "blank" VIN with just year/make/model to get
-// available vehicle configurations.
-async function fetchModelSpecs(year: string, make: string, model: string): Promise<{
-  trims: string[];
-  engines: string[];
-  drivetrains: string[];
-  bodyStyles: string[];
-}> {
-  // Strategy: Search for all VINs decoded for this make/model/year in NHTSA's database
-  // by using the "DecodeVin" with partial WMI patterns for major manufacturers
-  const makeUpper = make.toUpperCase();
-
-  // Get WMI (World Manufacturer Identifier) codes for this make
-  const wmiResults = await fetchNHTSA(
-    `https://vpic.nhtsa.dot.gov/api/vehicles/GetWMIsForManufacturer/${encodeURIComponent(make)}?format=json`
-  );
-
-  const wmis = wmiResults
-    .map(r => String(r.WMI ?? ''))
-    .filter(w => w.length === 3)
-    .slice(0, 5); // Limit to 5 WMIs to avoid too many requests
-
-  if (wmis.length === 0) {
-    return { trims: [], engines: [], drivetrains: [], bodyStyles: [] };
-  }
-
-  // For each WMI, try to decode a VIN pattern to get available specs
-  // VIN format: WMI(3) + VDS(5) + check(1) + year(1) + plant(1) + seq(6)
-  // We'll use the batch decode endpoint with model year
-  const yearCode = getYearCode(parseInt(year));
-  
-  // Try decoding several VIN patterns with different body/engine codes
-  const vinPatterns = wmis.flatMap(wmi => {
-    // Generate a few VIN variations with common descriptor patterns
-    return ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L'].map(
-      code => `${wmi}${code}${code}1${code}${yearCode}A000001`
-    );
-  });
-
-  // Use batch decode (up to 50 VINs at once)
-  const batchVins = vinPatterns.slice(0, 50).join(';');
-  const batchResults = await fetchNHTSA(
-    `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesBatch/`
-  ).catch(() => []);
-
-  // Since batch POST is complex, let's use a simpler approach:
-  // Decode a few common VIN patterns for this make
-  const decodePromises = wmis.slice(0, 3).map(async (wmi) => {
-    // Try several descriptor codes
-    const codes = ['AA1A', 'BA2B', 'CB3C', 'DC4D', 'ED5E'];
-    const results: NHTSAResult[] = [];
-    
-    for (const code of codes.slice(0, 2)) {
-      const vin = `${wmi}${code}0${yearCode}A000001`;
-      const decoded = await fetchNHTSA(
-        `https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json&modelyear=${year}`
-      );
-      if (decoded.length > 0 && decoded[0].Make) {
-        const r = decoded[0];
-        // Only include if it matches our target make/model
-        const decodedMake = String(r.Make ?? '').toUpperCase();
-        const decodedModel = String(r.Model ?? '').toUpperCase();
-        if (decodedMake === makeUpper || decodedModel.toUpperCase().includes(model.toUpperCase())) {
-          results.push(r);
-        }
-      }
-    }
-    return results;
-  });
-
-  const allResults = (await Promise.all(decodePromises)).flat();
-
-  const trims = new Set<string>();
-  const engines = new Set<string>();
-  const drivetrains = new Set<string>();
-  const bodyStyles = new Set<string>();
-
-  for (const r of allResults) {
-    if (r.Trim && typeof r.Trim === 'string' && r.Trim !== 'Not Applicable') trims.add(r.Trim);
-    const dispL = r.DisplacementL ? parseFloat(String(r.DisplacementL)) : null;
-    const cyls = r.EngineCylinders ? String(r.EngineCylinders) : null;
-    if (dispL && cyls) {
-      engines.add(`${Math.round(dispL * 10) / 10}L ${cyls}cyl`);
-    }
-    if (r.DriveType && typeof r.DriveType === 'string' && r.DriveType !== 'Not Applicable') {
-      drivetrains.add(r.DriveType);
-    }
-    if (r.BodyClass && typeof r.BodyClass === 'string' && r.BodyClass !== 'Not Applicable') {
-      bodyStyles.add(r.BodyClass);
-    }
-  }
-
-  return {
-    trims: [...trims].sort(),
-    engines: [...engines].sort(),
-    drivetrains: [...drivetrains].sort(),
-    bodyStyles: [...bodyStyles].sort(),
-  };
-}
-
-function getYearCode(year: number): string {
-  // NHTSA year codes: 2010=A, 2011=B, ..., 2039=9 etc
-  const codes = '0123456789ABCDEFGHJKLMNPRSTVWXY';
-  const base = 2000;
-  const idx = (year - base) % 30;
-  return codes[idx] ?? 'A';
-}
-
-// Well-known trim levels by make for common manufacturers
-const COMMON_TRIMS: Record<string, string[]> = {
-  'TOYOTA': ['SR', 'SR5', 'TRD Sport', 'TRD Off-Road', 'Limited', 'TRD Pro', 'XLE', 'XSE', 'LE', 'SE', 'Nightshade', 'Platinum', '1794 Edition'],
-  'HONDA': ['LX', 'EX', 'EX-L', 'Sport', 'Sport Touring', 'Touring', 'Type R', 'Si', 'Hybrid'],
-  'FORD': ['XL', 'XLT', 'Lariat', 'King Ranch', 'Platinum', 'Limited', 'Raptor', 'SE', 'SEL', 'Titanium', 'ST', 'ST-Line'],
-  'CHEVROLET': ['LS', 'LT', 'RST', 'Z71', 'ZR2', 'High Country', 'Trail Boss', 'RS', 'Premier', '1LT', '2LT', '3LT'],
-  'NISSAN': ['S', 'SV', 'SL', 'SR', 'Platinum', 'PRO-4X', 'PRO-X', 'Midnight Edition', 'Rock Creek'],
-  'HYUNDAI': ['SE', 'SEL', 'N Line', 'Limited', 'Calligraphy', 'XRT', 'Blue'],
-  'KIA': ['LX', 'LXS', 'EX', 'SX', 'SX Prestige', 'GT-Line', 'GT'],
-  'SUBARU': ['Base', 'Premium', 'Sport', 'Limited', 'Touring', 'Onyx Edition', 'Wilderness'],
-  'BMW': ['sDrive', 'xDrive', 'M Sport', 'M', 'Competition'],
-  'MERCEDES-BENZ': ['Base', 'AMG Line', 'AMG', 'Night Package'],
-  'JEEP': ['Sport', 'Sport S', 'Altitude', 'Latitude', 'Overland', 'Limited', 'Sahara', 'Rubicon', 'Mojave', 'Trailhawk', 'Summit'],
-  'RAM': ['Tradesman', 'Big Horn', 'Lone Star', 'Laramie', 'Rebel', 'Limited', 'TRX', 'Limited Longhorn'],
-  'GMC': ['SLE', 'SLT', 'AT4', 'AT4X', 'Denali', 'Denali Ultimate', 'Elevation'],
-  'DODGE': ['SXT', 'GT', 'R/T', 'Scat Pack', 'Hellcat', 'Redeye'],
-  'VOLKSWAGEN': ['S', 'SE', 'SEL', 'SEL Premium', 'R-Line', 'GTI', 'GLI', 'R'],
-  'MAZDA': ['Base', 'Select', 'Preferred', 'Carbon Edition', 'Premium', 'Premium Plus', 'Turbo', 'Turbo Premium Plus'],
-  'LEXUS': ['Base', 'Premium', 'Luxury', 'F Sport', 'F Sport Design', 'Ultra Luxury'],
-  'ACURA': ['Base', 'Technology', 'A-Spec', 'Advance', 'Type S', 'PMC Edition'],
-  'AUDI': ['Premium', 'Premium Plus', 'Prestige', 'S Line', 'RS'],
-};
-
-// Common engine options by make
-const COMMON_ENGINES: Record<string, string[]> = {
-  'TOYOTA': ['2.4L 4cyl', '2.4L 4cyl Turbo', '2.5L 4cyl', '2.5L 4cyl Hybrid', '3.5L V6', 'i-FORCE MAX 2.4L Turbo Hybrid'],
-  'HONDA': ['1.5L 4cyl', '1.5L 4cyl Turbo', '2.0L 4cyl', '2.0L 4cyl Turbo', '2.0L 4cyl Hybrid', '2.4L 4cyl', '3.5L V6'],
-  'FORD': ['1.5L 3cyl', '1.5L 4cyl Turbo', '2.0L 4cyl', '2.0L 4cyl Turbo', '2.3L 4cyl Turbo', '2.5L 4cyl', '2.7L V6 Turbo', '3.5L V6', '3.5L V6 Turbo', '5.0L V8', '5.2L V8', '6.7L V8 Diesel'],
-  'CHEVROLET': ['1.4L 4cyl Turbo', '1.5L 4cyl Turbo', '2.0L 4cyl Turbo', '2.5L 4cyl', '2.7L 4cyl Turbo', '3.6L V6', '5.3L V8', '6.2L V8', '6.6L V8 Diesel'],
-  'NISSAN': ['1.6L 4cyl Turbo', '2.0L 4cyl', '2.5L 4cyl', '3.5L V6', '3.8L V6', '5.6L V8'],
-  'HYUNDAI': ['1.6L 4cyl Turbo', '2.0L 4cyl', '2.5L 4cyl', '2.5L 4cyl Turbo', '3.3L V6 Turbo', '3.5L V6'],
-  'JEEP': ['2.0L 4cyl Turbo', '2.4L 4cyl', '3.0L V6 Diesel', '3.6L V6', '5.7L V8', '6.2L V8', '6.4L V8'],
-  'SUBARU': ['2.0L 4cyl', '2.4L 4cyl Turbo', '2.5L 4cyl'],
-};
 
 export default function SmartVehicleForm({ form, onChange, smartSuggest = true }: Props) {
   const [makes, setMakes] = useState<string[]>([]);
@@ -202,30 +60,8 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
     onChange({ ...form, [k]: v });
   }, [form, onChange]);
 
-  // Get trim suggestions based on make
-  const trimOptions = (() => {
-    if (!form.make) return [];
-    const makeUpper = form.make.toUpperCase();
-    // Check exact match first, then partial
-    for (const [key, trims] of Object.entries(COMMON_TRIMS)) {
-      if (makeUpper === key || makeUpper.includes(key) || key.includes(makeUpper)) {
-        return trims;
-      }
-    }
-    return [];
-  })();
-
-  // Get engine suggestions based on make
-  const engineOptions = (() => {
-    if (!form.make) return [];
-    const makeUpper = form.make.toUpperCase();
-    for (const [key, engines] of Object.entries(COMMON_ENGINES)) {
-      if (makeUpper === key || makeUpper.includes(key) || key.includes(makeUpper)) {
-        return engines;
-      }
-    }
-    return [];
-  })();
+  const trimOptions = getTrimOptions(form.make, form.model);
+  const engineOptions = getEngineOptions(form.make, form.model);
 
   // Fetch makes when year changes
   useEffect(() => {
