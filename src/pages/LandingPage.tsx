@@ -16,7 +16,7 @@ const features = [
   {
     icon: Car,
     title: 'Maintenance Tracking',
-    desc: 'Know exactly what's due, what's overdue, and what your vehicle needs next. Never miss an oil change again.',
+    desc: "Know exactly what's due, what's overdue, and what your vehicle needs next. Never miss an oil change again.",
   },
 ];
 
