@@ -1,54 +1,73 @@
 
 
-# Fix: Model-Specific Trim & Engine Suggestions
+# Overhaul: charm.li → lemon-manuals.la Migration
 
-## The Problem
-`COMMON_TRIMS` and `COMMON_ENGINES` in `SmartVehicleForm.tsx` are keyed by **make only**. A Ford Mustang shows "King Ranch" and "Raptor" (F-150 trims). A Mustang should show GT, EcoBoost, Mach 1, Shelby GT500, etc.
+## Problem
+The entire factory manual pipeline — image scraping, procedure text, torque specs — is hardcoded to charm.li with a **1982-2013 year gate**. Your 2008 Fusion battery project got zero photos because lemon-manuals.la is the replacement source covering **1960-2025**. Additionally, the model format differs: lemon-manuals includes drivetrain in the model string (e.g., `Fusion FWD L4-2.3L` vs `Fusion L4-2.3L`).
 
-## The Fix
-Replace static make-only lookups with **NHTSA API-driven, model-specific** trim and engine data. The NHTSA `DecodeVinValues` approach already exists in the code (lines 54–150, `fetchModelSpecs`) but is **never called**. We'll use a simpler, more reliable approach.
+## Scope of Changes
 
-### Approach: Use NHTSA's Vehicle Variables API
-NHTSA doesn't have a direct "trims for model" endpoint, but we can use their VIN decode with known WMI patterns. However, this is unreliable and slow.
+### 1. Edge Function: `fetch-charm-data/index.ts` → rename to `fetch-manual-data-v2`
+- Replace `charm.li` base URL with `lemon-manuals.la`
+- Expand year range from `1982-2013` to `1960-2025`
+- Update `extractImages()` to match `lemon-manuals.la/images/` src patterns
+- Add drivetrain-aware model formatting: use vehicle's `drivetrain` field (FWD/AWD/2WD/4WD) when building the model string
+- Add fallback logic: try with drivetrain first, fall back to without if 404
+- Update cache upsert to store `lemon-manuals.la` URLs
 
-**Better approach**: Fetch trims dynamically using a combination of:
-1. Keep `COMMON_TRIMS` but restructure it as `MAKE > MODEL` (two-level lookup)
-2. For the most popular models across the top makes, provide accurate trim lists
-3. Fall back to a free-text input when no match is found (instead of showing wrong trims)
-4. Same treatment for engines
+### 2. Edge Function: `generate-project/index.ts`
+- Update `fetchCharmData()` function: same domain swap, year range expansion, drivetrain-aware model formatting
+- Update image extraction to recognize `lemon-manuals.la/images/` URLs
+- Remove the `year < 1982 || year > 2013` hard gate (line 305)
+- Update the `fetch-manual-data` call to also use lemon-manuals.la paths
 
-### File: `src/components/vehicle/SmartVehicleForm.tsx`
+### 3. Client: `src/lib/charm-url.ts`
+- Swap all `charm.li` URLs to `lemon-manuals.la`
+- Update `buildCharmUrls()` to include drivetrain in model string when available
+- Expand year range check from `1982-2013` to `1960-2025`
+- Update `formatEngineForCharm()` to prepend drivetrain (FWD/AWD/etc.)
 
-**Changes:**
-1. Replace `COMMON_TRIMS: Record<string, string[]>` with `MODEL_TRIMS: Record<string, Record<string, string[]>>` — keyed by `MAKE > MODEL`
-2. Replace `COMMON_ENGINES: Record<string, string[]>` with `MODEL_ENGINES: Record<string, Record<string, string[]>>`
-3. Update `trimOptions` logic (line 206–216) to look up `make + model` instead of just `make`
-4. Update `engineOptions` logic (line 219–228) similarly
-5. When no model-specific match exists, fall back to a text input (not a wrong dropdown)
-6. Cover the most common models per major make (Mustang, F-150, Civic, Camry, etc. — ~50 models)
+### 4. UI Attribution Updates (4 files)
+- `FactoryPhotoLightbox.tsx`: Change "Operation CHARM (charm.li)" → "LEMON Manuals (lemon-manuals.la)"
+- `ProjectDetail.tsx`: Update attribution text and links
+- `MechanicMode.tsx`: Update link text
+- `BlueprintTab.tsx`: Update attribution and remove `year >= 1982 && year <= 2013` year gate on the "MANUAL" button
 
-### Coverage for popular models (partial list):
-- **Ford**: F-150, Mustang, Explorer, Escape, Transit Connect, Bronco, Maverick, Edge, Ranger
-- **Toyota**: Camry, Corolla, RAV4, Tacoma, Tundra, 4Runner, Highlander, Prius
-- **Honda**: Civic, Accord, CR-V, Pilot, HR-V, Odyssey, Ridgeline
-- **Chevrolet**: Silverado, Camaro, Corvette, Equinox, Tahoe, Colorado, Malibu
-- **Jeep**: Wrangler, Grand Cherokee, Cherokee, Gladiator, Compass
-- Plus other major makes with their top 3–5 models
-
-### Fallback behavior
-When a model isn't in our lookup (e.g., a rare or brand-new model), the trim and engine fields become plain text inputs instead of showing incorrect options. This is strictly better than showing wrong data.
+### 5. Tests: `src/test/charm-url.test.ts`
+- Update URL expectations from `charm.li` to `lemon-manuals.la`
 
 ---
 
-## Technical details
+## Technical Details
 
-| What | How |
-|------|-----|
-| Data structure | `Record<string, Record<string, string[]>>` — `MAKE → MODEL → trims[]` |
-| Lookup logic | `MODEL_TRIMS[make.toUpperCase()]?.[model.toUpperCase()] ?? []` |
-| Fallback | Empty array → renders `<Input>` instead of `<Select>` (existing pattern) |
-| Engine matching | Same two-level lookup for `MODEL_ENGINES` |
-| File changed | `src/components/vehicle/SmartVehicleForm.tsx` only |
+### Drivetrain Model String Logic
+lemon-manuals.la requires drivetrain in the model URL for many vehicles. The `vehicles` table already has a `drivetrain` column.
 
-No API changes, no DB changes. Pure frontend data correction.
+```text
+Current:   Fusion L4-2.3L
+Required:  Fusion FWD L4-2.3L
+
+Current:   Ranger V6-4.0L  
+Required:  Ranger 2WD V6-4.0L
+```
+
+Strategy: Build model string as `{Model} {drivetrain} {engine}`. If the page 404s, retry without drivetrain. Some vehicles (Mustang) don't use drivetrain in the URL.
+
+### Image Extraction Update
+Current regex matches `charm.li/images` — needs to match `lemon-manuals.la/images/`. The actual image format on lemon-manuals: `<img class="big-img" src="https://lemon-manuals.la/images/DM10Q313/ford150/109789606/">`.
+
+### Files Changed
+| File | Type |
+|------|------|
+| `supabase/functions/fetch-charm-data/index.ts` | Domain swap, year range, drivetrain, image regex |
+| `supabase/functions/generate-project/index.ts` | Same + remove year gate |
+| `supabase/functions/fetch-manual-data/index.ts` | Update Cloudflare mirror references |
+| `src/lib/charm-url.ts` | Domain swap, year range, drivetrain |
+| `src/components/vehicle/FactoryPhotoLightbox.tsx` | Attribution text |
+| `src/pages/ProjectDetail.tsx` | Attribution text |
+| `src/components/vehicle/MechanicMode.tsx` | Attribution text |
+| `src/components/vehicle/BlueprintTab.tsx` | Attribution + year gate removal |
+| `src/test/charm-url.test.ts` | URL expectations |
+
+No database migrations needed — `charm_cache` table structure works as-is.
 
