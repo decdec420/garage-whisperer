@@ -495,6 +495,7 @@ export default function ProjectDetail() {
     staleTime: 30 * 60 * 1000, // 30 min
   });
 
+  const completedSteps = steps.filter(s => s.status === 'done').length;
   const pctDone = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
   const totalPartsCost = parts.reduce((s, p) => s + (Number(p.estimated_cost) || 0) * (p.quantity || 1), 0);
   const partsReady = parts.filter(p => p.have_it).length;
