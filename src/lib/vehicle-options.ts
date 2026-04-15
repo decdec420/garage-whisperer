@@ -395,6 +395,276 @@ export const TRIM_ENGINES: Record<string, Record<string, Record<string, string[]
 };
 
 /**
+ * Model-specific drivetrain options.
+ * When a model is selected, only relevant drivetrains are shown.
+ * Falls back to all 4 options if model not listed.
+ */
+export const MODEL_DRIVETRAINS: Record<string, Record<string, string[]>> = {
+  FORD: {
+    'F-150': ['RWD', '4WD'],
+    'MUSTANG': ['RWD'],
+    'EXPLORER': ['RWD', 'AWD'],
+    'ESCAPE': ['FWD', 'AWD'],
+    'TRANSIT CONNECT': ['FWD'],
+    'BRONCO': ['4WD'],
+    'BRONCO SPORT': ['FWD', 'AWD'],
+    'MAVERICK': ['FWD', 'AWD'],
+    'EDGE': ['FWD', 'AWD'],
+    'RANGER': ['RWD', '4WD'],
+    'EXPEDITION': ['RWD', '4WD'],
+    'FUSION': ['FWD', 'AWD'],
+    'FOCUS': ['FWD', 'AWD'],
+  },
+  TOYOTA: {
+    'CAMRY': ['FWD', 'AWD'],
+    'COROLLA': ['FWD', 'AWD'],
+    'RAV4': ['FWD', 'AWD'],
+    'TACOMA': ['RWD', '4WD'],
+    'TUNDRA': ['RWD', '4WD'],
+    '4RUNNER': ['RWD', '4WD'],
+    'HIGHLANDER': ['FWD', 'AWD'],
+    'PRIUS': ['FWD', 'AWD'],
+    'SUPRA': ['RWD'],
+    'COROLLA CROSS': ['FWD', 'AWD'],
+    'GR86': ['RWD'],
+  },
+  HONDA: {
+    'CIVIC': ['FWD'],
+    'ACCORD': ['FWD'],
+    'CR-V': ['FWD', 'AWD'],
+    'PILOT': ['FWD', 'AWD'],
+    'HR-V': ['FWD', 'AWD'],
+    'ODYSSEY': ['FWD'],
+    'RIDGELINE': ['AWD'],
+    'FIT': ['FWD'],
+  },
+  CHEVROLET: {
+    'SILVERADO 1500': ['RWD', '4WD'],
+    'SILVERADO': ['RWD', '4WD'],
+    'CAMARO': ['RWD'],
+    'CORVETTE': ['RWD', 'AWD'],
+    'EQUINOX': ['FWD', 'AWD'],
+    'TAHOE': ['RWD', '4WD'],
+    'COLORADO': ['RWD', '4WD'],
+    'MALIBU': ['FWD'],
+    'TRAVERSE': ['FWD', 'AWD'],
+    'SUBURBAN': ['RWD', '4WD'],
+    'BLAZER': ['FWD', 'AWD'],
+  },
+  JEEP: {
+    'WRANGLER': ['4WD'],
+    'GRAND CHEROKEE': ['RWD', '4WD'],
+    'CHEROKEE': ['FWD', '4WD'],
+    'GLADIATOR': ['4WD'],
+    'COMPASS': ['FWD', '4WD'],
+    'RENEGADE': ['FWD', '4WD'],
+    'GRAND WAGONEER': ['4WD'],
+  },
+  RAM: {
+    '1500': ['RWD', '4WD'],
+    '2500': ['RWD', '4WD'],
+    '3500': ['RWD', '4WD'],
+  },
+  GMC: {
+    'SIERRA 1500': ['RWD', '4WD'],
+    'SIERRA': ['RWD', '4WD'],
+    'YUKON': ['RWD', '4WD'],
+    'CANYON': ['RWD', '4WD'],
+    'TERRAIN': ['FWD', 'AWD'],
+    'ACADIA': ['FWD', 'AWD'],
+  },
+  HYUNDAI: {
+    'TUCSON': ['FWD', 'AWD'],
+    'SANTA FE': ['FWD', 'AWD'],
+    'ELANTRA': ['FWD'],
+    'SONATA': ['FWD', 'AWD'],
+    'PALISADE': ['FWD', 'AWD'],
+    'KONA': ['FWD', 'AWD'],
+    'IONIQ 5': ['RWD', 'AWD'],
+    'IONIQ 6': ['RWD', 'AWD'],
+  },
+  KIA: {
+    'TELLURIDE': ['FWD', 'AWD'],
+    'SPORTAGE': ['FWD', 'AWD'],
+    'FORTE': ['FWD'],
+    'SORENTO': ['FWD', 'AWD'],
+    'K5': ['FWD', 'AWD'],
+    'SOUL': ['FWD'],
+    'EV6': ['RWD', 'AWD'],
+  },
+  SUBARU: {
+    'OUTBACK': ['AWD'],
+    'FORESTER': ['AWD'],
+    'CROSSTREK': ['AWD'],
+    'WRX': ['AWD'],
+    'IMPREZA': ['AWD'],
+    'LEGACY': ['AWD'],
+    'BRZ': ['RWD'],
+    'ASCENT': ['AWD'],
+  },
+  NISSAN: {
+    'ALTIMA': ['FWD', 'AWD'],
+    'ROGUE': ['FWD', 'AWD'],
+    'PATHFINDER': ['FWD', 'AWD'],
+    'FRONTIER': ['RWD', '4WD'],
+    'SENTRA': ['FWD'],
+    'KICKS': ['FWD'],
+    'TITAN': ['RWD', '4WD'],
+    'Z': ['RWD'],
+  },
+  BMW: {
+    '3 SERIES': ['RWD', 'AWD'],
+    '5 SERIES': ['RWD', 'AWD'],
+    'X3': ['RWD', 'AWD'],
+    'X5': ['RWD', 'AWD'],
+    'M3': ['RWD', 'AWD'],
+    'M4': ['RWD', 'AWD'],
+  },
+  'MERCEDES-BENZ': {
+    'C-CLASS': ['RWD', 'AWD'],
+    'E-CLASS': ['RWD', 'AWD'],
+    'GLC': ['RWD', 'AWD'],
+    'GLE': ['RWD', 'AWD'],
+  },
+  VOLKSWAGEN: {
+    'JETTA': ['FWD'],
+    'TIGUAN': ['FWD', 'AWD'],
+    'ATLAS': ['FWD', 'AWD'],
+    'GOLF': ['FWD', 'AWD'],
+    'TAOS': ['FWD', 'AWD'],
+    'ID.4': ['RWD', 'AWD'],
+  },
+  MAZDA: {
+    'CX-5': ['FWD', 'AWD'],
+    'CX-50': ['FWD', 'AWD'],
+    'MAZDA3': ['FWD', 'AWD'],
+    'CX-30': ['FWD', 'AWD'],
+    'CX-90': ['FWD', 'AWD'],
+    'MX-5 MIATA': ['RWD'],
+  },
+  DODGE: {
+    'CHARGER': ['RWD', 'AWD'],
+    'CHALLENGER': ['RWD'],
+    'DURANGO': ['RWD', 'AWD'],
+    'HORNET': ['FWD', 'AWD'],
+  },
+  LEXUS: {
+    'RX': ['FWD', 'AWD'],
+    'ES': ['FWD', 'AWD'],
+    'IS': ['RWD', 'AWD'],
+    'NX': ['FWD', 'AWD'],
+    'GX': ['4WD'],
+  },
+  ACURA: {
+    'TLX': ['FWD', 'AWD'],
+    'MDX': ['FWD', 'AWD'],
+    'INTEGRA': ['FWD'],
+    'RDX': ['FWD', 'AWD'],
+  },
+  AUDI: {
+    'A4': ['FWD', 'AWD'],
+    'A6': ['FWD', 'AWD'],
+    'Q5': ['FWD', 'AWD'],
+    'Q7': ['AWD'],
+    'S4': ['AWD'],
+    'RS 5': ['AWD'],
+  },
+  TESLA: {
+    'MODEL 3': ['RWD', 'AWD'],
+    'MODEL Y': ['RWD', 'AWD'],
+    'MODEL S': ['AWD'],
+    'MODEL X': ['AWD'],
+  },
+};
+
+/**
+ * Model-specific transmission options.
+ * Falls back to generic list if model not listed.
+ */
+export const MODEL_TRANSMISSIONS: Record<string, Record<string, string[]>> = {
+  FORD: {
+    'F-150': ['Automatic', 'Automatic 10-Speed'],
+    'MUSTANG': ['Automatic', 'Automatic 6-Speed', 'Automatic 10-Speed', 'Manual 5-Speed', 'Manual 6-Speed'],
+    'EXPLORER': ['Automatic 10-Speed'],
+    'ESCAPE': ['Automatic', 'CVT'],
+    'BRONCO': ['Automatic 10-Speed', 'Manual 7-Speed'],
+    'MAVERICK': ['Automatic 8-Speed', 'CVT'],
+    'RANGER': ['Automatic 10-Speed'],
+    'FUSION': ['Automatic 6-Speed', 'CVT'],
+    'FOCUS': ['Automatic 6-Speed', 'DCT 6-Speed', 'Manual 5-Speed', 'Manual 6-Speed'],
+  },
+  TOYOTA: {
+    'CAMRY': ['Automatic 8-Speed', 'CVT'],
+    'COROLLA': ['CVT', 'Manual 6-Speed', 'Automatic'],
+    'RAV4': ['Automatic 8-Speed', 'CVT'],
+    'TACOMA': ['Automatic 6-Speed', 'Automatic 8-Speed', 'Manual 6-Speed'],
+    'TUNDRA': ['Automatic 10-Speed'],
+    '4RUNNER': ['Automatic 8-Speed'],
+    'SUPRA': ['Automatic 8-Speed', 'Manual 6-Speed'],
+    'GR86': ['Automatic 6-Speed', 'Manual 6-Speed'],
+  },
+  HONDA: {
+    'CIVIC': ['CVT', 'Manual 6-Speed'],
+    'ACCORD': ['CVT', 'Automatic 10-Speed'],
+    'CR-V': ['CVT'],
+    'PILOT': ['Automatic 9-Speed', 'Automatic 10-Speed'],
+    'ODYSSEY': ['Automatic 10-Speed'],
+  },
+  CHEVROLET: {
+    'SILVERADO 1500': ['Automatic 8-Speed', 'Automatic 10-Speed'],
+    'SILVERADO': ['Automatic 8-Speed', 'Automatic 10-Speed'],
+    'CAMARO': ['Automatic 8-Speed', 'Automatic 10-Speed', 'Manual 6-Speed'],
+    'CORVETTE': ['DCT 8-Speed'],
+    'COLORADO': ['Automatic 8-Speed'],
+  },
+  JEEP: {
+    'WRANGLER': ['Automatic 8-Speed', 'Manual 6-Speed'],
+    'GRAND CHEROKEE': ['Automatic 8-Speed'],
+    'GLADIATOR': ['Automatic 8-Speed', 'Manual 6-Speed'],
+  },
+  DODGE: {
+    'CHARGER': ['Automatic 8-Speed'],
+    'CHALLENGER': ['Automatic 8-Speed', 'Manual 6-Speed'],
+    'DURANGO': ['Automatic 8-Speed'],
+  },
+  SUBARU: {
+    'OUTBACK': ['CVT'],
+    'FORESTER': ['CVT'],
+    'CROSSTREK': ['CVT', 'Manual 6-Speed'],
+    'WRX': ['CVT', 'Manual 6-Speed'],
+    'BRZ': ['Automatic 6-Speed', 'Manual 6-Speed'],
+    'IMPREZA': ['CVT'],
+  },
+  TESLA: {
+    'MODEL 3': ['Single-Speed'],
+    'MODEL Y': ['Single-Speed'],
+    'MODEL S': ['Single-Speed'],
+    'MODEL X': ['Single-Speed'],
+  },
+};
+
+const ALL_DRIVETRAINS = ['FWD', 'RWD', 'AWD', '4WD'];
+const ALL_TRANSMISSIONS = ['Automatic', 'Manual', 'CVT', 'DCT'];
+
+/**
+ * Look up drivetrain options for a specific make + model.
+ * Returns model-specific list or all 4 options as fallback.
+ */
+export function getDrivetrainOptions(make: string, model: string): string[] {
+  if (!make || !model) return ALL_DRIVETRAINS;
+  return MODEL_DRIVETRAINS[make.toUpperCase()]?.[model.toUpperCase()] ?? ALL_DRIVETRAINS;
+}
+
+/**
+ * Look up transmission options for a specific make + model.
+ * Returns model-specific list or generic fallback.
+ */
+export function getTransmissionOptions(make: string, model: string): string[] {
+  if (!make || !model) return ALL_TRANSMISSIONS;
+  return MODEL_TRANSMISSIONS[make.toUpperCase()]?.[model.toUpperCase()] ?? ALL_TRANSMISSIONS;
+}
+
+/**
  * Look up trim options for a specific make + model.
  * Returns empty array if no match (caller should render text input).
  */

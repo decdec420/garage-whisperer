@@ -78,6 +78,7 @@ export default function AddVehicleModal({ open, onOpenChange }: Props) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!form.year || !form.make || !form.model) throw new Error('Year, Make, and Model are required');
+      if (!form.drivetrain) throw new Error('Drivetrain is required — it helps us pull the right factory manuals');
       const { data: inserted, error } = await supabase.from('vehicles').insert({
         user_id: user!.id,
         vin: form.vin || null,
