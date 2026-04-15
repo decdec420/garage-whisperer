@@ -44,12 +44,12 @@ export default function SettingsPage() {
     setExporting(true);
     try {
       const [vehicles, maintenance, repairs, projects, diagnoses, memories] = await Promise.all([
-        supabase.from('vehicles').select('*'),
-        supabase.from('maintenance_logs').select('*'),
-        supabase.from('repair_logs').select('*'),
-        supabase.from('projects').select('*, project_steps(*), project_parts(*), project_tools(*)'),
-        supabase.from('diagnosis_sessions').select('*'),
-        supabase.from('ratchet_memory').select('*'),
+        supabase.from('vehicles').select('*').limit(10000),
+        supabase.from('maintenance_logs').select('*').limit(10000),
+        supabase.from('repair_logs').select('*').limit(10000),
+        supabase.from('projects').select('*, project_steps(*), project_parts(*), project_tools(*)').limit(10000),
+        supabase.from('diagnosis_sessions').select('*').limit(10000),
+        supabase.from('ratchet_memory').select('*').limit(10000),
       ]);
 
       const payload = {
