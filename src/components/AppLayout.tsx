@@ -129,10 +129,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  active ? 'bg-primary/10 text-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative',
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 )}
               >
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+                )}
                 <item.icon className="h-5 w-5" />
                 {item.label}
               </button>
@@ -144,19 +149,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button
             onClick={() => navigate('/settings')}
             className={cn(
-              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-              isActive('/settings') ? 'bg-primary/10 text-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+              'flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative',
+              isActive('/settings')
+                ? 'bg-primary/10 text-primary'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
             )}
           >
+            {isActive('/settings') && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-primary" />
+            )}
             <Settings className="h-5 w-5" />
             Settings
           </button>
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-sidebar-accent/40 mt-2">
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold avatar-glow">
               {profileName[0]?.toUpperCase()}
             </div>
             <span className="text-sm font-medium truncate flex-1">{profileName}</span>
-            <button onClick={signOut} className="text-muted-foreground hover:text-destructive">
+            <button onClick={signOut} className="text-muted-foreground hover:text-destructive transition-colors">
               <LogOut className="h-4 w-4" />
             </button>
           </div>
@@ -166,7 +176,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Main content */}
       <main className={cn("flex-1 md:ml-60 pb-20 md:pb-0 transition-[margin] duration-300 overflow-x-hidden", isRatchetOpen && "md:mr-[420px]")}>
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background z-20">
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background/80 backdrop-blur-xl z-20">
           <div className="flex items-center gap-2">
             <Wrench className="h-5 w-5 text-primary" />
             <span className="font-bold text-primary">Ratchet</span>
@@ -203,7 +213,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background z-30 safe-area-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background/80 backdrop-blur-xl z-30 safe-area-bottom">
         <div className="flex items-center justify-around py-2">
           {mobileNav.map((item) => {
             const active = item.path === '/blueprint' ? false : isActive(item.path);
@@ -212,12 +222,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 key={item.label}
                 onClick={() => item.path === '/blueprint' ? handleBlueprintMobile() : navigate(item.path)}
                 className={cn(
-                  'flex flex-col items-center gap-1 px-3 py-1 min-h-[44px] justify-center',
+                  'flex flex-col items-center gap-1 px-3 py-1 min-h-[44px] justify-center relative',
                   active ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="text-[10px] font-medium">{item.label}</span>
+                {active && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                )}
               </button>
             );
           })}
