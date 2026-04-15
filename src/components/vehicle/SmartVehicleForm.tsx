@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown } from 'lucide-react';
 import { getTrimOptions, getEngineOptions } from '@/lib/vehicle-options';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 export interface VehicleFormData {
   year: string;
@@ -49,6 +51,112 @@ async function fetchNHTSA(url: string): Promise<NHTSAResult[]> {
   }
 }
 
+/** Combobox that allows both selection from a list AND free text entry */
+function ComboboxField({
+  value,
+  onChange,
+  options,
+  placeholder,
+  emptyText = 'No matches — type your own',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+  emptyText?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // When user types in the search, also set the value for free-text entry
+  const handleSearchChange = (s: string) => {
+    setSearch(s);
+  };
+
+  const handleSelect = (selected: string) => {
+    onChange(selected);
+    setSearch('');
+    setOpen(false);
+  };
+
+  // On blur of the search input, if user typed something not in list, use it
+  const commitFreeText = () => {
+    if (search && !options.some((o) => o.toLowerCase() === search.toLowerCase())) {
+      onChange(search);
+    }
+    setSearch('');
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-popover px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className={value ? 'text-foreground' : 'text-muted-foreground'}>
+            {value || placeholder}
+          </span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command shouldFilter={true}>
+          <CommandInput
+            ref={inputRef}
+            placeholder={`Search or type custom...`}
+            value={search}
+            onValueChange={handleSearchChange}
+            onBlur={commitFreeText}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && search) {
+                e.preventDefault();
+                onChange(search);
+                setSearch('');
+                setOpen(false);
+              }
+            }}
+          />
+          <CommandList>
+            <CommandEmpty>
+              <span className="text-xs text-muted-foreground">{emptyText}</span>
+              {search && (
+                <button
+                  type="button"
+                  className="mt-1 block w-full text-left text-xs text-primary hover:underline"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(search);
+                    setSearch('');
+                    setOpen(false);
+                  }}
+                >
+                  Use "{search}"
+                </button>
+              )}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={() => handleSelect(opt)}
+                  className="cursor-pointer"
+                >
+                  {opt}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export default function SmartVehicleForm({ form, onChange, smartSuggest = true }: Props) {
   const [makes, setMakes] = useState<string[]>([]);
@@ -61,7 +169,7 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
   }, [form, onChange]);
 
   const trimOptions = getTrimOptions(form.make, form.model);
-  const engineOptions = getEngineOptions(form.make, form.model);
+  const engineOptions = getEngineOptions(form.make, form.model, form.trim);
 
   // Fetch makes when year changes
   useEffect(() => {
@@ -117,6 +225,11 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
 
   const handleMakeChange = useCallback((make: string) => {
     onChange({ ...form, make, model: '', trim: '', engine: '', transmission: '', drivetrain: '', body_style: '' });
+  }, [form, onChange]);
+
+  const handleTrimChange = useCallback((trim: string) => {
+    // When trim changes, clear engine since valid options may change
+    onChange({ ...form, trim, engine: '' });
   }, [form, onChange]);
 
   return (
@@ -176,35 +289,33 @@ export default function SmartVehicleForm({ form, onChange, smartSuggest = true }
         )}
       </div>
 
-      {/* Trim */}
+      {/* Trim — combobox with suggestions + free text */}
       <div className="space-y-1">
         <Label className="text-xs">Trim</Label>
         {smartSuggest && form.make && trimOptions.length > 0 ? (
-          <Select value={form.trim} onValueChange={(v) => set('trim', v)}>
-            <SelectTrigger className="bg-popover">
-              <SelectValue placeholder="Select trim" />
-            </SelectTrigger>
-            <SelectContent>
-              {trimOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ComboboxField
+            value={form.trim}
+            onChange={handleTrimChange}
+            options={trimOptions}
+            placeholder="Select or type trim"
+            emptyText="Not listed? Type your own"
+          />
         ) : (
           <Input value={form.trim} onChange={(e) => set('trim', e.target.value)} placeholder="XLT" className="bg-popover" />
         )}
       </div>
 
-      {/* Engine */}
+      {/* Engine — combobox, cascaded by trim */}
       <div className="col-span-2 space-y-1">
         <Label className="text-xs">Engine</Label>
         {smartSuggest && form.make && engineOptions.length > 0 ? (
-          <Select value={form.engine} onValueChange={(v) => set('engine', v)}>
-            <SelectTrigger className="bg-popover">
-              <SelectValue placeholder="Select engine" />
-            </SelectTrigger>
-            <SelectContent>
-              {engineOptions.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <ComboboxField
+            value={form.engine}
+            onChange={(v) => set('engine', v)}
+            options={engineOptions}
+            placeholder="Select or type engine"
+            emptyText="Not listed? Type your own"
+          />
         ) : (
           <Input value={form.engine} onChange={(e) => set('engine', e.target.value)} placeholder="2.5L 4cyl" className="bg-popover" />
         )}
