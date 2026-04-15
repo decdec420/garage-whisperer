@@ -617,20 +617,66 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    // --- Check diagnostic pattern cache ---
+    // --- Parallel fetch: pattern cache + history + charm data + manual data ---
     const symptomLower = symptom.toLowerCase().trim();
     const makeLower = vehicle.make.toLowerCase();
     const modelLower = vehicle.model.toLowerCase();
-    
-    const { data: matchedPatterns } = await supabase
-      .from("diagnostic_patterns")
-      .select("*")
-      .ilike("vehicle_make", makeLower)
-      .ilike("vehicle_model", modelLower)
-      .order("confidence_score", { ascending: false })
-      .limit(10);
 
-    // Find patterns that match by symptom similarity and year range
+    const manualAbortCtrl = new AbortController();
+    const manualTimeout = setTimeout(() => manualAbortCtrl.abort(), 25000);
+
+    const [patternsResult, historyResult, charmDataResult, manualDataResult] = await Promise.all([
+      // 1. Pattern cache
+      supabase
+        .from("diagnostic_patterns")
+        .select("*")
+        .ilike("vehicle_make", makeLower)
+        .ilike("vehicle_model", modelLower)
+        .order("confidence_score", { ascending: false })
+        .limit(10)
+        .then((r: any) => r.data || []),
+
+      // 2. Vehicle history
+      supabase
+        .from("diagnosis_sessions")
+        .select("symptom, confirmed_cause, status, confidence_score")
+        .eq("vehicle_id", vehicleId)
+        .eq("user_id", userId)
+        .in("status", ["concluded", "completed"])
+        .order("created_at", { ascending: false })
+        .limit(10)
+        .then((r: any) => r.data || [])
+        .catch(() => []),
+
+      // 3. Charm/lemon data (direct fetch)
+      fetchCharmData(supabase, vehicle, symptom).catch(() => null),
+
+      // 4. Manual data (sub-page crawl via edge function)
+      fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
+        method: "POST",
+        signal: manualAbortCtrl.signal,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+        body: JSON.stringify({
+          jobKeyword: symptom,
+          vehicleYear: vehicle.year,
+          vehicleMake: vehicle.make,
+          vehicleModel: vehicle.model,
+          vehicleEngine: vehicle.engine,
+          vehicleDrivetrain: vehicle.drivetrain,
+        }),
+      })
+        .then(async (r) => { const d = await r.json(); return d?.found ? d : null; })
+        .catch(() => null),
+    ]);
+
+    clearTimeout(manualTimeout);
+
+    const matchedPatterns = patternsResult;
+    const pastDiagnoses = historyResult;
+    const charmData = charmDataResult;
+    const manualData = manualDataResult;
+
+    // Process patterns
     const relevantPatterns = (matchedPatterns || []).filter((p: any) => {
       const symMatch = symptomLower.includes(p.symptom_normalized) || 
                        p.symptom_normalized.includes(symptomLower) ||
@@ -640,7 +686,6 @@ serve(async (req) => {
       return symMatch && yearMatch;
     });
 
-    // High-confidence patterns (>90%) get auto-applied, moderate (50-90%) get suggested
     const highConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.9 && p.success_count >= 3);
     const moderateConfidence = relevantPatterns.filter((p: any) => p.confidence_score >= 0.5 && p.confidence_score < 0.9);
 
@@ -661,48 +706,17 @@ ${highConfidence.length > 0
 `;
     }
 
-    // --- Fetch user's past diagnosis history for this vehicle ---
+    // Process history
     let userHistoryBlock = "";
-    try {
-      const { data: pastDiagnoses } = await supabase
-        .from("diagnosis_sessions")
-        .select("symptom, confirmed_cause, status, confidence_score")
-        .eq("vehicle_id", vehicleId)
-        .eq("user_id", userId)
-        .in("status", ["concluded", "completed"])
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (pastDiagnoses && pastDiagnoses.length > 0) {
-        const historyLines = pastDiagnoses.map((d: any) => 
-          `- Symptom: "${d.symptom}" → ${d.confirmed_cause ? `Confirmed: ${d.confirmed_cause}` : `Status: ${d.status}`}`
-        );
-        userHistoryBlock = `\n\n## This Vehicle's Diagnostic History
+    if (pastDiagnoses && pastDiagnoses.length > 0) {
+      const historyLines = pastDiagnoses.map((d: any) => 
+        `- Symptom: "${d.symptom}" → ${d.confirmed_cause ? `Confirmed: ${d.confirmed_cause}` : `Status: ${d.status}`}`
+      );
+      userHistoryBlock = `\n\n## This Vehicle's Diagnostic History
 Previous diagnoses on this exact vehicle:
 ${historyLines.join("\n")}
 
 Use this history to identify patterns. If this vehicle has had repeated electrical issues, check grounds first. If there's a history of oil-related problems, consider systemic causes.`;
-      }
-    } catch (e) {
-      console.error("Failed to fetch diagnosis history (non-fatal):", e);
-    }
-
-    // --- Fetch factory manual data ---
-    const charmData = await fetchCharmData(supabase, vehicle, symptom);
-
-    let manualData: any = null;
-    try {
-      const manualResp = await fetch(`${supabaseUrl}/functions/v1/fetch-manual-data`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ jobKeyword: symptom, vehicleYear: vehicle.year }),
-      });
-      if (manualResp.ok) {
-        manualData = await manualResp.json();
-        if (!manualData?.found) manualData = null;
-      }
-    } catch (e) {
-      console.error("Manual data fetch failed (non-fatal):", e);
     }
 
     // Merge factory data
