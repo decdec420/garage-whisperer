@@ -1196,12 +1196,48 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {/* Hidden file input for step photos */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const stepId = photoStepIdRef.current;
+          if (file && stepId) {
+            uploadStepPhoto.mutate({ stepId, file });
+          }
+          e.target.value = '';
+        }}
+      />
+
       {/* Lightbox */}
       {lightboxState && (
         <FactoryPhotoLightbox
           images={lightboxState.images}
           initialIndex={lightboxState.index}
           onClose={() => setLightboxState(null)}
+          onDelete={lightboxState.images[0]?.isUserPhoto ? (idx) => {
+            // Find which step this photo belongs to by matching URL
+            const img = lightboxState.images[idx];
+            if (!img) return;
+            for (const step of steps) {
+              const photos = step.photo_urls || [];
+              for (let pi = 0; pi < photos.length; pi++) {
+                const key = `${step.id}::${photos[pi]}`;
+                if (signedUrlMap[key] === img.url) {
+                  deleteStepPhoto.mutate({ stepId: step.id, photoPath: photos[pi], photoIdx: pi });
+                  // Close lightbox if last photo
+                  if (lightboxState.images.length <= 1) {
+                    setLightboxState(null);
+                  }
+                  return;
+                }
+              }
+            }
+          } : undefined}
         />
       )}
     </div>
