@@ -6,7 +6,7 @@ const features = [
   {
     icon: Brain,
     title: 'AI Diagnostics',
-    desc: 'Describe a symptom and Ratchet walks you through a master-technician diagnostic tree — no scanner needed.',
+    desc: 'Describe a symptom and Ratchet walks you through a master-technician diagnostic tree — like having a pro in your garage.',
   },
   {
     icon: ClipboardList,
@@ -59,7 +59,7 @@ export default function LandingPage() {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Button size="lg" className="gap-2 text-base px-8" asChild>
-            <Link to="/signup">Get Started Free <ArrowRight className="h-4 w-4" /></Link>
+            <Link to="/signup">Start for Free <ArrowRight className="h-4 w-4" /></Link>
           </Button>
           <Button variant="outline" size="lg" className="text-base px-8" asChild>
             <Link to="/login">Sign In</Link>
@@ -87,7 +87,7 @@ export default function LandingPage() {
 
       {/* ─── How It Works ─── */}
       <section className="px-6 py-16 max-w-4xl mx-auto">
-        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-12">Up and running in 60 seconds</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-12">Up and running in minutes</h2>
         <div className="grid md:grid-cols-3 gap-8">
           {steps.map(s => (
             <div key={s.num} className="text-center space-y-3">
@@ -103,17 +103,23 @@ export default function LandingPage() {
 
       {/* ─── Social proof ─── */}
       <section className="px-6 py-16 bg-card/50">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
           <h2 className="text-2xl sm:text-3xl font-bold">Built for DIYers and indie mechanics</h2>
-          <div className="grid sm:grid-cols-3 gap-6 mt-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
             {[
-              'Master-technician diagnostic logic',
-              'Factory manual integration',
-              'Parts lists with buy links',
+              { label: 'Master-technician diagnostic logic', detail: 'Walks you through the same decision tree a dealership tech would use.' },
+              { label: 'Factory manual integration', detail: 'Pulls torque specs, diagrams, and procedures from OEM sources.' },
+              { label: 'Parts lists with buy links', detail: 'Every repair plan includes parts, prices, and links to order.' },
+              { label: 'Vehicle health scoring', detail: 'See a 0–100 health score based on maintenance history and mileage.' },
+              { label: 'Repair cost tracking', detail: 'Log what you spent vs. what a shop quoted — see your DIY savings.' },
+              { label: 'AI memory per vehicle', detail: 'Ratchet remembers your mods, quirks, and past repairs for smarter advice.' },
             ].map(item => (
-              <div key={item} className="flex items-start gap-2 text-left">
-                <CheckCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm text-muted-foreground">{item}</span>
+              <div key={item.label} className="rounded-xl border border-border bg-card p-4 text-left space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">{item.detail}</p>
               </div>
             ))}
           </div>
@@ -125,7 +131,7 @@ export default function LandingPage() {
         <h2 className="text-2xl sm:text-3xl font-bold">Ready to wrench smarter?</h2>
         <p className="mt-3 text-muted-foreground">Free to use. No credit card required.</p>
         <Button size="lg" className="mt-6 gap-2 text-base px-8" asChild>
-          <Link to="/signup">Create Your Account <ArrowRight className="h-4 w-4" /></Link>
+          <Link to="/signup">Join for Free <ArrowRight className="h-4 w-4" /></Link>
         </Button>
       </section>
 
