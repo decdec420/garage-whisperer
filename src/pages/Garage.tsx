@@ -84,17 +84,19 @@ export default function Garage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vehicles.map((v) => (
-            <Card key={v.id} className="border-border card-hover group relative cursor-pointer"
+            <Card key={v.id} className="border-border card-hover group relative cursor-pointer overflow-hidden"
               onClick={() => navigate(`/garage/${v.id}`)}>
+              {/* Gradient top accent */}
+              <div className="h-1 bg-gradient-to-r from-primary/60 via-primary/20 to-transparent" />
               <CardContent className="p-5">
                 {v.nickname && (
-                  <span className="absolute top-3 right-12 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
+                  <span className="absolute top-4 right-12 text-xs bg-primary/15 text-primary px-2.5 py-0.5 rounded-full font-semibold border border-primary/20">
                     {v.nickname}
                   </span>
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+                    <button className="absolute top-4 right-3 text-muted-foreground hover:text-foreground transition-colors"
                       onClick={e => e.stopPropagation()}>
                       <MoreVertical className="h-4 w-4" />
                     </button>
@@ -109,14 +111,21 @@ export default function Garage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <h3 className="text-lg font-bold mb-1">{v.year} {v.make} {v.model}</h3>
-                {v.trim && <p className="text-sm text-muted-foreground">{v.trim}</p>}
-                {v.engine && <p className="text-xs text-muted-foreground mt-1">{v.engine}</p>}
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Car className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold mb-0.5">{v.year} {v.make} {v.model}</h3>
+                    {v.trim && <p className="text-sm text-muted-foreground">{v.trim}</p>}
+                    {v.engine && <p className="text-xs text-muted-foreground mt-0.5">{v.engine}</p>}
+                  </div>
+                </div>
                 <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
-                  {v.mileage && <span>{v.mileage.toLocaleString()} mi</span>}
+                  {v.mileage && <span className="font-medium">{v.mileage.toLocaleString()} mi</span>}
                   {v.color && (
-                    <span className="flex items-center gap-1">
-                      <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: v.color }} />
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-3.5 w-3.5 rounded-full border border-border shadow-sm" style={{ backgroundColor: v.color }} />
                       {v.color}
                     </span>
                   )}

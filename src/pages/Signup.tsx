@@ -45,40 +45,40 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="flex min-h-screen items-center justify-center mesh-gradient p-4">
+      <div className="w-full max-w-md space-y-8 animate-stagger-in">
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2">
             <Wrench className="h-8 w-8 text-primary" />
-            <span className="text-3xl font-bold text-primary">Ratchet</span>
+            <span className="text-3xl font-extrabold text-primary">Ratchet</span>
           </div>
           <p className="text-muted-foreground text-sm">Your mechanic buddy.</p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-8 space-y-6">
+        <div className="rounded-2xl glass-card-strong p-8 space-y-6">
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-popover" />
+              <Input id="name" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className="bg-background/50" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-popover" />
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-background/50" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <PasswordInput id="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="bg-popover" />
+              <PasswordInput id="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className="bg-background/50" />
               {password && (
-                <div className="h-1 rounded-full bg-secondary overflow-hidden">
+                <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
                   <div
-                    className={`h-full transition-all ${password.length >= 12 ? 'w-full bg-success' : password.length >= 8 ? 'w-2/3 bg-warning' : 'w-1/3 bg-destructive'}`}
+                    className={`h-full transition-all duration-300 ${password.length >= 12 ? 'w-full bg-success' : password.length >= 8 ? 'w-2/3 bg-warning' : 'w-1/3 bg-destructive'}`}
                   />
                 </div>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm">Confirm password</Label>
-              <PasswordInput id="confirm" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="bg-popover" />
+              <PasswordInput id="confirm" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="bg-background/50" />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating account...' : 'Create account'}
