@@ -17,12 +17,14 @@ import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Check, ChevronDown, ChevronUp, Clock,
   Camera, Wrench, Pause, Play, Zap, AlertTriangle, Lightbulb,
-  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search
+  ShieldAlert, ExternalLink, Package, MessageCircle, X, Mic, BookOpen, Search, Loader2
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import MechanicMode from '@/components/vehicle/MechanicMode';
 import FactoryPhotoLightbox from '@/components/vehicle/FactoryPhotoLightbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { uploadFile, getSignedUrl } from '@/lib/storage-helpers';
+import { compressImage } from '@/lib/image-compress';
 
 type ProjectRow = {
   id: string; vehicle_id: string; user_id: string; title: string; description: string | null;
