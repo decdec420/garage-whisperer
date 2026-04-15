@@ -36,10 +36,6 @@ serve(async (req) => {
 
     const { vehicleId, year, make, model, trim } = await req.json();
 
-    // Also accept drivetrain and engine for building the manual URL
-    const body = { vehicleId, year, make, model, trim };
-    // Re-parse to get optional fields (already destructured above, re-read from body)
-
     // --- Input validation ---
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!vehicleId || !UUID_RE.test(vehicleId)) {
