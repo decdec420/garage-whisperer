@@ -231,7 +231,7 @@ serve(async (req) => {
     }
     // userId available if needed: claimsData.claims.sub
 
-    const { make, year, model, jobKeyword, engine } = await req.json();
+    const { make, year, model, jobKeyword, engine, drivetrain } = await req.json();
 
     if (!make || !year || !model || !jobKeyword) {
       return new Response(JSON.stringify({ error: "make, year, model, jobKeyword required" }), {
@@ -239,8 +239,8 @@ serve(async (req) => {
       });
     }
 
-    if (year < 1982 || year > 2013) {
-      return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside charm.li coverage (1982-2013)" }), {
+    if (year < 1960 || year > 2025) {
+      return new Response(JSON.stringify({ found: false, reason: "Vehicle year outside manual coverage (1960-2025)" }), {
         headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
@@ -253,10 +253,10 @@ serve(async (req) => {
     }
 
     const paths = Array.isArray(pathResult) ? pathResult : [pathResult];
-    const charmMake = titleCaseMake(make);
-    const charmModel = formatEngineForCharm(engine || null, model);
-    const encodedModel = encodeURIComponent(charmModel);
-    const charmUrls = paths.map(p => `https://charm.li/${charmMake}/${year}/${encodedModel}/${p}/`);
+    const manualMake = titleCaseMake(make);
+    const manualModel = formatEngineForManual(engine || null, model, drivetrain);
+    const encodedModel = encodeURIComponent(manualModel);
+    const manualUrls = paths.map(p => `https://lemon-manuals.la/${manualMake}/${year}/${encodedModel}/${p}/`);
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -266,12 +266,12 @@ serve(async (req) => {
     let allTorqueSpecs: Array<{ value: string; unit: string; context: string }> = [];
     const fetchedUrls: string[] = [];
 
-    for (const charmUrl of charmUrls) {
+    for (const manualUrl of manualUrls) {
       // Check cache first
       const { data: cached } = await supabase
         .from("charm_cache")
         .select("*")
-        .eq("charm_url", charmUrl)
+        .eq("charm_url", manualUrl)
         .single();
 
       if (cached) {
@@ -279,58 +279,73 @@ serve(async (req) => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         if (fetchedAt > thirtyDaysAgo && (cached.procedure_text?.length > 50 || (cached.images?.length > 0))) {
-          allText += `\n\n--- ${charmUrl} ---\n${cached.procedure_text || ''}`;
+          allText += `\n\n--- ${manualUrl} ---\n${cached.procedure_text || ''}`;
           (cached.images || []).forEach((img: string) => allImages.push({ url: img, context: 'Factory diagram (cached)' }));
           allTorqueSpecs.push(...(cached.torque_specs || []));
-          fetchedUrls.push(charmUrl);
+          fetchedUrls.push(manualUrl);
           continue;
         }
       }
 
-      // Fetch live
-      console.log(`Fetching charm.li: ${charmUrl}`);
-      try {
-        const response = await fetch(charmUrl, {
-          headers: { "User-Agent": "RatchetApp/1.0 (Vehicle Repair Assistant)" },
-        });
+      // Fetch live — try with drivetrain first, fall back without
+      const urlsToTry = [manualUrl];
+      if (drivetrain) {
+        // Also try without drivetrain as fallback
+        const modelNoDt = formatEngineForManual(engine || null, model, null);
+        const encodedNoDt = encodeURIComponent(modelNoDt);
+        const path = manualUrl.split(`/${encodedModel}/`)[1] || '';
+        const fallbackUrl = `https://lemon-manuals.la/${manualMake}/${year}/${encodedNoDt}/${path}`;
+        urlsToTry.push(fallbackUrl);
+      }
 
-        if (!response.ok) {
-          console.log(`Charm.li returned ${response.status} for ${charmUrl}`);
+      let fetched = false;
+      for (const tryUrl of urlsToTry) {
+        if (fetched) break;
+        console.log(`Fetching lemon-manuals: ${tryUrl}`);
+        try {
+          const response = await fetch(tryUrl, {
+            headers: { "User-Agent": "RatchetApp/1.0 (Vehicle Repair Assistant)" },
+          });
+
+          if (!response.ok) {
+            console.log(`lemon-manuals returned ${response.status} for ${tryUrl}`);
+            continue;
+          }
+
+          const html = await response.text();
+          const images = extractImagesWithContext(html);
+          const procedureText = extractProcedureText(html);
+          const torqueSpecs = extractTorqueSpecs(procedureText);
+          const imageUrls = images.map(i => i.url);
+
+          if (procedureText.length < 50 && images.length === 0) continue;
+
+          // Upsert cache
+          if (cached) {
+            await supabase.from("charm_cache").update({
+              images: imageUrls,
+              procedure_text: procedureText,
+              torque_specs: torqueSpecs,
+              fetched_at: new Date().toISOString(),
+            }).eq("id", cached.id);
+          } else {
+            await supabase.from("charm_cache").insert({
+              charm_url: tryUrl,
+              images: imageUrls,
+              procedure_text: procedureText,
+              torque_specs: torqueSpecs,
+            });
+          }
+
+          allText += `\n\n--- ${tryUrl} ---\n${procedureText}`;
+          allImages.push(...images);
+          allTorqueSpecs.push(...torqueSpecs);
+          fetchedUrls.push(tryUrl);
+          fetched = true;
+        } catch (fetchErr) {
+          console.error(`lemon-manuals fetch error for ${tryUrl}:`, fetchErr);
           continue;
         }
-
-        const html = await response.text();
-        const images = extractImagesWithContext(html);
-        const procedureText = extractProcedureText(html);
-        const torqueSpecs = extractTorqueSpecs(procedureText);
-        const imageUrls = images.map(i => i.url);
-
-        if (procedureText.length < 50 && images.length === 0) continue;
-
-        // Upsert cache
-        if (cached) {
-          await supabase.from("charm_cache").update({
-            images: imageUrls,
-            procedure_text: procedureText,
-            torque_specs: torqueSpecs,
-            fetched_at: new Date().toISOString(),
-          }).eq("id", cached.id);
-        } else {
-          await supabase.from("charm_cache").insert({
-            charm_url: charmUrl,
-            images: imageUrls,
-            procedure_text: procedureText,
-            torque_specs: torqueSpecs,
-          });
-        }
-
-        allText += `\n\n--- ${charmUrl} ---\n${procedureText}`;
-        allImages.push(...images);
-        allTorqueSpecs.push(...torqueSpecs);
-        fetchedUrls.push(charmUrl);
-      } catch (fetchErr) {
-        console.error(`Charm.li fetch error for ${charmUrl}:`, fetchErr);
-        continue;
       }
     }
 
