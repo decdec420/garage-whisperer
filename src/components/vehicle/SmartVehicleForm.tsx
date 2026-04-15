@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { getTrimOptions, getEngineOptions } from '@/lib/vehicle-options';
 
 export interface VehicleFormData {
   year: string;
@@ -48,8 +49,6 @@ async function fetchNHTSA(url: string): Promise<NHTSAResult[]> {
   }
 }
 
-
-import { getTrimOptions, getEngineOptions } from '@/lib/vehicle-options';
 
 export default function SmartVehicleForm({ form, onChange, smartSuggest = true }: Props) {
   const [makes, setMakes] = useState<string[]>([]);
