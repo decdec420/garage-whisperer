@@ -768,7 +768,7 @@ serve(async (req) => {
         });
       }
     }
-    if (vehicleContext && typeof vehicleContext === 'string' && vehicleContext.length > 2000) {
+    if (vehicleContext && typeof vehicleContext === 'string' && vehicleContext.length > 4000) {
       return new Response(JSON.stringify({ error: "vehicleContext too long" }), {
         status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
