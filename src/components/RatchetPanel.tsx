@@ -704,6 +704,41 @@ function ChatContent() {
         ? `Active vehicle: ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}${activeVehicle.trim ? ` ${activeVehicle.trim}` : ''}${activeVehicle.engine ? ` · ${activeVehicle.engine}` : ''}${activeVehicle.mileage ? ` · ${activeVehicle.mileage.toLocaleString()} mi` : ''}`
         : '';
 
+      // Inject latest OBD scan data if available
+      if (activeVehicle?.id) {
+        try {
+          const { data: recentScans } = await supabase
+            .from('obd_scan_sessions')
+            .select('scanner_name, dtcs_found, pids_captured, created_at')
+            .eq('vehicle_id', activeVehicle.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (recentScans?.length) {
+            const scan = recentScans[0];
+            const scanAge = Date.now() - new Date(scan.created_at).getTime();
+            const hoursAgo = Math.round(scanAge / (1000 * 60 * 60));
+            const timeLabel = hoursAgo < 1 ? 'just now' : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo / 24)}d ago`;
+            const dtcs = (scan.dtcs_found as any[]) || [];
+            const pids = (scan.pids_captured as any[]) || [];
+
+            let obdBlock = `\n\n## Recent OBD-II Scan (${timeLabel}${scan.scanner_name ? `, via ${scan.scanner_name}` : ''})`;
+            if (dtcs.length > 0) {
+              obdBlock += `\nDTCs: ${dtcs.map((d: any) => `${d.code} (${d.type || 'active'})`).join(', ')}`;
+            } else {
+              obdBlock += `\nDTCs: None — all clear`;
+            }
+            if (pids.length > 0) {
+              obdBlock += `\nLive readings: ${pids.map((p: any) => `${p.name} ${p.value}${p.unit}`).join(', ')}`;
+            }
+            obdBlock += `\nThis is hardware-verified data from an actual OBD-II scan. Reference these values directly — don't ask "have you pulled any codes?"`;
+            vehicleContext += obdBlock;
+          }
+        } catch (e) {
+          console.error('OBD scan fetch for chat context (non-fatal):', e);
+        }
+      }
+
       if (isProjectMode) {
         vehicleContext += `\n\nProject context: "${ratchetProjectContext!.title}" — The user is currently working on this specific project. Provide advice specific to this repair job.`;
       }

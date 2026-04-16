@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import {
   Bluetooth, BluetoothOff, RefreshCw, Trash2, Zap, Activity,
-  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search, Clock
+  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search, Clock, Wrench
 } from 'lucide-react';
+import { useAppStore } from '@/stores/app-store';
 import { BLEManager, type BLEConnectionState } from '@/lib/obd/ble-manager';
 import { initializeELM327, queryPID, getSupportedPIDs } from '@/lib/obd/elm327';
 import { decodePIDResponse, DASHBOARD_PIDS, getPIDGaugeRange, type PIDReading } from '@/lib/obd/pid-decoder';
