@@ -35,6 +35,7 @@ interface ScannerTabProps {
 export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { openRatchetPanel } = useAppStore();
   const bleRef = useRef<BLEManager | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -364,6 +365,20 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
                   </Card>
                 ))}
               </div>
+              {/* Ask Ratchet about scanned codes */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full text-xs"
+                onClick={() => {
+                  const pids = Array.from(liveReadings.values());
+                  const pidStr = pids.length > 0 ? ` Live readings: ${pids.map(p => `${p.name} ${p.value}${p.unit}`).join(', ')}.` : '';
+                  const msg = `I just scanned my car with OBD-II. Found ${dtcs.map(d => d.code).join(', ')}.${pidStr} What's going on?`;
+                  openRatchetPanel(msg);
+                }}
+              >
+                <Wrench className="h-3 w-3 mr-1" /> Ask Ratchet about these codes
+              </Button>
             </div>
           )}
 
