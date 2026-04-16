@@ -768,7 +768,7 @@ serve(async (req) => {
         });
       }
     }
-    if (vehicleContext && typeof vehicleContext === 'string' && vehicleContext.length > 2000) {
+    if (vehicleContext && typeof vehicleContext === 'string' && vehicleContext.length > 4000) {
       return new Response(JSON.stringify({ error: "vehicleContext too long" }), {
         status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
       });
@@ -916,6 +916,40 @@ serve(async (req) => {
       }
     }
 
+    // --- Inject recent OBD scan data ---
+    let obdBlock = "";
+    if (vehicleId && userId) {
+      try {
+        const { data: recentScans } = await supabase
+          .from("obd_scan_sessions")
+          .select("scanner_name, dtcs_found, pids_captured, created_at")
+          .eq("vehicle_id", vehicleId)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (recentScans && recentScans.length > 0) {
+          obdBlock = "\n\n## OBD-II Scan History (Hardware-Verified)\nThe following data comes from actual OBD-II scans performed by the user. This is real hardware data — trust it over guesses.\n";
+          for (const scan of recentScans) {
+            const dtcs = (scan.dtcs_found as any[]) || [];
+            const pids = (scan.pids_captured as any[]) || [];
+            const scanDate = new Date(scan.created_at).toLocaleDateString();
+            obdBlock += `\n### Scan: ${scanDate}${scan.scanner_name ? ` (${scan.scanner_name})` : ''}`;
+            if (dtcs.length > 0) {
+              obdBlock += `\nDTCs: ${dtcs.map((d: any) => `${d.code} (${d.type || 'active'})`).join(', ')}`;
+            } else {
+              obdBlock += `\nDTCs: None`;
+            }
+            if (pids.length > 0) {
+              obdBlock += `\nLive readings: ${pids.map((p: any) => `${p.name}: ${p.value}${p.unit}`).join(', ')}`;
+            }
+          }
+          obdBlock += "\n\nWhen OBD scan data is present: reference specific scanned values instead of asking generic questions. Correlate DTCs with live PID readings (e.g., 'P0301 misfire + low RPM suggests...'). Flag anomalous readings proactively.";
+        }
+      } catch (e) {
+        console.error("OBD scan fetch error (non-fatal):", e);
+      }
+    }
+
     let charmBlock = "";
     if (vehicleId) {
       try {
@@ -964,7 +998,7 @@ serve(async (req) => {
       }
     }
 
-    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + vehicleDocsBlock + charmBlock;
+    let systemContent = SYSTEM_PROMPT + memoryBlock + diagHistoryBlock + vehicleDocsBlock + obdBlock + charmBlock;
     if (vehicleContext) {
       systemContent += `\n\n${vehicleContext}\n\nAll advice must be specific to this exact vehicle.`;
     }

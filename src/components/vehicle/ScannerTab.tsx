@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import {
   Bluetooth, BluetoothOff, RefreshCw, Trash2, Zap, Activity,
-  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search, Clock
+  Thermometer, Battery, Gauge, Fuel, Wind, AlertTriangle, Search, Clock, Wrench
 } from 'lucide-react';
+import { useAppStore } from '@/stores/app-store';
 import { BLEManager, type BLEConnectionState } from '@/lib/obd/ble-manager';
 import { initializeELM327, queryPID, getSupportedPIDs } from '@/lib/obd/elm327';
 import { decodePIDResponse, DASHBOARD_PIDS, getPIDGaugeRange, type PIDReading } from '@/lib/obd/pid-decoder';
@@ -34,6 +35,7 @@ interface ScannerTabProps {
 export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { openRatchetPanel } = useAppStore();
   const bleRef = useRef<BLEManager | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -363,6 +365,20 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
                   </Card>
                 ))}
               </div>
+              {/* Ask Ratchet about scanned codes */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full text-xs"
+                onClick={() => {
+                  const pids = Array.from(liveReadings.values());
+                  const pidStr = pids.length > 0 ? ` Live readings: ${pids.map(p => `${p.name} ${p.value}${p.unit}`).join(', ')}.` : '';
+                  const msg = `I just scanned my car with OBD-II. Found ${dtcs.map(d => d.code).join(', ')}.${pidStr} What's going on?`;
+                  openRatchetPanel(msg);
+                }}
+              >
+                <Wrench className="h-3 w-3 mr-1" /> Ask Ratchet about these codes
+              </Button>
             </div>
           )}
 
@@ -407,6 +423,7 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
 // ─── Scan History sub-component ───
 function ScanHistory({ vehicleId }: { vehicleId: string }) {
   const navigate = useNavigate();
+  const { openRatchetPanel } = useAppStore();
   const { data: scanSessions, isLoading } = useQuery({
     queryKey: ['obd-scan-sessions', vehicleId],
     queryFn: async () => {
@@ -455,12 +472,23 @@ function ScanHistory({ vehicleId }: { vehicleId: string }) {
                     </p>
                   </div>
                 </div>
-                {dtcsFound.length > 0 && (
-                  <Button variant="ghost" size="sm" className="text-xs shrink-0"
-                    onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent((dtcsFound[0] as any).code)}`)}>
-                    <Search className="h-3 w-3 mr-1" /> Diagnose
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" className="text-xs"
+                    onClick={() => {
+                      const pids = (session.pids_captured as any[]) || [];
+                      const pidStr = pids.length > 0 ? ` Live readings: ${pids.map((p: any) => `${p.name} ${p.value}${p.unit}`).join(', ')}.` : '';
+                      const dtcStr = dtcsFound.length > 0 ? `Found ${dtcsFound.map((d: any) => d.code).join(', ')}.` : 'No codes found.';
+                      openRatchetPanel(`I scanned my car on ${new Date(session.created_at).toLocaleDateString()}. ${dtcStr}${pidStr} What should I know?`);
+                    }}>
+                    <Wrench className="h-3 w-3 mr-1" /> Ask Ratchet
                   </Button>
-                )}
+                  {dtcsFound.length > 0 && (
+                    <Button variant="ghost" size="sm" className="text-xs"
+                      onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent((dtcsFound[0] as any).code)}`)}>
+                      <Search className="h-3 w-3 mr-1" /> Diagnose
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
