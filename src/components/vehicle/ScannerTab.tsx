@@ -423,6 +423,7 @@ export default function ScannerTab({ vehicleId, vehicle }: ScannerTabProps) {
 // ─── Scan History sub-component ───
 function ScanHistory({ vehicleId }: { vehicleId: string }) {
   const navigate = useNavigate();
+  const { openRatchetPanel } = useAppStore();
   const { data: scanSessions, isLoading } = useQuery({
     queryKey: ['obd-scan-sessions', vehicleId],
     queryFn: async () => {
@@ -471,12 +472,23 @@ function ScanHistory({ vehicleId }: { vehicleId: string }) {
                     </p>
                   </div>
                 </div>
-                {dtcsFound.length > 0 && (
-                  <Button variant="ghost" size="sm" className="text-xs shrink-0"
-                    onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent((dtcsFound[0] as any).code)}`)}>
-                    <Search className="h-3 w-3 mr-1" /> Diagnose
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" className="text-xs"
+                    onClick={() => {
+                      const pids = (session.pids_captured as any[]) || [];
+                      const pidStr = pids.length > 0 ? ` Live readings: ${pids.map((p: any) => `${p.name} ${p.value}${p.unit}`).join(', ')}.` : '';
+                      const dtcStr = dtcsFound.length > 0 ? `Found ${dtcsFound.map((d: any) => d.code).join(', ')}.` : 'No codes found.';
+                      openRatchetPanel(`I scanned my car on ${new Date(session.created_at).toLocaleDateString()}. ${dtcStr}${pidStr} What should I know?`);
+                    }}>
+                    <Wrench className="h-3 w-3 mr-1" /> Ask Ratchet
                   </Button>
-                )}
+                  {dtcsFound.length > 0 && (
+                    <Button variant="ghost" size="sm" className="text-xs"
+                      onClick={() => navigate(`/garage/${vehicleId}?tab=diagnose&dtc=${encodeURIComponent((dtcsFound[0] as any).code)}`)}>
+                      <Search className="h-3 w-3 mr-1" /> Diagnose
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
